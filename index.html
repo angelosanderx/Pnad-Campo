@@ -2620,6 +2620,8 @@ window.importarKML = (input) => {
     document.getElementById('kml-status').textContent = 
       `✅ ${setores} setores, ${total} domicílios — ${salvos} coordenadas salvas no banco`;
     document.getElementById('kml-status').style.color = 'var(--verde)';
+    // Recarrega domicílios para atualizar latitude_kml/longitude_kml em memória
+    await carregarDomicilios();
     renderizarMapaSetores();
     mostrarToast(`KML importado: ${salvos} coordenadas salvas!`, 'sucesso');
   };
