@@ -812,6 +812,12 @@
     </div>
 
     <div class="nav-secao">Comunicação</div>
+    <div class="nav-secao">Consultas</div>
+    <div class="nav-item" onclick="irPara('tentativas')">
+      <span class="icone">🔁</span> Tentativas
+    </div>
+
+    <div class="nav-secao">Comunicação</div>
     <div class="nav-item" onclick="irPara('chat')">
       <span class="icone">💬</span> Chat
     </div>
@@ -823,13 +829,50 @@
 
     <div class="pagina ativa" id="pag-dashboard">
       <div class="titulo-pagina">📊 Dashboard</div>
-      <div class="grid-cards" id="cards-dashboard">
-        <div class="card-stat"><div class="numero" id="stat-total">—</div><div class="rotulo">Total domicílios</div></div>
-        <div class="card-stat verde"><div class="numero" id="stat-realizadas">—</div><div class="rotulo">Realizadas</div></div>
-        <div class="card-stat laranja"><div class="numero" id="stat-pendentes">—</div><div class="rotulo">Pendentes</div></div>
-        <div class="card-stat vermelho"><div class="numero" id="stat-recusas">—</div><div class="rotulo">Recusas</div></div>
+
+      <!-- Cards principais -->
+      <div class="grid-cards" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));margin-bottom:1.25rem">
+        <div class="card-stat" style="border-left:4px solid var(--azul-medio)">
+          <div class="numero" id="stat-total">—</div>
+          <div class="rotulo">Total domicílios</div>
+        </div>
+        <div class="card-stat verde" style="border-left:4px solid var(--verde)">
+          <div class="numero" id="stat-realizadas">—</div>
+          <div class="rotulo">Realizadas</div>
+        </div>
+        <div class="card-stat laranja" style="border-left:4px solid var(--laranja);font-size:1.1rem">
+          <div class="numero" id="stat-pendentes" style="font-size:2.5rem">—</div>
+          <div class="rotulo" style="font-weight:700">⚠️ Pendentes</div>
+        </div>
+        <div class="card-stat vermelho" style="border-left:4px solid var(--vermelho)">
+          <div class="numero" id="stat-recusas">—</div>
+          <div class="rotulo">Recusas</div>
+        </div>
+        <div class="card-stat amarelo" style="border-left:4px solid var(--amarelo)">
+          <div class="numero" id="stat-etapa5">—</div>
+          <div class="rotulo">Etapa 5 (saindo)</div>
+        </div>
       </div>
 
+      <!-- Alerta etapa 5 -->
+      <div id="alerta-etapa5" style="display:none;background:var(--vermelho-claro);border:1px solid var(--vermelho);border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.25rem;font-size:0.87rem;color:var(--vermelho)">
+        🔴 <strong id="alerta-etapa5-txt"></strong> — esses domicílios devem ser substituídos no próximo trimestre.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+        <!-- Pendentes por semana -->
+        <div class="card-tabela">
+          <div class="card-tabela-header"><h3>Pendentes por semana</h3></div>
+          <div id="tabela-semanas"><div class="loader">Carregando...</div></div>
+        </div>
+        <!-- Alertas rápidos -->
+        <div class="card-tabela">
+          <div class="card-tabela-header"><h3>Situação geral</h3></div>
+          <div id="tabela-situacao"><div class="loader">Carregando...</div></div>
+        </div>
+      </div>
+
+      <!-- Produtividade por entrevistador -->
       <div class="card-tabela">
         <div class="card-tabela-header">
           <h3>Produtividade por entrevistador</h3>
@@ -935,6 +978,35 @@
       </div>
     </div>
 
+    <!-- TENTATIVAS -->
+    <div class="pagina" id="pag-tentativas">
+      <div class="titulo-pagina">🔁 Tentativas</div>
+      <div class="card-tabela" style="margin-bottom:0.75rem">
+        <div style="padding:0.85rem 1.25rem;display:flex;flex-wrap:wrap;gap:0.6rem;align-items:center">
+          <select id="tent-filtro-entrevistador" onchange="filtrarTentativas()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:180px">
+            <option value="">Todos os entrevistadores</option>
+          </select>
+          <select id="tent-filtro-semana" onchange="filtrarTentativas()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
+            <option value="">Todas as semanas</option>
+            <option value="1">Semana 1</option>
+            <option value="2">Semana 2</option>
+            <option value="3">Semana 3</option>
+            <option value="4">Semana 4</option>
+          </select>
+          <select id="tent-filtro-origem" onchange="filtrarTentativas()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
+            <option value="">Presencial e Telefone</option>
+            <option value="Presencial">Presencial</option>
+            <option value="Telefone">Telefone</option>
+          </select>
+          <input type="text" id="tent-busca" placeholder="Buscar endereço ou morador..." style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);flex:1;min-width:160px" oninput="filtrarTentativas()">
+        </div>
+      </div>
+      <div class="card-tabela">
+        <div class="card-tabela-header"><h3 id="tent-contador">Tentativas</h3></div>
+        <div id="tabela-tentativas"><div class="loader">Carregando...</div></div>
+      </div>
+    </div>
+
     <div class="pagina" id="pag-chat">
       <div class="titulo-pagina">💬 Chat Geral</div>
       <div class="chat-container">
@@ -1010,8 +1082,20 @@
         </div>
         
         <div id="aba-historico" class="tab-content">
-          <div class="vazio"><div class="icone-vazio">📋</div>Linha do tempo de visitas e tentativas em desenvolvimento.</div>
+          <div style="margin-bottom:1rem">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.75rem">Histórico das 5 entrevistas</div>
+            <div id="historico-especies-ficha">
+              <div class="vazio" style="padding:1.5rem"><div class="icone-vazio">📈</div>Importe os dados do CSV Acompanhar Espécies para ver o histórico.</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.78rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.75rem">Telefones por entrevista</div>
+            <div id="historico-telefones-ficha">
+              <div class="vazio" style="padding:1.5rem"><div class="icone-vazio">📞</div>Importe os dados do CSV TelefoneEntrevista para ver os telefones.</div>
+            </div>
+          </div>
         </div>
+
         <div id="aba-observacoes" class="tab-content">
           <div class="vazio"><div class="icone-vazio">📝</div>Quadro de observações da equipe em desenvolvimento.</div>
         </div>
@@ -1411,6 +1495,7 @@ function iniciarApp() {
   carregarSetores();
   carregarUsuarios();
   carregarAvisos();
+  carregarTentativas();
   iniciarChat();
 }
 
@@ -1454,21 +1539,74 @@ window.mostrarToast = (msg, tipo = '') => {
 async function carregarDashboard() {
   try {
     const snap = await getDocs(collection(db, 'domicilios'));
-    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(d => d.setor_id !== undefined); // ignora placeholder
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.endereco);
+
+    const semanaAtual = 2; // Semana atual da coleta — atualizar conforme trimestre
+    const realizadas = docs.filter(d => d.status_atual === 'realizada').length;
+    const pendentes = docs.filter(d =>
+      parseInt(d.semana) <= semanaAtual && d.status_atual !== 'realizada'
+    ).length;
+    const recusas = docs.filter(d => d.status_atual === 'recusa').length;
+    const etapa5 = docs.filter(d => d.visita_etapa === '5').length;
 
     document.getElementById('stat-total').textContent = docs.length;
-    document.getElementById('stat-realizadas').textContent =
-      docs.filter(d => d.status_atual === 'realizada').length;
-    document.getElementById('stat-pendentes').textContent =
-      docs.filter(d => ['nao_visitado','ausente','agendado'].includes(d.status_atual)).length;
-    document.getElementById('stat-recusas').textContent =
-      docs.filter(d => d.status_atual === 'recusa').length;
+    document.getElementById('stat-realizadas').textContent = realizadas;
+    document.getElementById('stat-pendentes').textContent = pendentes;
+    document.getElementById('stat-recusas').textContent = recusas;
+    document.getElementById('stat-etapa5').textContent = etapa5;
+
+    // Alerta etapa 5
+    if (etapa5 > 0) {
+      document.getElementById('alerta-etapa5').style.display = '';
+      document.getElementById('alerta-etapa5-txt').textContent =
+        etapa5 + ' domicílios estão na 5ª entrevista e sairão da amostra no próximo trimestre';
+    }
+
+    // Pendentes por semana
+    let htmlSem = '<table><thead><tr><th>Semana</th><th>Total</th><th>Realizadas</th><th>Pendentes</th><th>%</th></tr></thead><tbody>';
+    for (let s = 1; s <= 4; s++) {
+      const semDocs = docs.filter(d => parseInt(d.semana) === s);
+      const semReal = semDocs.filter(d => d.status_atual === 'realizada').length;
+      const semPend = semDocs.filter(d => d.status_atual !== 'realizada').length;
+      const pct = semDocs.length > 0 ? Math.round(semReal / semDocs.length * 100) : 0;
+      const isPast = s <= semanaAtual;
+      htmlSem += `<tr style="${!isPast ? 'opacity:0.4' : ''}">
+        <td><strong>Semana ${s}</strong>${!isPast ? ' <span style="font-size:0.72rem;color:var(--cinza)">(futura)</span>' : ''}</td>
+        <td>${semDocs.length}</td>
+        <td><span style="color:var(--verde);font-weight:600">${semReal}</span></td>
+        <td><span style="color:${isPast && semPend > 0 ? 'var(--laranja)' : 'var(--cinza)'};font-weight:${isPast ? '700':'400'}">${semPend}</span></td>
+        <td>
+          <div class="barra-prog" style="width:80px;display:inline-block">
+            <div class="barra-prog-fill" style="width:${pct}%"></div>
+          </div>
+          <span style="font-size:0.75rem;color:var(--cinza);margin-left:4px">${pct}%</span>
+        </td>
+      </tr>`;
+    }
+    htmlSem += '</tbody></table>';
+    document.getElementById('tabela-semanas').innerHTML = htmlSem;
+
+    // Situação geral
+    const status_count = {};
+    docs.forEach(d => {
+      const s = d.status_atual || 'nao_visitado';
+      status_count[s] = (status_count[s] || 0) + 1;
+    });
+    const STATUS_LABELS = {
+      realizada: 'Realizada', ausente: 'Ausente', agendado: 'Agendado',
+      nao_visitado: 'Não visitado', recusa: 'Recusa',
+      carta_solicitada: 'Carta solicitada', supervisao: 'Supervisão'
+    };
+    let htmlSit = '<table><thead><tr><th>Status</th><th>Qtd</th><th>%</th></tr></thead><tbody>';
+    Object.entries(status_count).sort((a,b) => b[1]-a[1]).forEach(([k,v]) => {
+      const pct = Math.round(v / docs.length * 100);
+      htmlSit += `<tr><td>${badgeStatus(k)}</td><td><strong>${v}</strong></td><td style="font-size:0.82rem;color:var(--cinza)">${pct}%</td></tr>`;
+    });
+    htmlSit += '</tbody></table>';
+    document.getElementById('tabela-situacao').innerHTML = htmlSit;
 
     // Produtividade por entrevistador
-    const usrSnap = await getDocs(
-      query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador'))
-    );
+    const usrSnap = await getDocs(query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador')));
     const entrevistadores = usrSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
 
     if (entrevistadores.length === 0) {
@@ -1477,26 +1615,35 @@ async function carregarDashboard() {
       return;
     }
 
-    let html = '<table><thead><tr><th>Entrevistador</th><th>Total</th><th>Realizadas</th><th>Progresso</th></tr></thead><tbody>';
+    let html = '<div style="overflow-x:auto"><table style="min-width:600px"><thead><tr>' +
+      '<th>Entrevistador</th><th>Total</th><th>Realizadas</th>' +
+      '<th>Pendentes (sem.1-' + semanaAtual + ')</th><th>Recusas</th><th>Progresso</th>' +
+      '</tr></thead><tbody>';
     for (const e of entrevistadores) {
-      const meus = docs.filter(d => d.entrevistador_id === e.uid);
-      const realizadas = meus.filter(d => d.status_atual === 'realizada').length;
-      const pct = meus.length > 0 ? Math.round(realizadas / meus.length * 100) : 0;
+      // Cruza por nome (importador salva entrevistador_nome) OU por id
+      const meus = docs.filter(d =>
+        d.entrevistador_id === e.uid ||
+        (d.entrevistador_nome || '').toUpperCase().includes((e.nome || '').toUpperCase().split(' ')[0])
+      );
+      const real = meus.filter(d => d.status_atual === 'realizada').length;
+      const pend = meus.filter(d => parseInt(d.semana) <= semanaAtual && d.status_atual !== 'realizada').length;
+      const rec = meus.filter(d => d.status_atual === 'recusa').length;
+      const pct = meus.length > 0 ? Math.round(real / meus.length * 100) : 0;
       html += `<tr>
         <td><strong>${e.nome}</strong></td>
         <td>${meus.length}</td>
-        <td>${realizadas}</td>
-        <td style="min-width:100px">
-          <div style="font-size:0.75rem;color:var(--cinza);margin-bottom:2px">${pct}%</div>
+        <td style="color:var(--verde);font-weight:600">${real}</td>
+        <td style="color:${pend > 0 ? 'var(--laranja)' : 'var(--cinza)'};font-weight:${pend > 0 ? '700':'400'}">${pend}</td>
+        <td style="color:var(--vermelho)">${rec}</td>
+        <td style="min-width:120px">
+          <div style="font-size:0.72rem;color:var(--cinza);margin-bottom:2px">${pct}%</div>
           <div class="barra-prog"><div class="barra-prog-fill" style="width:${pct}%"></div></div>
         </td>
       </tr>`;
     }
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     document.getElementById('tabela-produtividade').innerHTML = html;
-  } catch(e) {
-    console.error(e);
-  }
+  } catch(e) { console.error(e); }
 }
 
 // ── DOMICÍLIOS ──
@@ -2074,6 +2221,102 @@ window.salvarAviso = async () => {
     mostrarToast('Aviso publicado!', 'sucesso');
     carregarAvisos();
   } catch(e) { mostrarToast('Erro ao publicar', 'erro'); console.error(e); }
+};
+
+// ── TENTATIVAS ──
+let todasTentativas = [];
+
+async function carregarTentativas() {
+  try {
+    const snap = await getDocs(collection(db, 'domicilios'));
+    const domicilios = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.endereco);
+
+    // Extrai todas as tentativas de todos os domicílios
+    todasTentativas = [];
+    domicilios.forEach(d => {
+      const tentativas = d.tentativas_recentes || [];
+      tentativas.forEach(t => {
+        if (!t.origem) return; // só tentativas reais
+        todasTentativas.push({
+          ...t,
+          domicilio_id: d.id,
+          domicilio_num: d.domicilio_num,
+          upa: d.upa,
+          controle: d.controle,
+          endereco: d.endereco,
+          morador: d.morador,
+          semana: d.semana,
+          entrevistador_nome: t.entrevistador || d.entrevistador_nome || '',
+        });
+      });
+    });
+
+    // Preenche filtro de entrevistadores
+    const entrevistadores = [...new Set(todasTentativas.map(t => t.entrevistador_nome).filter(Boolean))].sort();
+    const sel = document.getElementById('tent-filtro-entrevistador');
+    if (sel) {
+      sel.innerHTML = '<option value="">Todos os entrevistadores</option>';
+      entrevistadores.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e; opt.textContent = e;
+        sel.appendChild(opt);
+      });
+    }
+
+    filtrarTentativas();
+  } catch(e) { console.error(e); }
+}
+
+window.filtrarTentativas = () => {
+  const entr = (document.getElementById('tent-filtro-entrevistador')?.value || '').toLowerCase();
+  const sem = document.getElementById('tent-filtro-semana')?.value || '';
+  const orig = document.getElementById('tent-filtro-origem')?.value || '';
+  const q = (document.getElementById('tent-busca')?.value || '').toLowerCase();
+
+  const filtradas = todasTentativas.filter(t => {
+    if (entr && !(t.entrevistador_nome || '').toLowerCase().includes(entr)) return false;
+    if (sem && t.semana !== sem) return false;
+    if (orig && (t.origem || '') !== orig) return false;
+    if (q && !(t.endereco || '').toLowerCase().includes(q) && !(t.morador || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const contador = document.getElementById('tent-contador');
+  if (contador) contador.textContent = filtradas.length + ' tentativa(s)';
+
+  if (filtradas.length === 0) {
+    document.getElementById('tabela-tentativas').innerHTML =
+      '<div class="vazio"><div class="icone-vazio">🔁</div>Nenhuma tentativa encontrada.</div>';
+    return;
+  }
+
+  let html = '<div style="overflow-x:auto"><table style="min-width:700px"><thead><tr>' +
+    '<th>Dom.</th><th>Endereço / Morador</th><th>Sem.</th><th>Entrevistador</th>' +
+    '<th>Data/Hora</th><th>Origem</th><th>Resultado</th><th>Observação</th>' +
+    '</tr></thead><tbody>';
+
+  filtradas.forEach(t => {
+    const setor = t.controle ? t.controle.slice(0,-1) : t.upa;
+    html += `<tr>
+      <td>
+        <div style="font-size:0.7rem;color:var(--cinza)">Setor ${setor}</div>
+        <div style="font-weight:700;color:var(--azul)">Dom. ${t.domicilio_num}</div>
+      </td>
+      <td>
+        <div style="font-size:0.83rem;font-weight:600">${t.endereco || '—'}</div>
+        <div style="font-size:0.75rem;color:var(--cinza)">${t.morador || ''}</div>
+      </td>
+      <td style="text-align:center">${t.semana || '—'}</td>
+      <td style="font-size:0.82rem">${t.entrevistador_nome || '—'}</td>
+      <td style="font-size:0.78rem;white-space:nowrap">${t.data || '—'}</td>
+      <td><span class="badge ${t.origem === 'Presencial' ? 'badge-azul' : 'badge-verde'}">${t.origem || '—'}</span></td>
+      <td style="font-size:0.78rem">${t.resultado || '—'}</td>
+      <td style="font-size:0.75rem;color:var(--cinza);max-width:180px">${t.observacao || ''}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  document.getElementById('tabela-tentativas').innerHTML = html;
 };
 
 // ── CHAT ──
