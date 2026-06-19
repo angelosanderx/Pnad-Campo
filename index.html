@@ -2692,25 +2692,29 @@ function iniciarMapaSetores() {
 let listagemSetor = []; // Endereço completo do setor atual
 
 window.carregarRoteiroSetor = async (setor, domAtual) => {
-  // Busca listagem do setor no Firestore
   try {
-    const snap = await getDocs(
-      query(collection(db, 'setores_listagem'),
-            where('setor_id', '==', setor))
-    );
-    
-    if (snap.empty) {
-      // Tenta usar dados do KML como fallback
-      const kmlSetor = kmlDados[setor] || [];
-      renderizarRoteiroKML(kmlSetor, domAtual, setor);
-      return;
+    // Se o domicílio atual não tem latitude_kml em memória,
+    // busca direto do Firestore
+    let domComCoords = domAtual;
+    if (!domAtual.latitude_kml) {
+      const docSnap = await getDoc(doc(db, 'domicilios', domAtual.id));
+      if (docSnap.exists()) {
+        domComCoords = { ...domAtual, ...docSnap.data() };
+        // Atualiza na memória também
+        const idx = todosdomicilios.findIndex(d => d.id === domAtual.id);
+        if (idx >= 0) todosdomicilios[idx] = domComCoords;
+      }
     }
-    
-    listagemSetor = snap.docs.map(d => d.data()).sort((a, b) =>
-      parseInt(a.seq_visita) - parseInt(b.seq_visita)
-    );
-    
-    renderizarRoteiro(listagemSetor, domAtual, setor);
+
+    const cor = corEntrevistador(domComCoords.entrevistador_nome || '');
+
+    // Renderiza mapa com coordenadas do Firestore
+    renderizarMapaRoteiro(null, [], [], setor, cor, domComCoords);
+
+    // Lista de apoio: só mostra se tiver Enderecocompleto importado (futuro)
+    document.getElementById('roteiro-lista').innerHTML =
+      '<div class="vazio" style="padding:1rem"><div class="icone-vazio">📋</div>Importe o Endereço Completo do setor para ver os 3 anteriores e 3 posteriores.</div>';
+
   } catch(e) {
     console.error(e);
     document.getElementById('roteiro-lista').innerHTML =
