@@ -815,7 +815,18 @@
   <div class="conteudo">
 
     <div class="pagina ativa" id="pag-dashboard">
-      <div class="titulo-pagina">📊 Dashboard</div>
+      <div class="titulo-pagina" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem">
+        <span>📊 Dashboard</span>
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem">
+          <span style="color:var(--cinza);font-size:0.78rem;font-weight:600">SEMANA ATUAL:</span>
+          <select id="semana-atual-config" onchange="salvarSemanaAtual(this.value);carregarDashboard()" style="padding:0.3rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.85rem;font-family:var(--fonte);font-weight:700;color:var(--azul);background:var(--cinza-claro)">
+            <option value="1">Semana 1</option>
+            <option value="2">Semana 2</option>
+            <option value="3">Semana 3</option>
+            <option value="4">Semana 4</option>
+          </select>
+        </div>
+      </div>
 
       <div class="grid-cards" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));margin-bottom:1.25rem">
         <div class="card-stat" style="border-left:4px solid var(--azul-medio)">
@@ -1555,7 +1566,10 @@ async function carregarDashboard() {
     const snap = await getDocs(collection(db, 'domicilios'));
     const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.endereco);
 
-    const semanaAtual = 2; // Semana atual da coleta — atualizar conforme trimestre
+    // Semana atual — lê do localStorage ou do select
+    const semanaAtual = parseInt(localStorage.getItem('pnad_semana_atual') || '2');
+    const selSem = document.getElementById('semana-atual-config');
+    if (selSem) selSem.value = semanaAtual;
     const realizadas = docs.filter(d => d.status_atual === 'realizada').length;
     const pendentes = docs.filter(d =>
       parseInt(d.semana) <= semanaAtual && d.status_atual !== 'realizada'
@@ -2429,6 +2443,12 @@ async function preencherSelectEntrevistadores(idSelect) {
     sel.appendChild(opt);
   });
 }
+
+// ── CONFIGURAÇÃO DE SEMANA ──
+window.salvarSemanaAtual = (valor) => {
+  localStorage.setItem('pnad_semana_atual', valor);
+  mostrarToast('Semana ' + valor + ' definida como atual', 'sucesso');
+};
 
 // Enter no login
 document.getElementById('input-senha').addEventListener('keydown', e => {
