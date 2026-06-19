@@ -2511,6 +2511,32 @@ const CORES_ENTREVISTADORES = {
   'PAULO':                            '#1D4ED8',
 };
 
+// ── OFFSET ESPIRAL para pins sobrepostos ──
+function offsetEspiral(pins) {
+  // Agrupa por coordenada exata (arredonda para 5 casas decimais)
+  const grupos = {};
+  pins.forEach((p, i) => {
+    const key = p.lat.toFixed(5) + ',' + p.lng.toFixed(5);
+    if (!grupos[key]) grupos[key] = [];
+    grupos[key].push(i);
+  });
+  
+  const resultado = pins.map(p => ({ ...p }));
+  
+  Object.values(grupos).forEach(indices => {
+    if (indices.length <= 1) return;
+    // Distribui em espiral ao redor do ponto central
+    const raio = 0.00008; // ~8 metros
+    indices.forEach((idx, n) => {
+      const angulo = (2 * Math.PI * n) / indices.length;
+      resultado[idx].lat = pins[idx].lat + raio * Math.cos(angulo);
+      resultado[idx].lng = pins[idx].lng + raio * Math.sin(angulo);
+    });
+  });
+  
+  return resultado;
+}
+
 function corEntrevistador(nome) {
   if (!nome) return '#94A3B8';
   const upper = nome.toUpperCase();
@@ -2662,27 +2688,30 @@ function iniciarMapaSetores() {
   
   const bounds = [];
   
+  // Coleta todos os pins para aplicar offset
+  const todosPins = [];
   Object.entries(kmlDados).forEach(([setor, doms]) => {
     doms.forEach(d => {
       if (!d.lat || !d.lng) return;
-      
-      // Pega a cor do domicílio pelo entrevistador
       const domObj = todosdomicilios.find(td =>
         td.upa === setor && (td.domicilio_num === d.dom || td.numero_sequencial === d.dom)
       );
-      const cor = corEntrevistador(domObj?.entrevistador_nome || '');
-      
-      const icon = window.L.divIcon({
-        html: '<div style="background:' + cor + ';color:white;border:2px solid white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;box-shadow:0 2px 4px rgba(0,0,0,0.4)">' + d.dom + '</div>',
-        className: '',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      });
-      
-      const marker = window.L.marker([d.lat, d.lng], { icon }).addTo(map);
-      marker.bindPopup('<strong>Dom. ' + d.dom + '</strong><br>' + d.logradouro + ' ' + d.numero + '<br>' + d.complemento);
-      bounds.push([d.lat, d.lng]);
+      todosPins.push({ ...d, setor, cor: corEntrevistador(domObj?.entrevistador_nome || '') });
     });
+  });
+
+  const pinsComOffset = offsetEspiral(todosPins);
+
+  pinsComOffset.forEach(d => {
+    const icon = window.L.divIcon({
+      html: '<div style="background:' + d.cor + ';color:white;border:2px solid white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;box-shadow:0 2px 4px rgba(0,0,0,0.4)">' + d.dom + '</div>',
+      className: '',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+    const marker = window.L.marker([d.lat, d.lng], { icon }).addTo(map);
+    marker.bindPopup('<strong>Dom. ' + d.dom + '</strong><br>' + d.logradouro + ' ' + d.numero + '<br>' + d.complemento);
+    bounds.push([d.lat, d.lng]);
   });
   
   if (bounds.length > 0) map.fitBounds(bounds, { padding: [20, 20] });
@@ -2848,19 +2877,28 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
     window.L.marker([latAlvo, lngAlvo], { icon: iconAlvo }).addTo(_mapaRoteiroInstance)
       .bindPopup('<strong>🎯 ALVO — Dom. ' + domNum + '</strong><br>' + (domAtual?.endereco || ''));
 
-    // Pins dos vizinhos com cor por entrevistador
-    todosVizinhos.forEach(k => {
-      if (!k.lat || !k.lng) return;
-      const domViz = todosdomicilios.find(td => td.domicilio_num === k.dom &&
-        (td.upa === setor || (td.controle && td.controle.slice(0,-1) === setor)));
-      const corViz = corEntrevistador(domViz?.entrevistador_nome || k.entrevistador_nome || '');
+    // Pins dos vizinhos com cor por entrevistador + offset espiral
+    const pinsVizinhos = todosVizinhos
+      .filter(k => k.lat && k.lng)
+      .map(k => {
+        const domViz = todosdomicilios.find(td => td.domicilio_num === k.dom &&
+          (td.upa === setor || (td.controle && td.controle.slice(0,-1) === setor)));
+        return { ...k, cor: corEntrevistador(domViz?.entrevistador_nome || k.entrevistador_nome || ''), domViz };
+      });
+
+    // Inclui o alvo para calcular offset junto
+    const todosParaOffset = [{ lat: latAlvo, lng: lngAlvo, dom: String(domNum), isAlvo: true }, ...pinsVizinhos];
+    const comOffset = offsetEspiral(todosParaOffset);
+
+    comOffset.forEach(k => {
+      if (k.isAlvo) return; // alvo já foi plotado
       const icon = window.L.divIcon({
-        html: '<div style="background:' + corViz + ';color:white;border:2px solid white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;box-shadow:0 2px 4px rgba(0,0,0,0.3)">' + k.dom + '</div>',
+        html: '<div style="background:' + k.cor + ';color:white;border:2px solid white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;box-shadow:0 2px 4px rgba(0,0,0,0.3)">' + k.dom + '</div>',
         className: '', iconSize: [26, 26], iconAnchor: [13, 13]
       });
       window.L.marker([k.lat, k.lng], { icon }).addTo(_mapaRoteiroInstance)
         .bindPopup('Dom. ' + k.dom + '<br>' + (k.logradouro || '') + ' ' + (k.numero || '') +
-          (domViz?.entrevistador_nome ? '<br><small>' + domViz.entrevistador_nome + '</small>' : ''));
+          (k.domViz?.entrevistador_nome ? '<br><small>' + k.domViz.entrevistador_nome + '</small>' : ''));
     });
   };
   
