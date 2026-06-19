@@ -961,9 +961,31 @@
 
     <div class="pagina" id="pag-setores">
       <div class="titulo-pagina">🗺️ Setores</div>
+
+      <!-- Importar KML -->
+      <div class="card-tabela" style="margin-bottom:0.75rem">
+        <div class="card-tabela-header">
+          <h3>Importar KML do mês</h3>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <input type="file" id="kml-input" accept=".kml" style="display:none" onchange="importarKML(this)">
+            <button class="btn-acao secundario" onclick="document.getElementById('kml-input').click()">📂 Carregar KML</button>
+            <span id="kml-status" style="font-size:0.78rem;color:var(--cinza)">Nenhum KML carregado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mapa geral dos setores -->
+      <div class="card-tabela" style="margin-bottom:0.75rem">
+        <div class="card-tabela-header"><h3>Mapa dos domicílios</h3></div>
+        <div id="mapa-setores" style="width:100%;height:400px;background:var(--cinza-claro);border-radius:0 0 8px 8px;display:flex;align-items:center;justify-content:center;color:var(--cinza)">
+          <div style="text-align:center"><div style="font-size:2rem">🗺️</div><div style="margin-top:0.5rem">Carregue o KML para ver o mapa</div></div>
+        </div>
+      </div>
+
+      <!-- Lista de setores -->
       <div class="card-tabela">
         <div class="card-tabela-header">
-          <h3>Setores cadastrados</h3>
+          <h3>Setores do trimestre</h3>
           <button class="btn-acao" id="btn-novo-setor" onclick="abrirModalSetor()">+ Novo setor</button>
         </div>
         <div id="tabela-setores"><div class="loader">Carregando...</div></div>
@@ -1115,6 +1137,21 @@
 
         <hr class="divisor-secao">
 
+        <div id="secao-roteiro">
+          <div class="secao-titulo">
+            <span>📍 Roteiro de Campo</span>
+            <button class="btn-acao secundario" style="font-size:0.82rem" onclick="imprimirRoteiro()">🖨️ Imprimir</button>
+          </div>
+          <div id="roteiro-mapa" style="width:100%;height:320px;border-radius:8px;overflow:hidden;background:var(--cinza-claro);margin-bottom:1rem;display:flex;align-items:center;justify-content:center;color:var(--cinza);font-size:0.85rem">
+            <div>🗺️ Mapa carregando...</div>
+          </div>
+          <div id="roteiro-lista">
+            <div class="vazio"><div class="icone-vazio">📍</div>Importe o Endereço Completo do setor para ver o roteiro.</div>
+          </div>
+        </div>
+
+        <hr class="divisor-secao">
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
           <div id="secao-observacoes">
             <div class="secao-titulo" style="font-size: 1rem;"><span>Observações da Equipe</span></div>
@@ -1216,6 +1253,11 @@
         <div class="form-grupo">
           <label>Entrevistador responsável</label>
           <select id="setor-entrevistador"><option value="">Selecione...</option></select>
+        </div>
+        <div class="form-grupo full">
+          <label>URL do print do mapa (Google Drive)</label>
+          <input type="text" id="setor-mapa-url" placeholder="https://drive.google.com/...">
+          <span style="font-size:0.72rem;color:var(--cinza);margin-top:2px">Cole o link público da imagem no Google Drive ou OneDrive</span>
         </div>
       </div>
     </div>
@@ -1861,6 +1903,10 @@ window.abrirFicha = (id) => {
     divTel.innerHTML = '<div class="vazio" style="padding:1.5rem"><div class="icone-vazio">📞</div>Nenhum telefone registrado no histórico.</div>';
   }
 
+  // Carrega roteiro de campo
+  const _setorFicha = (typeof dom !== "undefined" && dom) ? (dom.controle ? dom.controle.slice(0,-1) : dom.upa) : "";
+  if (_setorFicha && typeof carregarRoteiroSetor !== "undefined") carregarRoteiroSetor(_setorFicha, dom || {});
+
   // Navegar para a página da ficha
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('ativo'));
@@ -2443,6 +2489,343 @@ async function preencherSelectEntrevistadores(idSelect) {
     sel.appendChild(opt);
   });
 }
+
+
+// ── CORES DOS ENTREVISTADORES ──
+const CORES_ENTREVISTADORES = {
+  'ARTHUR SILVA MOCO':                '#F59E0B',
+  'ARTHUR':                           '#F59E0B',
+  'BRENO BITTENCOURT DE QUEIROZ VIEIRA': '#F97316',
+  'BRENO':                            '#F97316',
+  'DIEGO DA HORA OLEGARIO PESSANHA':  '#EF4444',
+  'DIEGO':                            '#EF4444',
+  'FELLIPE REIS DE CARVALHO PINTO':   '#6B7280',
+  'FELLIPE':                          '#6B7280',
+  'IGOR BATISTA DA SILVA':            '#1F2937',
+  'IGOR':                             '#1F2937',
+  'JOSE MATEUS FRANCO NUNES PESSANHA':'#38BDF8',
+  'JOSE MATEUS':                      '#38BDF8',
+  'MATHEUS DE SOUZA MONTEIRO':        '#4ADE80',
+  'MATHEUS':                          '#4ADE80',
+  'PAULO RENATO ALMEIDA CELESTINO':   '#1D4ED8',
+  'PAULO':                            '#1D4ED8',
+};
+
+function corEntrevistador(nome) {
+  if (!nome) return '#94A3B8';
+  const upper = nome.toUpperCase();
+  for (const [key, cor] of Object.entries(CORES_ENTREVISTADORES)) {
+    if (upper.includes(key)) return cor;
+  }
+  return '#94A3B8';
+}
+
+function pinSVG(cor, label) {
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">' +
+    '<path d="M16 0C7.16 0 0 7.16 0 16c0 10.5 16 24 16 24s16-13.5 16-24C32 7.16 24.84 0 16 0z" fill="' + cor + '" stroke="white" stroke-width="2"/>' +
+    '<text x="16" y="20" font-size="11" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">' + (label||'') + '</text>' +
+    '</svg>'
+  );
+}
+
+// ── KML E MAPA ──
+let kmlDados = {}; // { setor_id: [ {lat, lng, nome, dom, desc} ] }
+let mapasCarregados = {};
+
+function parseKML(kmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(kmlText, 'text/xml');
+  const ns = 'http://www.opengis.net/kml/2.2';
+  
+  const folders = doc.getElementsByTagNameNS(ns, 'Folder');
+  const resultado = {};
+  
+  Array.from(folders).forEach(folder => {
+    const nameEl = folder.getElementsByTagNameNS(ns, 'name')[0];
+    const setor = nameEl ? nameEl.textContent.trim() : '';
+    if (!setor || setor === 'Contorno') return;
+    
+    resultado[setor] = [];
+    const placemarks = folder.getElementsByTagNameNS(ns, 'Placemark');
+    
+    Array.from(placemarks).forEach(pm => {
+      const pmName = pm.getElementsByTagNameNS(ns, 'name')[0];
+      const desc = pm.getElementsByTagNameNS(ns, 'description')[0];
+      const coords = pm.getElementsByTagNameNS(ns, 'coordinates')[0];
+      
+      if (!coords) return;
+      const [lng, lat] = coords.textContent.trim().split(',').map(Number);
+      
+      // Parse description HTML
+      const descHtml = desc ? desc.textContent : '';
+      const logMatch = descHtml.match(/Logradouro[^:]*:\s*([^<
+]+)/i);
+      const numMatch = descHtml.match(/Número[^:]*:\s*([^<
+]+)/i);
+      const compMatch = descHtml.match(/Complemento[^:]*:\s*([^<
+]+)/i);
+      
+      resultado[setor].push({
+        dom: pmName ? pmName.textContent.trim() : '',
+        lat, lng,
+        logradouro: logMatch ? logMatch[1].trim() : '',
+        numero: numMatch ? numMatch[1].trim() : '',
+        complemento: compMatch ? compMatch[1].trim() : '',
+        desc: descHtml
+      });
+    });
+  });
+  
+  return resultado;
+}
+
+window.importarKML = (input) => {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    kmlDados = parseKML(e.target.result);
+    const total = Object.values(kmlDados).reduce((s, v) => s + v.length, 0);
+    const setores = Object.keys(kmlDados).length;
+    document.getElementById('kml-status').textContent = 
+      `✅ ${setores} setores, ${total} domicílios carregados`;
+    document.getElementById('kml-status').style.color = 'var(--verde)';
+    renderizarMapaSetores();
+    mostrarToast(`KML carregado: ${setores} setores`, 'sucesso');
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+function renderizarMapaSetores() {
+  const mapaDiv = document.getElementById('mapa-setores');
+  if (!mapaDiv || Object.keys(kmlDados).length === 0) return;
+  
+  // Monta iframe do Google Maps com todos os pins
+  // Usa a API de Static Maps ou iframe embed
+  // Como não temos chave API, usa OpenStreetMap via leaflet
+  
+  mapaDiv.innerHTML = '<div id="leaflet-setores" style="width:100%;height:400px"></div>';
+  
+  // Carrega Leaflet dinamicamente
+  if (!window.L) {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = () => iniciarMapaSetores();
+    document.head.appendChild(script);
+  } else {
+    iniciarMapaSetores();
+  }
+}
+
+function iniciarMapaSetores() {
+  const map = window.L.map('leaflet-setores');
+  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+  
+  const bounds = [];
+  
+  Object.entries(kmlDados).forEach(([setor, doms]) => {
+    doms.forEach(d => {
+      if (!d.lat || !d.lng) return;
+      
+      // Pega a cor do domicílio pelo entrevistador
+      const domObj = todosdomicilios.find(td =>
+        td.upa === setor && (td.domicilio_num === d.dom || td.numero_sequencial === d.dom)
+      );
+      const cor = corEntrevistador(domObj?.entrevistador_nome || '');
+      
+      const icon = window.L.divIcon({
+        html: '<div style="background:' + cor + ';color:white;border:2px solid white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;box-shadow:0 2px 4px rgba(0,0,0,0.4)">' + d.dom + '</div>',
+        className: '',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+      
+      const marker = window.L.marker([d.lat, d.lng], { icon }).addTo(map);
+      marker.bindPopup('<strong>Dom. ' + d.dom + '</strong><br>' + d.logradouro + ' ' + d.numero + '<br>' + d.complemento);
+      bounds.push([d.lat, d.lng]);
+    });
+  });
+  
+  if (bounds.length > 0) map.fitBounds(bounds, { padding: [20, 20] });
+}
+
+// ── ROTEIRO DE CAMPO NA FICHA ──
+let listagemSetor = []; // Endereço completo do setor atual
+
+window.carregarRoteiroSetor = async (setor, domAtual) => {
+  // Busca listagem do setor no Firestore
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'setores_listagem'),
+            where('setor_id', '==', setor))
+    );
+    
+    if (snap.empty) {
+      // Tenta usar dados do KML como fallback
+      const kmlSetor = kmlDados[setor] || [];
+      renderizarRoteiroKML(kmlSetor, domAtual, setor);
+      return;
+    }
+    
+    listagemSetor = snap.docs.map(d => d.data()).sort((a, b) =>
+      parseInt(a.seq_visita) - parseInt(b.seq_visita)
+    );
+    
+    renderizarRoteiro(listagemSetor, domAtual, setor);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('roteiro-lista').innerHTML =
+      '<div class="vazio"><div class="icone-vazio">📍</div>Erro ao carregar roteiro.</div>';
+  }
+};
+
+function renderizarRoteiroKML(doms, domAtual, setor) {
+  // Usa apenas os domicílios do KML (sem lista completa)
+  const cor = corEntrevistador(domAtual.entrevistador_nome || '');
+  renderizarMapaRoteiro([domAtual], [], [], setor, cor);
+  
+  document.getElementById('roteiro-lista').innerHTML =
+    '<div class="vazio" style="padding:1rem"><div class="icone-vazio">📋</div>Importe o Endereço Completo do setor para ver os 3 anteriores e 3 posteriores.</div>';
+}
+
+function renderizarRoteiro(lista, domAtual, setor) {
+  const domNum = parseInt(domAtual.domicilio_num || domAtual.numero_sequencial);
+  
+  // Encontra o domicílio alvo na listagem pelo SeqVisita ou número
+  const idx = lista.findIndex(d => parseInt(d.dom) === domNum || parseInt(d.seq_visita) === domNum);
+  
+  const anteriores = idx > 0 ? lista.slice(Math.max(0, idx - 3), idx) : [];
+  const posteriores = idx >= 0 ? lista.slice(idx + 1, idx + 4) : [];
+  const alvo = idx >= 0 ? lista[idx] : null;
+  
+  // Renderiza mapa
+  const cor = corEntrevistador(domAtual.entrevistador_nome || '');
+  renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, cor, domAtual);
+  
+  // Renderiza lista
+  let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.83rem"><thead><tr style="background:var(--cinza-claro)">' +
+    '<th style="padding:0.5rem 0.75rem;text-align:left">Tipo</th>' +
+    '<th style="padding:0.5rem 0.75rem;text-align:left">Seq.</th>' +
+    '<th style="padding:0.5rem 0.75rem;text-align:left">Endereço</th>' +
+    '<th style="padding:0.5rem 0.75rem;text-align:left">Complemento</th>' +
+    '<th style="padding:0.5rem 0.75rem;text-align:left">Morador</th>' +
+    '</tr></thead><tbody>';
+  
+  anteriores.forEach(d => {
+    html += `<tr style="background:#f8fafc">
+      <td style="padding:0.5rem 0.75rem"><span class="badge badge-cinza">← Anterior</span></td>
+      <td style="padding:0.5rem 0.75rem;font-weight:600">${d.seq_visita}</td>
+      <td style="padding:0.5rem 0.75rem">${d.endereco || '—'}</td>
+      <td style="padding:0.5rem 0.75rem;font-size:0.78rem;color:var(--cinza)">${d.complemento || ''}</td>
+      <td style="padding:0.5rem 0.75rem;font-size:0.78rem">${d.morador || ''}</td>
+    </tr>`;
+  });
+  
+  if (alvo) {
+    html += `<tr style="background:${cor}22;border:2px solid ${cor}">
+      <td style="padding:0.5rem 0.75rem"><span class="badge" style="background:${cor};color:white">🎯 ALVO</span></td>
+      <td style="padding:0.5rem 0.75rem;font-weight:800;color:${cor}">${alvo.seq_visita}</td>
+      <td style="padding:0.5rem 0.75rem;font-weight:700">${alvo.endereco || domAtual.endereco || '—'}</td>
+      <td style="padding:0.5rem 0.75rem;font-size:0.78rem">${alvo.complemento || domAtual.complemento || ''}</td>
+      <td style="padding:0.5rem 0.75rem;font-size:0.78rem">${alvo.morador || domAtual.morador || ''}</td>
+    </tr>`;
+  }
+  
+  posteriores.forEach(d => {
+    html += `<tr style="background:#f8fafc">
+      <td style="padding:0.5rem 0.75rem"><span class="badge badge-azul">→ Posterior</span></td>
+      <td style="padding:0.5rem 0.75rem;font-weight:600">${d.seq_visita}</td>
+      <td style="padding:0.5rem 0.75rem">${d.endereco || '—'}</td>
+      <td style="padding:0.5rem 0.75rem;font-size:0.78rem;color:var(--cinza)">${d.complemento || ''}</td>
+      <td style="padding:0.5rem 0.75rem;font-size:0.78rem">${d.morador || ''}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  document.getElementById('roteiro-lista').innerHTML = html;
+}
+
+function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, domAtual) {
+  const mapaDiv = document.getElementById('roteiro-mapa');
+  if (!mapaDiv) return;
+  
+  // Pega coordenadas do KML
+  const kmlSetor = kmlDados[setor] || [];
+  const domNum = domAtual ? (domAtual.domicilio_num || domAtual.numero_sequencial) : '';
+  const pinAlvo = kmlSetor.find(k => k.dom === String(domNum));
+  
+  if (!pinAlvo && (!alvo?.latitude)) {
+    mapaDiv.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--cinza);font-size:0.85rem">🗺️ Carregue o KML para ver o mapa</div>';
+    return;
+  }
+  
+  mapaDiv.innerHTML = '<div id="leaflet-roteiro" style="width:100%;height:320px"></div>';
+  
+  const iniciar = () => {
+    const lat = pinAlvo?.lat || parseFloat(alvo?.latitude);
+    const lng = pinAlvo?.lng || parseFloat(alvo?.longitude);
+    
+    const map = window.L.map('leaflet-roteiro').setView([lat, lng], 16);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+    
+    // Pin do alvo
+    const iconAlvo = window.L.divIcon({
+      html: '<div style="background:' + corAlvo + ';color:white;border:3px solid white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;box-shadow:0 3px 6px rgba(0,0,0,0.5)">🎯</div>',
+      className: '', iconSize: [36, 36], iconAnchor: [18, 18]
+    });
+    window.L.marker([lat, lng], { icon: iconAlvo }).addTo(map)
+      .bindPopup('<strong>🎯 ALVO — Dom. ' + domNum + '</strong><br>' + (domAtual?.endereco || ''));
+    
+    // Pins dos vizinhos do KML no mesmo setor
+    kmlSetor.forEach(k => {
+      if (k.dom === String(domNum)) return;
+      const icon = window.L.divIcon({
+        html: '<div style="background:#94A3B8;color:white;border:2px solid white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;box-shadow:0 2px 4px rgba(0,0,0,0.3)">' + k.dom + '</div>',
+        className: '', iconSize: [26, 26], iconAnchor: [13, 13]
+      });
+      window.L.marker([k.lat, k.lng], { icon }).addTo(map)
+        .bindPopup('Dom. ' + k.dom + '<br>' + k.logradouro + ' ' + k.numero);
+    });
+  };
+  
+  if (window.L) { iniciar(); }
+  else {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = iniciar;
+    document.head.appendChild(script);
+  }
+}
+
+window.imprimirRoteiro = () => {
+  const conteudo = document.getElementById('secao-roteiro').innerHTML;
+  const titulo = document.getElementById('ficha-titulo').textContent;
+  const win = window.open('', '_blank');
+  win.document.write('<html><head><title>Roteiro - ' + titulo + '</title>' +
+    '<style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}' +
+    'th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f0f0f0}' +
+    '.badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold}' +
+    '</style></head><body>');
+  win.document.write('<h2>' + titulo + ' — Roteiro de Campo</h2>');
+  win.document.write(conteudo);
+  win.document.write('</body></html>');
+  win.document.close();
+  win.print();
+};
 
 // ── CONFIGURAÇÃO DE SEMANA ──
 window.salvarSemanaAtual = (valor) => {
