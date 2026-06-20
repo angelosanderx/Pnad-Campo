@@ -2695,13 +2695,21 @@ function renderizarDomicilios(lista) {
       '<div class="vazio"><div class="icone-vazio">🏠</div>Nenhum domicilio encontrado.</div>';
     return;
   }
-  let html = '<div style="overflow-x:auto"><table style="min-width:860px"><thead><tr>' +
-    '<th style="width:36px"><input type="checkbox" id="chk-todos" onchange="toggleTodos(this)" title="Selecionar todos"></th>' +
-    '<th>UPA / Setor / Dom.</th><th>Sem.</th><th>Etapa</th><th>Entrevistador</th><th>Endereço / Morador</th><th>Status</th><th>Trimestre Anterior</th><th>Ação</th>' +
+  let html = '<div style="overflow-x:auto"><table style="min-width:780px;table-layout:fixed;width:100%"><thead><tr>' +
+    '<th style="width:36px;padding:0.6rem 0.4rem"><input type="checkbox" id="chk-todos" onchange="toggleTodos(this)" title="Selecionar todos"></th>' +
+    '<th style="width:110px">UPA / Setor / Dom.</th>' +
+    '<th style="width:40px;text-align:center;padding:0.6rem 0.3rem">Sem.</th>' +
+    '<th style="width:46px;text-align:center;padding:0.6rem 0.3rem">Eta.</th>' +
+    '<th style="width:80px">Entrev.</th>' +
+    '<th>Endereço / Morador</th>' +
+    '<th style="width:108px">Status</th>' +
+    '<th style="width:108px">Trim. Ant.</th>' +
+    '<th style="width:120px">Ação</th>' +
     '</tr></thead><tbody>';
   for (const d of lista) {
     const setor = d.controle ? d.controle.slice(0,-1) : (d.upa || '-');
-    const nomeEntr = d.entrevistador_nome || (d.entrevistador_id ? '...' : '<span style="color:var(--cinza);font-style:italic;font-size:0.78rem">Não atribuído</span>');
+    const primeiroNome = (d.entrevistador_nome || '').split(' ')[0];
+    const nomeEntr = primeiroNome || (d.entrevistador_id ? '...' : '<span style="color:var(--cinza);font-style:italic">—</span>');
     const _esp = (d.historico_especies || []).slice().sort((a,b) => parseInt(a.entrevista)-parseInt(b.entrevista));
     const _eta = parseInt(d.visita_etapa || 0);
     // Busca a etapa imediatamente anterior à atual (sem fallback para evitar mostrar a própria etapa atual)
@@ -2717,37 +2725,37 @@ function renderizarDomicilios(lista) {
     };
     const _dataAnt = _ant ? (_ant.mes_ano || _calcTrimEtapa(d.trimestre, _eta, _ant.entrevista)) : '';
     html += `<tr id="row-${d.id}">
-      <td><input type="checkbox" class="chk-dom" value="${d.id}" onchange="atualizarSelecao()"></td>
-      <td>
-        <div style="font-size:0.7rem;color:var(--cinza)">UPA ${d.upa || '-'}</div>
-        <div style="font-size:0.7rem;color:var(--cinza)">Setor ${setor}</div>
-        <div style="font-weight:800;font-size:1rem;color:var(--azul)">Dom. ${d.domicilio_num || d.numero_sequencial || '-'}</div>
-        ${periodoAtual === 'todos' ? `<div style="font-size:0.65rem;font-weight:700;color:var(--azul-medio);margin-top:2px">${PERIODOS[d.periodo || PERIODO_PADRAO]}</div>` : ''}
+      <td style="padding:0.5rem 0.4rem"><input type="checkbox" class="chk-dom" value="${d.id}" onchange="atualizarSelecao()"></td>
+      <td style="padding:0.5rem 0.6rem">
+        <div style="font-size:0.65rem;color:var(--cinza)">UPA ${d.upa || '-'}</div>
+        <div style="font-size:0.65rem;color:var(--cinza)">Set. ${setor.slice(-5)}</div>
+        <div style="font-weight:800;font-size:0.95rem;color:var(--azul)">Dom. ${d.domicilio_num || d.numero_sequencial || '-'}</div>
+        ${periodoAtual === 'todos' ? `<div style="font-size:0.6rem;font-weight:700;color:var(--azul-medio);margin-top:1px">${PERIODOS[d.periodo || PERIODO_PADRAO]}</div>` : ''}
       </td>
-      <td style="text-align:center;font-size:0.85rem">${d.semana || '-'}</td>
-      <td style="text-align:center"><span class="badge badge-cinza">${d.visita_etapa || '-'}ª</span></td>
-      <td style="font-size:0.82rem">${nomeEntr}</td>
-      <td>
-        <div style="font-size:0.85rem;font-weight:600">${d.endereco || '-'}</div>
-        <div style="font-size:0.75rem;color:var(--cinza)">${d.morador_cnefe || d.morador || ''}${d.telefone ? ' · ' + d.telefone : ''}</div>
+      <td style="text-align:center;font-size:0.82rem;padding:0.5rem 0.3rem">${d.semana || '-'}</td>
+      <td style="text-align:center;padding:0.5rem 0.3rem"><span class="badge badge-cinza" style="font-size:0.68rem;padding:1px 5px">${d.visita_etapa || '-'}ª</span></td>
+      <td style="font-size:0.75rem;padding:0.5rem 0.5rem;word-break:break-word">${nomeEntr}</td>
+      <td style="padding:0.5rem 0.6rem">
+        <div style="font-size:0.8rem;font-weight:600">${d.endereco || '-'}</div>
+        <div style="font-size:0.7rem;color:var(--cinza)">${d.morador_cnefe || d.morador || ''}${d.telefone ? ' · ' + d.telefone : ''}</div>
         <div id="ind-morad-${d.id}">${_badgeMoradores(d._tem_moradores)}</div>
       </td>
-      <td>
+      <td style="padding:0.5rem 0.5rem">
         ${badgeStatus(d.status_atual || 'nao_visitado')}
         ${(d.solicitacoes?.length ? d.solicitacoes : d.tipo_solicitacao ? [{ tipo: d.tipo_solicitacao }] : [])
-          .map(s => `<div style="margin-top:3px;font-size:0.68rem;font-weight:700;color:var(--laranja);background:var(--laranja-claro);padding:2px 6px;border-radius:10px;display:inline-block">${
-            {carta_abertura:'📄 Carta Abertura', carta_retorno:'🔄 Carta Retorno', carta_recusa:'✉️ Carta Recusa', apoio_supervisao:'👤 Supervisão', apoio_viatura:'🚗 Viatura', correcao_questionario:'✏️ Correção Quest.', comunicar_dmc:'📢 DMC', contato_informante:'📞 Informante', mais_empenho:'💪 Empenho'}[s.tipo] || s.tipo
+          .map(s => `<div style="margin-top:2px;font-size:0.63rem;font-weight:700;color:var(--laranja);background:var(--laranja-claro);padding:1px 5px;border-radius:10px;display:inline-block">${
+            {carta_abertura:'📄 Abertura', carta_retorno:'🔄 Retorno', carta_recusa:'✉️ Recusa', apoio_supervisao:'👤 Apoio', apoio_viatura:'🚗 Viatura', correcao_questionario:'✏️ Correção', comunicar_dmc:'📢 DMC', contato_informante:'📞 Contato', mais_empenho:'💪 Empenho'}[s.tipo] || s.tipo
           }</div>`).join('')}
       </td>
-      <td style="font-size:0.82rem;min-width:120px">
+      <td style="font-size:0.75rem;padding:0.5rem 0.5rem">
         ${_ant
-          ? `<div style="font-weight:600">${_ant.resultado || '—'}</div><div style="font-size:0.7rem;color:var(--cinza)">${_dataAnt ? _dataAnt + ' · ' : ''}${_ant.entrevista || '?'}ª entrevista</div>`
+          ? `<div style="font-weight:600;font-size:0.75rem;line-height:1.2">${_ant.resultado || '—'}</div><div style="font-size:0.65rem;color:var(--cinza);margin-top:1px">${_dataAnt ? _dataAnt + ' · ' : ''}${_ant.entrevista || '?'}ª</div>`
           : '<span style="color:var(--cinza)">—</span>'}
       </td>
-      <td>
-        <div style="display:flex;gap:0.5rem">
-          <button class="btn-acao secundario" onclick="abrirFicha('${d.id}')">Ficha</button>
-          <button class="btn-acao secundario" style="background:var(--laranja-claro);color:var(--laranja);border:1px solid var(--laranja)" onclick="abrirSolicitar('${d.id}')">Solicitar</button>
+      <td style="padding:0.5rem 0.5rem">
+        <div style="display:flex;flex-direction:column;gap:0.3rem">
+          <button class="btn-acao secundario" style="font-size:0.78rem;padding:0.25rem 0.6rem" onclick="abrirFicha('${d.id}')">Ficha</button>
+          <button class="btn-acao secundario" style="font-size:0.78rem;padding:0.25rem 0.6rem;background:var(--laranja-claro);color:var(--laranja);border:1px solid var(--laranja)" onclick="abrirSolicitar('${d.id}')">Solicitar</button>
         </div>
       </td>
     </tr>`;
