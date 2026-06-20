@@ -958,16 +958,6 @@
         <div id="tabela-produtividade"><div class="loader">Carregando...</div></div>
       </div>
 
-      <div class="card-tabela" style="margin-top:1.25rem">
-        <div class="card-tabela-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
-          <h3>⚠️ Domicílios Pendentes</h3>
-          <div style="display:flex;gap:0.5rem">
-            <button class="btn-acao secundario" onclick="gerarEtiquetas()" style="font-size:0.82rem">🏷️ Etiquetas</button>
-            <button class="btn-acao secundario" onclick="gerarCartoes()" style="font-size:0.82rem">🗂️ Cartões</button>
-          </div>
-        </div>
-        <div id="painel-pendentes-tabela"><div class="loader">Carregando...</div></div>
-      </div>
     </div>
 
     <div class="pagina" id="pag-pendencias">
@@ -1133,6 +1123,17 @@
           <button class="btn-acao secundario" onclick="desmarcarTodos()">Desmarcar todos</button>
         </div>
         <div id="tabela-domicilios"><div class="loader">Carregando...</div></div>
+      </div>
+
+      <div class="card-tabela" style="margin-top:1.25rem">
+        <div class="card-tabela-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+          <h3>⚠️ Domicílios Pendentes</h3>
+          <div style="display:flex;gap:0.5rem">
+            <button class="btn-acao secundario" onclick="gerarEtiquetas()" style="font-size:0.82rem">🏷️ Etiquetas</button>
+            <button class="btn-acao secundario" onclick="gerarCartoes()" style="font-size:0.82rem">🗂️ Cartões</button>
+          </div>
+        </div>
+        <div id="painel-pendentes-tabela"><div class="loader">Carregando...</div></div>
       </div>
     </div>
 
@@ -2936,9 +2937,8 @@ function _montarTentativasSubrow(d) {
       const bg    = isTel ? '#dcfce7' : 'var(--azul-claro)';
       const borda = isTel ? '#86efac' : 'var(--azul-medio)';
       const data  = fmtData(t.data);
-      const res   = t.resultado ? ` · ${t.resultado.slice(0, 28)}` : '';
-      const title = [t.resultado, t.observacao].filter(Boolean).join('\n');
-      return `<span title="${title}" style="display:inline-flex;align-items:center;gap:3px;background:${bg};border:1px solid ${borda};border-radius:12px;padding:1px 8px;font-size:0.7rem;font-weight:600;color:${cor};white-space:nowrap">${icone} ${data}${res}</span>`;
+      const title = [t.resultado, t.observacao].filter(Boolean).join('\n') || t.data || '';
+      return `<span title="${title}" style="display:inline-flex;align-items:center;gap:2px;background:${bg};border:1px solid ${borda};border-radius:10px;padding:1px 6px;font-size:0.65rem;font-weight:600;color:${cor};white-space:nowrap;cursor:default">${icone} ${data}</span>`;
     }).join(' ');
   }
 
