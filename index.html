@@ -2923,6 +2923,31 @@ function renderizarRoteiro(lista, domAtual, setor) {
 
 let _mapaRoteiroInstance = null;
 
+// ── Atribuir entrevistador direto pelo popup do mapa (Roteiro de Campo) ──
+window.atribuirEntrevistadorMapa = async (domId) => {
+  const sel = document.getElementById('popup-entr-' + domId);
+  if (!sel) return;
+  const novoId = sel.value || null;
+  const novoNome = novoId ? sel.selectedOptions[0].text : null;
+  try {
+    await updateDoc(doc(db, 'domicilios', domId), {
+      entrevistador_id: novoId,
+      entrevistador_nome: novoNome
+    });
+    const dom = todosdomicilios.find(d => d.id === domId);
+    if (dom) { dom.entrevistador_id = novoId; dom.entrevistador_nome = novoNome; }
+    mostrarToast(novoNome ? 'Atribuído a ' + novoNome : 'Atribuição removida', 'sucesso');
+    // Atualiza a linha da lista de domicílios, se estiver visível
+    const cel = document.querySelector(`#row-${domId} td:nth-child(5)`);
+    if (cel) cel.innerHTML = novoNome || '<span style="color:var(--cinza);font-style:italic;font-size:0.78rem">Não atribuído</span>';
+    // Recarrega a ficha (e o roteiro/mapa) para refletir a nova cor do pin
+    if (typeof window.abrirFicha === 'function' && domicilioAtualId) window.abrirFicha(domicilioAtualId);
+  } catch(e) {
+    console.error(e);
+    mostrarToast('Erro ao atribuir entrevistador', 'erro');
+  }
+};
+
 function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, domAtual) {
   const mapaDiv = document.getElementById('roteiro-mapa');
   if (!mapaDiv) return;
@@ -2967,11 +2992,32 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
 
   const todosVizinhos = [...vizinhosKML, ...vizinhosFirestore];
 
-  const iniciar = () => {
+  const iniciar = async () => {
     _mapaRoteiroInstance = window.L.map('leaflet-roteiro').setView([latAlvo, lngAlvo], 16);
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(_mapaRoteiroInstance);
+
+    // Busca a lista de entrevistadores para montar o seletor de atribuição nos popups
+    let entrevistadoresMapa = [];
+    try {
+      const entrSnap = await getDocs(query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador')));
+      entrevistadoresMapa = entrSnap.docs.map(d => ({ id: d.id, nome: d.data().nome }));
+    } catch(e) { console.error(e); }
+
+    const montarSeletorAtribuicao = (domId, entrevistadorIdAtual) => {
+      if (!domId) return '';
+      const opcoes = entrevistadoresMapa.map(e =>
+        `<option value="${e.id}" ${e.id === entrevistadorIdAtual ? 'selected' : ''}>${e.nome}</option>`
+      ).join('');
+      return `<div style="margin-top:6px;display:flex;gap:4px;align-items:center">
+        <select id="popup-entr-${domId}" style="font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid #cbd5e1;max-width:120px">
+          <option value="">Sem entrevistador</option>
+          ${opcoes}
+        </select>
+        <button onclick="atribuirEntrevistadorMapa('${domId}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:none;background:#2563a8;color:#fff;cursor:pointer;font-weight:700">OK</button>
+      </div>`;
+    };
 
     // Pin do alvo
     const iconAlvo = window.L.divIcon({
@@ -2979,7 +3025,8 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
       className: '', iconSize: [36, 36], iconAnchor: [18, 18]
     });
     window.L.marker([latAlvo, lngAlvo], { icon: iconAlvo }).addTo(_mapaRoteiroInstance)
-      .bindPopup('<strong>🎯 ALVO — Dom. ' + domNum + '</strong><br>' + (domAtual?.endereco || ''));
+      .bindPopup('<strong>🎯 ALVO — Dom. ' + domNum + '</strong><br>' + (domAtual?.endereco || '') +
+        montarSeletorAtribuicao(domAtual?.id, domAtual?.entrevistador_id));
 
     // Pins dos vizinhos com cor por entrevistador + offset espiral
     const pinsVizinhos = todosVizinhos
@@ -3002,7 +3049,8 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
       });
       window.L.marker([k.lat, k.lng], { icon }).addTo(_mapaRoteiroInstance)
         .bindPopup('Dom. ' + k.dom + '<br>' + (k.logradouro || '') + ' ' + (k.numero || '') +
-          (k.domViz?.entrevistador_nome ? '<br><small>' + k.domViz.entrevistador_nome + '</small>' : ''));
+          (k.domViz?.entrevistador_nome ? '<br><small>' + k.domViz.entrevistador_nome + '</small>' : '') +
+          montarSeletorAtribuicao(k.domViz?.id, k.domViz?.entrevistador_id));
     });
   };
   
