@@ -1991,9 +1991,8 @@ window.abrirFicha = (id) => {
     
     let htmlEsp = '<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.5rem">';
     historicoOrdenado.forEach(h => {
-      // Cria uma variável com o "Plano B": se houver entrevistador no histórico, usa ele. 
-      // Se não, puxa o atual do domicílio. Se nenhum existir, fica 'Não informado'.
-      const nomeEntrevistador = h.entrevistador || dom.entrevistador_nome || 'Não informado';
+      // Puxa APENAS o entrevistador salvo no histórico daquela etapa específica
+      const nomeEntrevistador = (h.entrevistador && h.entrevistador !== 'Não identificado') ? h.entrevistador : 'Não informado';
 
       htmlEsp += `<div style="background:var(--cinza-claro);padding:0.75rem 1rem;border-radius:8px;min-width:150px;border:1px solid var(--borda)">
         <div style="display:flex;justify-content:space-between;align-items:center;">
