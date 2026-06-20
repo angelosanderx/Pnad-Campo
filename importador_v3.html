@@ -481,11 +481,25 @@ function processarDados() {
     else if (posicao.includes('carta')) status = 'carta_solicitada';
 
     // Monta histórico de espécies
+    // Regra: o nome do entrevistador só é gravado na etapa que corresponde à
+    // "visita_etapa" atual deste CSV (row['Entr.']) — é a única etapa para a qual
+    // este Relatório de Tentativas realmente informa quem fez a entrevista.
+    // As demais etapas do array ficam sem entrevistador ('Não identificado'),
+    // evitando repetir o mesmo nome em etapas onde não há essa informação.
+    // OBS: "entrevista" é gravada como STRING para casar com o formato usado
+    // pelo index.html (Central SIGC / modal SIGC), que faz comparações de string.
+    const etapaAtualNum = parseInt(row['Entr.']) || null;
     const historicoEspecies = [];
     if (especies) {
       for (let i = 1; i <= 5; i++) {
         const val = especies[`Entrevista ${i}`] || '';
-        if (val) historicoEspecies.push({ entrevista: i, resultado: val });
+        if (val) {
+          historicoEspecies.push({
+            entrevista: String(i),
+            resultado: val,
+            entrevistador: (i === etapaAtualNum && entrevistadorNome) ? entrevistadorNome : 'Não identificado'
+          });
+        }
       }
     }
 
@@ -573,9 +587,10 @@ function processarDados() {
   const tbody = document.getElementById('tbody-previa');
   tbody.innerHTML = dadosProcessados.map(d => {
     const setor = d.controle ? d.controle.slice(0,-1) : d.upa;
-    const hist = d.historico_especies.map(h =>
-      `<span style="font-size:0.7rem;color:#64748b">E${h.entrevista}: ${h.resultado.split(' ')[0]}</span>`
-    ).join('<br>');
+    const hist = d.historico_especies.map(h => {
+      const temEntrevistador = h.entrevistador && h.entrevistador !== 'Não identificado';
+      return `<span style="font-size:0.7rem;color:#64748b">E${h.entrevista}: ${h.resultado.split(' ')[0]}${temEntrevistador ? ' <strong style=\"color:#1a7a4a\">(' + h.entrevistador + ')</strong>' : ''}</span>`;
+    }).join('<br>');
     return `<tr>
       <td>
         <div style="font-size:0.7rem;color:#94a3b8">UPA ${d.upa}</div>
