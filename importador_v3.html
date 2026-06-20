@@ -159,7 +159,7 @@
       <div class="config-grid">
         <div class="form-grupo">
           <label>Período (grupo de meses)</label>
-          <select id="cfg-periodo">
+          <select id="cfg-periodo" onchange="atualizarConfirmaPeriodo()">
             <option value="jan_abr_jul_out">Jan / Abr / Jul / Out</option>
             <option value="fev_mai_ago_nov">Fev / Mai / Ago / Nov</option>
             <option value="mar_jun_set_dez" selected>Mar / Jun / Set / Dez</option>
@@ -205,6 +205,7 @@
           </select>
         </div>
       </div>
+      <div id="confirma-periodo" style="background:#eff6ff;border:1.5px solid #2563a8;border-radius:8px;padding:0.6rem 1rem;margin-bottom:1rem;font-size:0.85rem;color:#1a3a5c;font-weight:700"></div>
       <button class="btn btn-primario" onclick="processarDados()">Processar dados →</button>
     </div>
   </div>
@@ -302,6 +303,31 @@ const dados = { movimento: [], endereco: {}, tentativas: {}, especies: {}, telef
 let dadosProcessados = [];
 
 const PROJECT_ID = 'pnad-c-campos';
+
+const LABELS_PERIODO = {
+  jan_abr_jul_out: 'Jan / Abr / Jul / Out',
+  fev_mai_ago_nov: 'Fev / Mai / Ago / Nov',
+  mar_jun_set_dez: 'Mar / Jun / Set / Dez'
+};
+
+// ── Sincroniza o período com o que está selecionado no Painel (mesma chave do localStorage) ──
+function inicializarPeriodoImportador() {
+  const sel = document.getElementById('cfg-periodo');
+  const salvo = localStorage.getItem('pnad_periodo_atual');
+  if (sel && salvo && LABELS_PERIODO[salvo]) {
+    sel.value = salvo;
+  }
+  atualizarConfirmaPeriodo();
+}
+
+function atualizarConfirmaPeriodo() {
+  const sel = document.getElementById('cfg-periodo');
+  const box = document.getElementById('confirma-periodo');
+  if (!sel || !box) return;
+  box.textContent = '📌 Estes domicílios serão importados para o período: ' + (LABELS_PERIODO[sel.value] || sel.value) + '. Confira se é o período certo antes de continuar.';
+}
+inicializarPeriodoImportador();
+
 
 // ── Parser CSV ──
 function parseCSV(text) {
@@ -667,6 +693,7 @@ async function importarFirestore() {
   }
 
   addLog(`\n✅ Concluído! ${ok} importados, ${erros} erros.`, 'ok');
+  addLog(`📌 Período usado nesta importação: ${LABELS_PERIODO[document.getElementById('cfg-periodo').value] || document.getElementById('cfg-periodo').value}`, 'info');
   if (erros === 0) addLog('Todos os dados foram salvos com sucesso!', 'ok');
   progTexto.textContent = `Concluído — ${ok} importados, ${erros} erros`;
   document.getElementById('btn-importar').disabled = false;
