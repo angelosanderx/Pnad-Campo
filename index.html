@@ -1033,7 +1033,16 @@
       <div class="card-tabela">
         <div class="card-tabela-header">
           <h3>Setores do período <span id="setores-periodo-label" style="font-weight:700;color:var(--azul-medio)"></span></h3>
-          <button class="btn-acao" id="btn-novo-setor" onclick="abrirModalSetor()">+ Novo setor</button>
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+            <select id="filtro-semana-setor" onchange="carregarSetores()" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
+              <option value="">Todas as semanas</option>
+              <option value="1">Semana 1</option>
+              <option value="2">Semana 2</option>
+              <option value="3">Semana 3</option>
+              <option value="4">Semana 4</option>
+            </select>
+            <button class="btn-acao" id="btn-novo-setor" onclick="abrirModalSetor()">+ Novo setor</button>
+          </div>
         </div>
         <div id="tabela-setores"><div class="loader">Carregando...</div></div>
       </div>
@@ -2874,13 +2883,24 @@ async function carregarSetores() {
   try {
     const lbl = document.getElementById('setores-periodo-label');
     if (lbl) lbl.textContent = '— ' + (PERIODOS[periodoAtual] || periodoAtual);
+
+    const filtrSemana = document.getElementById('filtro-semana-setor')?.value || '';
+
     // Deriva setores diretamente dos domicílios importados
     const snap = await getDocs(collection(db, 'domicilios'));
-    const domicilios = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.endereco && pertencePeriodo(d));
+    let domicilios = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(d => d.endereco && pertencePeriodo(d));
+
+    // Aplica filtro de semana se selecionado
+    if (filtrSemana) {
+      domicilios = domicilios.filter(d => String(d.semana) === filtrSemana);
+    }
 
     if (domicilios.length === 0) {
       document.getElementById('tabela-setores').innerHTML =
-        '<div class="vazio"><div class="icone-vazio">🗺️</div>Nenhum domicílio importado ainda neste período (' + (PERIODOS[periodoAtual] || periodoAtual) + ').</div>';
+        '<div class="vazio"><div class="icone-vazio">🗺️</div>Nenhum domicílio encontrado' +
+        (filtrSemana ? ` na Semana ${filtrSemana}` : '') +
+        ' neste período (' + (PERIODOS[periodoAtual] || periodoAtual) + ').</div>';
       return;
     }
 
