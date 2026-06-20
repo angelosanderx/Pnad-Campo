@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PNAD-C Campos — Gestão de Campo</title>
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://tile.openstreetmap.org">
+<link rel="preconnect" href="https://a.tile.openstreetmap.org">
+<link rel="preconnect" href="https://b.tile.openstreetmap.org">
+<link rel="preconnect" href="https://c.tile.openstreetmap.org">
 <style>
   :root {
     --azul: #1a3a5c;
@@ -1505,6 +1510,7 @@ const db = getFirestore(app);
 let usuarioLogado = null;
 let perfilLogado = null;
 let todosdomicilios = [];
+let entrevistadoresCache = null; // cache da lista de entrevistadores p/ não consultar o banco toda vez que o mapa abre
 let unsubs = [];
 
 // ── PERÍODO (grupo de meses / painel) ──
@@ -1524,6 +1530,28 @@ function pertencePeriodo(d) {
   if (periodoAtual === 'todos') return true;
   return (d.periodo || PERIODO_PADRAO) === periodoAtual;
 }
+
+// Carrega a biblioteca do mapa (Leaflet) uma única vez e reaproveita a mesma
+// promessa em qualquer lugar que precisar dela — evita carregar/injetar duas vezes.
+let _leafletPromise = null;
+function obterLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (_leafletPromise) return _leafletPromise;
+  _leafletPromise = new Promise((resolve) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = resolve;
+    document.head.appendChild(script);
+  });
+  return _leafletPromise;
+}
+// Dispara o carregamento em segundo plano assim que o app abre, pra já estar
+// pronto quando o usuário clicar numa ficha (evita esperar nesse momento).
+function precarregarLeaflet() { obterLeaflet(); }
 
 window.mudarPeriodo = async (valor) => {
   periodoAtual = valor;
@@ -1610,6 +1638,8 @@ async function iniciarApp() {
 
   const selPeriodo = document.getElementById('periodo-atual-config');
   if (selPeriodo) selPeriodo.value = periodoAtual;
+
+  precarregarLeaflet();
 
   await carregarDomicilios();
   carregarDashboard();
@@ -2333,6 +2363,7 @@ window.salvarUsuario = async () => {
     });
     fecharModal('modal-usuario');
     mostrarToast('Usuário salvo!', 'sucesso');
+    entrevistadoresCache = null; // invalida o cache do mapa, já que a lista de entrevistadores mudou
     carregarUsuarios();
   } catch(e) { mostrarToast('Erro ao salvar', 'erro'); console.error(e); }
 };
@@ -2776,19 +2807,7 @@ async function renderizarMapaSetores() {
   mapaDiv.innerHTML = '<div id="leaflet-setores" style="width:100%;height:400px"></div>';
 
   const iniciar = () => iniciarMapaSetores(pinsParaMapa);
-
-  if (!window.L) {
-    const css = document.createElement('link');
-    css.rel = 'stylesheet';
-    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(css);
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = iniciar;
-    document.head.appendChild(script);
-  } else {
-    iniciar();
-  }
+  obterLeaflet().then(iniciar);
 }
 
 let _mapaSetoresInstance = null;
@@ -2998,12 +3017,15 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
       attribution: '© OpenStreetMap'
     }).addTo(_mapaRoteiroInstance);
 
-    // Busca a lista de entrevistadores para montar o seletor de atribuição nos popups
-    let entrevistadoresMapa = [];
-    try {
-      const entrSnap = await getDocs(query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador')));
-      entrevistadoresMapa = entrSnap.docs.map(d => ({ id: d.id, nome: d.data().nome }));
-    } catch(e) { console.error(e); }
+    // Busca a lista de entrevistadores (usa cache se já carregada, evita consulta repetida ao banco)
+    let entrevistadoresMapa = entrevistadoresCache;
+    if (!entrevistadoresMapa) {
+      try {
+        const entrSnap = await getDocs(query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador')));
+        entrevistadoresMapa = entrSnap.docs.map(d => ({ id: d.id, nome: d.data().nome }));
+        entrevistadoresCache = entrevistadoresMapa;
+      } catch(e) { console.error(e); entrevistadoresMapa = []; }
+    }
 
     const montarSeletorAtribuicao = (domId, entrevistadorIdAtual) => {
       if (!domId) return '';
@@ -3054,17 +3076,7 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
     });
   };
   
-  if (window.L) { iniciar(); }
-  else {
-    const css = document.createElement('link');
-    css.rel = 'stylesheet';
-    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(css);
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = iniciar;
-    document.head.appendChild(script);
-  }
+  obterLeaflet().then(iniciar);
 }
 
 window.imprimirRoteiro = () => {
