@@ -1238,7 +1238,13 @@
         <div id="secao-roteiro">
           <div class="secao-titulo">
             <span>📍 Roteiro de Campo</span>
-            <button class="btn-acao secundario" style="font-size:0.82rem" onclick="imprimirRoteiro()">🖨️ Imprimir</button>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <label class="btn-acao secundario" style="font-size:0.82rem;cursor:pointer;margin:0">
+                📂 Endereço Completo
+                <input type="file" accept=".csv" style="display:none" onchange="importarEnderecoCompleto(this)">
+              </label>
+              <button class="btn-acao secundario" style="font-size:0.82rem" onclick="imprimirRoteiro()">🖨️ Imprimir</button>
+            </div>
           </div>
           <div id="roteiro-mapa" style="width:100%;height:320px;border-radius:8px;overflow:hidden;background:var(--cinza-claro);margin-bottom:1rem;display:flex;align-items:center;justify-content:center;color:var(--cinza);font-size:0.85rem">
             <div>🗺️ Mapa carregando...</div>
@@ -3684,18 +3690,100 @@ function iniciarMapaSetores(pins) {
 }
 
 // ── ROTEIRO DE CAMPO NA FICHA ──
-let listagemSetor = []; // Endereço completo do setor atual
+let listagemSetor = {}; // { setor: [ {seq_visita, dom, endereco, complemento, morador} ] }
+
+// Importa o CSV "Endereço Completo" e guarda em memória por setor
+window.importarEnderecoCompleto = (input) => {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const texto = e.target.result;
+      const linhas = texto.split(/\r?\n/);
+      if (linhas.length < 2) { mostrarToast('CSV vazio ou inválido', 'erro'); return; }
+
+      // Detecta separador (ponto e vírgula ou vírgula)
+      const sep = linhas[0].includes(';') ? ';' : ',';
+      const cabecalho = linhas[0].split(sep).map(c => c.trim().replace(/^"|"$/g,''));
+
+      const idx = (nome) => cabecalho.findIndex(c => c.toLowerCase() === nome.toLowerCase());
+      const iControle  = idx('Controle');
+      const iSeq       = idx('SeqVisita');
+      const iDom       = idx('Dom.');
+      const iEndereco  = idx('Endereço');
+      const iCompl     = idx('Complemento');
+      const iMorador   = idx('Morador');
+
+      if (iControle < 0 || iSeq < 0) {
+        mostrarToast('CSV não tem colunas Controle e SeqVisita esperadas', 'erro'); return;
+      }
+
+      const parseLinha = (l) => {
+        // Suporte simples a campos com aspas
+        const res = [];
+        let cur = '', inQ = false;
+        for (const ch of l) {
+          if (ch === '"') { inQ = !inQ; }
+          else if (ch === sep && !inQ) { res.push(cur.trim()); cur = ''; }
+          else { cur += ch; }
+        }
+        res.push(cur.trim());
+        return res;
+      };
+
+      // Agrupa por setor (controle sem letra)
+      const novo = {};
+      for (let i = 1; i < linhas.length; i++) {
+        const l = linhas[i].trim();
+        if (!l) continue;
+        const cols = parseLinha(l);
+        const controle = (cols[iControle] || '').trim();
+        if (!controle) continue;
+        // Setor = controle sem letra final (se tiver letra) ou como está
+        const setor = controle.replace(/[A-Za-z]$/, '');
+        if (!novo[setor]) novo[setor] = [];
+        novo[setor].push({
+          seq_visita: (cols[iSeq] || '').trim(),
+          dom:        iDom >= 0 ? (cols[iDom] || '').trim() : '',
+          endereco:   iEndereco >= 0 ? (cols[iEndereco] || '').trim() : '',
+          complemento: iCompl >= 0 ? (cols[iCompl] || '').trim() : '',
+          morador:    iMorador >= 0 ? (cols[iMorador] || '').trim() : '',
+        });
+      }
+
+      // Mescla com o que já existia (outros setores)
+      Object.assign(listagemSetor, novo);
+
+      const totalSetores = Object.keys(novo).length;
+      const totalLinhas  = Object.values(novo).reduce((s,v) => s+v.length, 0);
+      mostrarToast(`Endereço Completo importado: ${totalLinhas} endereços em ${totalSetores} setor(es)`, 'sucesso');
+
+      // Se a ficha de um domicílio já estiver aberta, atualiza o roteiro
+      if (domicilioAtualId) {
+        const dom = todosdomicilios.find(d => d.id === domicilioAtualId);
+        if (dom) {
+          const setor = dom.controle ? dom.controle.slice(0,-1) : dom.upa;
+          carregarRoteiroSetor(setor, dom);
+        }
+      }
+    } catch(err) {
+      console.error(err);
+      mostrarToast('Erro ao ler CSV: ' + err.message, 'erro');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
 
 window.carregarRoteiroSetor = async (setor, domAtual) => {
   try {
-    // Se o domicílio atual não tem latitude_kml em memória,
-    // busca direto do Firestore
+    // Garante coordenadas do Firestore
     let domComCoords = domAtual;
     if (!domAtual.latitude_kml) {
       const docSnap = await getDoc(doc(db, 'domicilios', domAtual.id));
       if (docSnap.exists()) {
         domComCoords = { ...domAtual, ...docSnap.data() };
-        // Atualiza na memória também
         const idx = todosdomicilios.findIndex(d => d.id === domAtual.id);
         if (idx >= 0) todosdomicilios[idx] = domComCoords;
       }
@@ -3703,13 +3791,27 @@ window.carregarRoteiroSetor = async (setor, domAtual) => {
 
     const cor = corEntrevistador(domComCoords.entrevistador_nome || '');
 
-    // Renderiza mapa com coordenadas do Firestore
-    renderizarMapaRoteiro(null, [], [], setor, cor, domComCoords);
+    // Verifica se tem listagem do setor importada
+    const lista = listagemSetor[setor];
+    if (lista && lista.length > 0) {
+      // Encontra o domicílio alvo pelo número (campo dom) ou seq_visita
+      const domNum = String(domAtual.domicilio_num || domAtual.numero_sequencial || '');
+      let idxAlvo = lista.findIndex(d => d.dom === domNum);
+      // Fallback: busca pela sequência de visita que corresponde ao domNum
+      if (idxAlvo < 0) idxAlvo = lista.findIndex(d => d.seq_visita === domNum);
 
-    // Lista de apoio: só mostra se tiver Enderecocompleto importado (futuro)
-    document.getElementById('roteiro-lista').innerHTML =
-      '<div class="vazio" style="padding:1rem"><div class="icone-vazio">📋</div>Importe o Endereço Completo do setor para ver os 3 anteriores e 3 posteriores.</div>';
+      const anteriores = idxAlvo > 0 ? lista.slice(Math.max(0, idxAlvo-3), idxAlvo) : [];
+      const posteriores = idxAlvo >= 0 ? lista.slice(idxAlvo+1, idxAlvo+4) : lista.slice(0,3);
+      const alvo = idxAlvo >= 0 ? lista[idxAlvo] : null;
 
+      renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, cor, domComCoords);
+      renderizarRoteiro(lista, domAtual, setor);
+    } else {
+      // Sem listagem: mostra apenas o mapa
+      renderizarMapaRoteiro(null, [], [], setor, cor, domComCoords);
+      document.getElementById('roteiro-lista').innerHTML =
+        '<div class="vazio" style="padding:1rem"><div class="icone-vazio">📋</div>Importe o Endereço Completo do setor para ver os 3 anteriores e 3 posteriores.</div>';
+    }
   } catch(e) {
     console.error(e);
     document.getElementById('roteiro-lista').innerHTML =
