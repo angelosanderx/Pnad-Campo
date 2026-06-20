@@ -2895,8 +2895,13 @@ async function carregarSetores() {
     });
 
     // Carrega quais setores já têm Endereço Completo salvo no Firestore
-    const snapEC = await getDocs(collection(db, 'enderecos_setor'));
-    const setoresComCSV = new Set(snapEC.docs.map(d => d.id));
+    let setoresComCSV = new Set();
+    try {
+      const snapEC = await getDocs(collection(db, 'enderecos_setor'));
+      setoresComCSV = new Set(snapEC.docs.map(d => d.id));
+    } catch(eCSV) {
+      console.warn('Não foi possível carregar enderecos_setor:', eCSV);
+    }
 
     let html = '<div style="overflow-x:auto"><table style="min-width:650px"><thead><tr>' +
       '<th>UPA / Setor</th><th>Município</th><th>Dom.</th><th>Realizadas</th><th>Progresso</th><th>Pendentes</th><th>End. Completo</th>' +
