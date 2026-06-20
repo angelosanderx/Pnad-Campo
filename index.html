@@ -3027,18 +3027,29 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
       } catch(e) { console.error(e); entrevistadoresMapa = []; }
     }
 
-    const montarSeletorAtribuicao = (domId, entrevistadorIdAtual) => {
+    const normalizarNome = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    const encontrarIdPorNome = (nome) => {
+      if (!nome) return null;
+      const alvo = normalizarNome(nome);
+      const achado = entrevistadoresMapa.find(e => normalizarNome(e.nome) === alvo);
+      return achado ? achado.id : null;
+    };
+
+    const montarSeletorAtribuicao = (domId, entrevistadorIdAtual, nomeFallback) => {
       if (!domId) return '';
+      const idEfetivo = entrevistadorIdAtual || encontrarIdPorNome(nomeFallback);
       const opcoes = entrevistadoresMapa.map(e =>
-        `<option value="${e.id}" ${e.id === entrevistadorIdAtual ? 'selected' : ''}>${e.nome}</option>`
+        `<option value="${e.id}" ${e.id === idEfetivo ? 'selected' : ''}>${e.nome}</option>`
       ).join('');
+      const aviso = (!entrevistadorIdAtual && idEfetivo)
+        ? '<div style="font-size:10px;color:#b45309;margin-top:3px">⚠️ Nome importado, sem vínculo formal — clique OK pra vincular</div>' : '';
       return `<div style="margin-top:6px;display:flex;gap:4px;align-items:center">
         <select id="popup-entr-${domId}" style="font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid #cbd5e1;max-width:120px">
           <option value="">Sem entrevistador</option>
           ${opcoes}
         </select>
         <button onclick="atribuirEntrevistadorMapa('${domId}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:none;background:#2563a8;color:#fff;cursor:pointer;font-weight:700">OK</button>
-      </div>`;
+      </div>${aviso}`;
     };
 
     // Pin do alvo
@@ -3048,7 +3059,7 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
     });
     window.L.marker([latAlvo, lngAlvo], { icon: iconAlvo }).addTo(_mapaRoteiroInstance)
       .bindPopup('<strong>🎯 ALVO — Dom. ' + domNum + '</strong><br>' + (domAtual?.endereco || '') +
-        montarSeletorAtribuicao(domAtual?.id, domAtual?.entrevistador_id));
+        montarSeletorAtribuicao(domAtual?.id, domAtual?.entrevistador_id, domAtual?.entrevistador_nome));
 
     // Pins dos vizinhos com cor por entrevistador + offset espiral
     const pinsVizinhos = todosVizinhos
@@ -3072,7 +3083,7 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
       window.L.marker([k.lat, k.lng], { icon }).addTo(_mapaRoteiroInstance)
         .bindPopup('Dom. ' + k.dom + '<br>' + (k.logradouro || '') + ' ' + (k.numero || '') +
           (k.domViz?.entrevistador_nome ? '<br><small>' + k.domViz.entrevistador_nome + '</small>' : '') +
-          montarSeletorAtribuicao(k.domViz?.id, k.domViz?.entrevistador_id));
+          montarSeletorAtribuicao(k.domViz?.id, k.domViz?.entrevistador_id, k.domViz?.entrevistador_nome));
     });
   };
   
