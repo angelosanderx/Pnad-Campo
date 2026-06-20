@@ -253,6 +253,7 @@
       <div id="prog-texto" style="font-size:0.85rem;color:#64748b;margin-bottom:4px">Preparando...</div>
       <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
       <div class="log" id="log-importacao"></div>
+      <div id="area-retry" style="margin-top:0.75rem"></div>
     </div>
   </div>
 
@@ -613,6 +614,24 @@ function processarDados() {
   document.getElementById('card-previa').style.display = '';
 }
 
+let _falhados = [];
+
+function reimportarFalhados() {
+  if (_falhados.length === 0) return;
+  const lista = _falhados
+    .map(f => `  • ${f.periodo}_${f.controle}_${f.domicilio_num}`)
+    .join('\n');
+  if (!confirm(
+    `Atenção: isso vai tentar reimportar somente os ${_falhados.length} registro(s) que falharam:\n\n` +
+    lista + '\n\n' +
+    `Os ${dadosProcessados.length - _falhados.length} já importados com sucesso NÃO serão tocados.\n\n` +
+    `Deseja continuar?`
+  )) return;
+  dadosProcessados = [..._falhados];
+  document.getElementById('area-retry').innerHTML = '';
+  importarFirestore();
+}
+
 // ── Importar para Firestore ──
 async function importarFirestore() {
   // ALTERAÇÃO: Agora busca o token diretamente da variável de sessão
@@ -630,6 +649,8 @@ async function importarFirestore() {
   const fill = document.getElementById('prog-fill');
   const progTexto = document.getElementById('prog-texto');
   log.innerHTML = '';
+  _falhados = [];
+  document.getElementById('area-retry').innerHTML = '';
 
   const addLog = (msg, tipo = '') => {
     const span = document.createElement('span');
@@ -694,11 +715,13 @@ async function importarFirestore() {
         if (i % 20 === 0) addLog(`✓ ${ok} importados...`, 'ok');
       } else {
         erros++;
+        _falhados.push(d);
         const err = await resp.json();
         addLog(`✗ ${docId}: ${err.error?.message}`, 'erro');
       }
     } catch(e) {
       erros++;
+      _falhados.push(d);
       addLog(`✗ Falha de rede: ${docId}`, 'erro');
     }
 
@@ -707,11 +730,34 @@ async function importarFirestore() {
     await new Promise(r => setTimeout(r, 40));
   }
 
-  addLog(`\n✅ Concluído! ${ok} importados, ${erros} erros.`, 'ok');
-  addLog(`📌 Período usado nesta importação: ${LABELS_PERIODO[document.getElementById('cfg-periodo').value] || document.getElementById('cfg-periodo').value}`, 'info');
-  if (erros === 0) addLog('Todos os dados foram salvos com sucesso!', 'ok');
+  addLog(`\n✅ Concluído! ${ok} importados, ${erros} erros.`, erros === 0 ? 'ok' : 'warn');
+  addLog(`📌 Período: ${LABELS_PERIODO[document.getElementById('cfg-periodo').value] || document.getElementById('cfg-periodo').value}`, 'info');
   progTexto.textContent = `Concluído — ${ok} importados, ${erros} erros`;
-  document.getElementById('btn-importar').disabled = false;
+
+  if (erros === 0) {
+    addLog('Todos os registros foram salvos com sucesso!', 'ok');
+    document.getElementById('btn-importar').disabled = false;
+  } else {
+    addLog(`\n⚠️  REGISTROS COM FALHA (${_falhados.length}):`, 'warn');
+    _falhados.forEach(f => {
+      addLog(`  • ${f.periodo}_${f.controle}_${f.domicilio_num}`, 'erro');
+    });
+    const areaRetry = document.getElementById('area-retry');
+    if (areaRetry) {
+      areaRetry.innerHTML =
+        '<div style="background:#fef2f2;border:1.5px solid #f87171;border-radius:8px;' +
+        'padding:0.75rem 1rem;font-size:0.83rem;color:#991b1b;' +
+        'display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">' +
+        `<span>⚠️ <strong>${erros}</strong> registro(s) falharam. ` +
+        `Os <strong>${ok}</strong> já importados com sucesso <strong>não serão reimportados</strong>.</span>` +
+        `<button onclick="reimportarFalhados()" ` +
+        'style="background:#dc2626;color:#fff;border:none;border-radius:6px;' +
+        'padding:0.35rem 0.9rem;cursor:pointer;font-size:0.82rem;font-weight:600">' +
+        `🔁 Tentar novamente os ${erros} com falha</button>` +
+        '</div>';
+    }
+    // btn-importar permanece desabilitado para evitar reimportar registros com sucesso
+  }
 }
 
 function exportarJSON() {

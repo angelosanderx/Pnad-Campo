@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PNAD-C Campos — Gestão de Campo</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com">
 <link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://basemaps.cartocdn.com">
+<link rel="preconnect" href="https://server.arcgisonline.com">
 <link rel="preconnect" href="https://tile.openstreetmap.org">
 <link rel="preconnect" href="https://a.tile.openstreetmap.org">
 <link rel="preconnect" href="https://b.tile.openstreetmap.org">
@@ -745,6 +749,23 @@
     font-weight: 500;
   }
 
+  .info-item-editavel { position: relative; }
+  .btn-editar-campo {
+    background: none; border: none; padding: 0.15rem 0.35rem; cursor: pointer;
+    font-size: 0.78rem; color: var(--cinza); border-radius: 4px;
+    opacity: 0; transition: opacity 0.15s, background 0.15s;
+    vertical-align: middle; margin-left: 0.3rem;
+  }
+  .info-item:hover .btn-editar-campo { opacity: 1; }
+  .btn-editar-campo:hover { background: var(--azul-claro); color: var(--azul-medio); }
+  .ficha-campo-input {
+    width: 100%; font-size: 0.92rem; font-family: var(--fonte);
+    padding: 0.3rem 0.5rem; border: 1.5px solid var(--azul-medio);
+    border-radius: 5px; color: var(--cinza-escuro); background: white;
+    box-sizing: border-box; margin-top: 0.1rem;
+  }
+  .ficha-campo-acoes { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+
   .secao-titulo {
     font-size: 1.15rem;
     font-weight: 700;
@@ -937,6 +958,7 @@
             <option value="recusa">Recusa</option>
             <option value="carta_solicitada">Carta solicitada</option>
             <option value="supervisao">Supervisão necessária</option>
+            <option value="vago">Vago/Inapto</option>
           </select>
           <select id="filtro-solicitacao" onchange="filtrarDomicilios()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
             <option value="">Todas as solicitações</option>
@@ -951,9 +973,8 @@
           </select>
           <input type="text" id="busca-domicilio" placeholder="Buscar endereço ou morador..." style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);flex:1;min-width:160px" oninput="filtrarDomicilios()">
           <select id="filtro-ordem" onchange="filtrarDomicilios()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
-            <option value="padrao">Ordem padrão (UPA/Dom)</option>
+            <option value="padrao">Ordem padrão (Semana → UPA → Setor → Dom)</option>
             <option value="status">Agrupar por status</option>
-            <option value="semana">Agrupar por semana</option>
             <option value="entrevistador">Agrupar por entrevistador</option>
           </select>
           <button class="btn-acao secundario" onclick="limparFiltros()">Limpar</button>
@@ -1190,18 +1211,20 @@
         <div id="secao-dados-gerais">
           <div class="secao-titulo">
             <span>Dados Gerais</span>
-            <button class="btn-acao" style="background:var(--verde); font-size:0.85rem;" onclick="abrirModalSIGC()">📋 Capturar dados do SIGC</button>
           </div>
           <div class="info-grid">
             <div class="info-item"><label>UPA</label><span id="ficha-upa">—</span></div>
             <div class="info-item"><label>Setor</label><span id="ficha-setor">—</span></div>
-            <div class="info-item"><label>Controle</label><span id="ficha-controle">—</span></div>
-            <div class="info-item"><label>Endereço</label><span id="ficha-endereco">—</span></div>
+            <div class="info-item info-item-editavel">
+              <label>Endereço <button class="btn-editar-campo" onclick="editarCampoFicha('endereco')" title="Editar endereço">✏️ editar</button></label>
+              <span id="ficha-endereco">—</span>
+            </div>
             <div class="info-item"><label>Complemento</label><span id="ficha-complemento">—</span></div>
-            <div class="info-item"><label>Coordenadas (Lat/Long)</label><span id="ficha-coordenadas">—</span></div>
-            <div class="info-item"><label>Morador CNEFE</label><span id="ficha-morador-cnefe">—</span></div>
+            <div class="info-item info-item-editavel">
+              <label>Morador CNEFE <button class="btn-editar-campo" onclick="editarCampoFicha('morador_cnefe')" title="Editar nome do morador CNEFE">✏️ editar</button></label>
+              <span id="ficha-morador-cnefe">—</span>
+            </div>
             <div class="info-item"><label>Entrevistador Responsável</label><span id="ficha-entrevistador">—</span></div>
-            <div class="info-item"><label>Supervisor Responsável</label><span id="ficha-supervisor">—</span></div>
           </div>
         </div>
 
@@ -1248,6 +1271,15 @@
           <!-- mantidos por compatibilidade com código existente que usa esses IDs -->
           <div id="historico-especies-ficha" style="display:none"></div>
           <div id="historico-telefones-ficha" style="display:none"></div>
+        </div>
+
+        <hr class="divisor-secao">
+
+        <div id="secao-solicitacoes-ficha">
+          <div class="secao-titulo"><span>📋 Histórico de Solicitações</span></div>
+          <div id="historico-solicitacoes-ficha">
+            <div class="vazio" style="padding:1.25rem"><div class="icone-vazio">📋</div>Nenhuma solicitação registrada para este domicílio.</div>
+          </div>
         </div>
 
         <hr class="divisor-secao">
@@ -1342,35 +1374,101 @@
     </div>
     <div class="modal-footer">
       <button class="btn-acao secundario" onclick="fecharModal('modal-visita')">Cancelar</button>
-      <button class="btn-acao" onclick="salvarVisita()">Registrar</button>
+      <button class="btn-acao" id="btn-registrar-visita" onclick="salvarVisita()">Registrar</button>
     </div>
   </div>
 </div>
 
 <div class="modal-overlay" id="modal-solicitar">
-  <div class="modal">
+  <div class="modal" style="max-width:500px">
     <div class="modal-header">
       <h3>📋 Solicitar</h3>
       <button class="btn-fechar" onclick="fecharModal('modal-solicitar')">×</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:1.25rem" id="solicitar-domicilio-info"></p>
-      <label style="font-size:0.78rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:0.75rem">Tipo de solicitação</label>
-      <div style="display:flex;flex-direction:column;gap:0.5rem">
-        <button class="solicitar-btn" data-tipo="carta_abertura"   data-status="carta_solicitada">📄 Carta de Abertura</button>
-        <button class="solicitar-btn" data-tipo="carta_retorno"    data-status="carta_solicitada">🔄 Carta de Retorno</button>
-        <button class="solicitar-btn" data-tipo="carta_recusa"     data-status="carta_solicitada">✉️ Carta de Recusa</button>
-        <button class="solicitar-btn" data-tipo="apoio_supervisao" data-status="supervisao">👤 Apoio da Supervisão</button>
-        <button class="solicitar-btn" data-tipo="apoio_viatura"    data-status="supervisao">🚗 Apoio da Viatura</button>
+      <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:1rem" id="solicitar-domicilio-info"></p>
+
+      <!-- Solicitações existentes -->
+      <div id="solicitar-existentes" style="display:none;margin-bottom:1rem">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">Solicitações ativas</div>
+        <div id="solicitar-existentes-lista"></div>
       </div>
-      <div class="form-grupo" style="margin-top:1rem">
-        <label>Observação (opcional)</label>
-        <textarea id="solicitar-obs" placeholder="Detalhes da solicitação..."></textarea>
+
+      <div style="font-size:0.72rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.75rem">Nova solicitação</div>
+
+      <!-- Seção 1: Entrevistador -->
+      <div style="margin-bottom:0.85rem">
+        <div style="font-size:0.69rem;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:0.6px;padding:0.22rem 0.6rem;background:var(--azul-claro);border-radius:4px;margin-bottom:0.5rem">Solicitações do Entrevistador</div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem">
+          <button class="solicitar-btn sol-grupo-carta">📋 Carta ▾</button>
+          <div id="sol-sub-carta" style="display:none;flex-direction:column;gap:0.3rem;padding:0.35rem 0 0.5rem 1rem;border-left:2px solid var(--azul-claro);margin-left:0.4rem">
+            <button class="solicitar-btn" data-tipo="carta_abertura" data-status="carta_solicitada">📄 Abertura</button>
+            <button class="solicitar-btn" data-tipo="carta_retorno"  data-status="carta_solicitada">🔄 Retorno</button>
+            <button class="solicitar-btn" data-tipo="carta_recusa"   data-status="carta_solicitada">✉️ Recusa</button>
+            <!-- Picker de nomes — aparece ao selecionar um subtipo de carta -->
+            <div id="solicitar-morador-container" style="display:none;margin-top:0.5rem">
+              <div style="font-size:0.75rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:0.4rem">
+                Nome(s) para a carta <span style="color:var(--vermelho)">*</span>
+                <span style="font-weight:400;text-transform:none;font-size:0.72rem"> — selecione um ou mais</span>
+              </div>
+              <div id="solicitar-morador-picker" style="display:flex;flex-wrap:wrap;gap:0.4rem;min-height:2rem">
+                <span style="font-size:0.8rem;color:var(--cinza);font-style:italic">Carregando nomes...</span>
+              </div>
+            </div>
+          </div>
+          <button class="solicitar-btn" data-tipo="apoio_supervisao" data-status="supervisao">👤 Apoio da Supervisão</button>
+          <button class="solicitar-btn" data-tipo="apoio_viatura"    data-status="supervisao">🚗 Apoio da Viatura</button>
+        </div>
+      </div>
+
+      <!-- Seção 2: Supervisão -->
+      <div style="margin-bottom:0.75rem">
+        <div style="font-size:0.69rem;font-weight:700;color:var(--verde);text-transform:uppercase;letter-spacing:0.6px;padding:0.22rem 0.6rem;background:var(--verde-claro);border-radius:4px;margin-bottom:0.5rem">Solicitações da Supervisão</div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem">
+          <button class="solicitar-btn" data-tipo="correcao_questionario" data-status="supervisao">✏️ Correção de Questionário</button>
+          <button class="solicitar-btn" data-tipo="comunicar_dmc"         data-status="supervisao">📢 Comunicar DMC</button>
+          <button class="solicitar-btn" data-tipo="contato_informante"    data-status="supervisao">📞 Contato com Informante</button>
+          <button class="solicitar-btn" data-tipo="mais_empenho"          data-status="supervisao">💪 Mais Empenho</button>
+        </div>
+      </div>
+
+      <!-- Campos: Contato com Informante -->
+      <div id="sol-campos-contato" style="display:none;margin-top:0.75rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.5rem">
+          <div class="form-grupo" style="margin:0">
+            <label>Nome do Informante</label>
+            <input type="text" id="sol-contato-nome" placeholder="Nome completo">
+          </div>
+          <div class="form-grupo" style="margin:0">
+            <label>Telefone</label>
+            <input type="tel" id="sol-contato-telefone" placeholder="(xx) xxxxx-xxxx">
+          </div>
+        </div>
+        <div class="form-grupo" style="margin:0">
+          <label>Observação</label>
+          <textarea id="sol-contato-obs" placeholder="Informações adicionais sobre o contato..."></textarea>
+        </div>
+      </div>
+
+      <!-- Campos: Mais Empenho -->
+      <div id="sol-campos-empenho" style="display:none;margin-top:0.75rem">
+        <div class="form-grupo" style="margin:0">
+          <label>Qual empenho é esperado? <span style="color:var(--vermelho)">*</span></label>
+          <textarea id="sol-empenho-obs" placeholder="Descreva o que você espera do entrevistador neste domicílio..."></textarea>
+        </div>
+      </div>
+
+      <!-- Obs genérica (demais tipos) -->
+      <div id="sol-campos-obs" style="display:none;margin-top:0.75rem">
+        <div class="form-grupo" style="margin:0">
+          <label>Observação (opcional)</label>
+          <textarea id="solicitar-obs" placeholder="Detalhes da solicitação..."></textarea>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-acao secundario" onclick="fecharModal('modal-solicitar')">Cancelar</button>
-      <button class="btn-acao" onclick="salvarSolicitar()">Confirmar solicitação</button>
+      <button class="btn-acao secundario" onclick="fecharModal('modal-solicitar')">Fechar</button>
+      <button class="btn-acao" id="btn-confirmar-solicitar" onclick="salvarSolicitar()" disabled>Confirmar</button>
     </div>
   </div>
 </div>
@@ -1618,7 +1716,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc,
-  updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp }
+  updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, onSnapshot, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1663,23 +1761,53 @@ function pertencePeriodo(d) {
 // Carrega a biblioteca do mapa (Leaflet) uma única vez e reaproveita a mesma
 // promessa em qualquer lugar que precisar dela — evita carregar/injetar duas vezes.
 let _leafletPromise = null;
+
+// Ordem de tentativa: jsDelivr → cdnjs → unpkg (fallback)
+const _LEAFLET_JS_CDNS = [
+  'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+];
+
+function _tentarCarregarScript(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload  = () => window.L ? resolve() : reject(new Error('window.L ausente após ' + url));
+    s.onerror = () => reject(new Error('Bloqueado/indisponível: ' + url));
+    document.head.appendChild(s);
+  });
+}
+
 function obterLeaflet() {
   if (window.L) return Promise.resolve();
   if (_leafletPromise) return _leafletPromise;
-  _leafletPromise = new Promise((resolve) => {
+
+  // CSS carregado uma única vez pelo CDN primário (estilos idênticos em todos)
+  if (!document.querySelector('link[data-leaflet-css]')) {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
-    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    css.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css';
+    css.setAttribute('data-leaflet-css', '1');
     document.head.appendChild(css);
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = resolve;
-    document.head.appendChild(script);
-  });
+  }
+
+  _leafletPromise = (async () => {
+    for (const url of _LEAFLET_JS_CDNS) {
+      try {
+        await _tentarCarregarScript(url);
+        return; // sucesso — window.L disponível
+      } catch (e) {
+        console.warn('[Mapa] CDN falhou, tentando próximo —', e.message);
+      }
+    }
+    _leafletPromise = null; // permite nova tentativa na próxima abertura de mapa
+    throw new Error('Leaflet inacessível em todos os CDNs disponíveis. Verifique a conexão com a internet.');
+  })();
+
   return _leafletPromise;
 }
-// Dispara o carregamento em segundo plano assim que o app abre, pra já estar
-// pronto quando o usuário clicar numa ficha (evita esperar nesse momento).
+// Pré-carrega Leaflet em background logo após login para não atrasar a abertura do mapa.
 function precarregarLeaflet() { obterLeaflet(); }
 
 window.mudarPeriodo = async (valor) => {
@@ -1695,12 +1823,17 @@ window.mudarPeriodo = async (valor) => {
 
 // ── MAPA DE STATUS ──
 const STATUS = {
-  nao_visitado: { label: "Não visitado", cor: "badge-cinza", bg: "#f1f5f9", fg: "#64748b" },
-  ausente:      { label: "Ausente",       cor: "badge-amarelo", bg: "#fffbeb", fg: "#b45309" },
-  agendado:     { label: "Agendado",      cor: "badge-azul", bg: "#e8f0fb", fg: "#2563a8" },
-  realizada:    { label: "Realizada",     cor: "badge-verde", bg: "#e6f4ed", fg: "#1a7a4a" },
-  recusa:       { label: "Recusa",        cor: "badge-vermelho", bg: "#fef2f2", fg: "#b91c1c" },
+  nao_visitado:     { label: "Não visitado",      cor: "badge-cinza",    bg: "#f1f5f9", fg: "#64748b" },
+  ausente:          { label: "Ausente",            cor: "badge-amarelo",  bg: "#fffbeb", fg: "#b45309" },
+  agendado:         { label: "Agendado",           cor: "badge-azul",     bg: "#e8f0fb", fg: "#2563a8" },
+  realizada:        { label: "Realizada",          cor: "badge-verde",    bg: "#e6f4ed", fg: "#1a7a4a" },
+  recusa:           { label: "Recusa",             cor: "badge-vermelho", bg: "#fef2f2", fg: "#b91c1c" },
+  carta_solicitada: { label: "Carta solicitada",   cor: "badge-azul",     bg: "#e8f0fb", fg: "#2563a8" },
+  supervisao:       { label: "Supervisão",         cor: "badge-azul",     bg: "#e8f0fb", fg: "#2563a8" },
+  vago:             { label: "Vago/Inapto",        cor: "badge-cinza",    bg: "#f1f5f9", fg: "#64748b" },
 };
+// Status que representam pendências reais de visita
+const STATUS_PENDENTES = ['nao_visitado', 'ausente', 'recusa', 'agendado'];
 
 function badgeStatus(s) {
   const st = STATUS[s] || STATUS.nao_visitado;
@@ -1824,6 +1957,28 @@ function abrirModal(id) {
   document.getElementById(id).classList.add('visivel');
 }
 
+// ── ESCAPE HTML ──
+function esc(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(String(str ?? '')));
+  return d.innerHTML;
+}
+
+// ── ERRO DE CARREGAMENTO ──
+function erroCarregamento(ids) {
+  const html =
+    '<div class="vazio">' +
+      '<div class="icone-vazio">⚠️</div>' +
+      'Falha ao carregar os dados. Verifique sua conexão e ' +
+      '<button class="btn-acao secundario" style="display:inline;padding:0.25rem 0.7rem;font-size:0.8rem;vertical-align:middle" ' +
+        'onclick="location.reload()">recarregue a página</button>.' +
+    '</div>';
+  (Array.isArray(ids) ? ids : [ids]).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  });
+}
+
 // ── TOAST ──
 window.mostrarToast = (msg, tipo = '') => {
   const t = document.getElementById('toast');
@@ -1835,8 +1990,14 @@ window.mostrarToast = (msg, tipo = '') => {
 // ── DASHBOARD ──
 async function carregarDashboard() {
   try {
-    const snap = await getDocs(collection(db, 'domicilios'));
-    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.endereco && pertencePeriodo(d));
+    // Reutiliza o cache já carregado por carregarDomicilios() — ambas as funções
+    // aplicam o mesmo filtro (endereco + pertencePeriodo). O fallback garante que
+    // um eventual carregarDashboard() standalone também funcione.
+    const docs = todosdomicilios.length > 0
+      ? todosdomicilios
+      : (await getDocs(collection(db, 'domicilios'))).docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(d => d.endereco && pertencePeriodo(d));
 
     const avisoTodos = document.getElementById('aviso-todos-periodos');
     if (avisoTodos) avisoTodos.style.display = periodoAtual === 'todos' ? '' : 'none';
@@ -1847,7 +2008,7 @@ async function carregarDashboard() {
     if (selSem) selSem.value = semanaAtual;
     const realizadas = docs.filter(d => d.status_atual === 'realizada').length;
     const pendentes = docs.filter(d =>
-      parseInt(d.semana) <= semanaAtual && d.status_atual !== 'realizada'
+      parseInt(d.semana) <= semanaAtual && STATUS_PENDENTES.includes(d.status_atual || 'nao_visitado')
     ).length;
     const recusas = docs.filter(d => d.status_atual === 'recusa').length;
     const etapa5 = docs.filter(d => d.visita_etapa === '5').length;
@@ -1870,7 +2031,7 @@ async function carregarDashboard() {
     for (let s = 1; s <= 4; s++) {
       const semDocs = docs.filter(d => parseInt(d.semana) === s);
       const semReal = semDocs.filter(d => d.status_atual === 'realizada').length;
-      const semPend = semDocs.filter(d => d.status_atual !== 'realizada').length;
+      const semPend = semDocs.filter(d => STATUS_PENDENTES.includes(d.status_atual || 'nao_visitado')).length;
       const pct = semDocs.length > 0 ? Math.round(semReal / semDocs.length * 100) : 0;
       const isPast = s <= semanaAtual;
       htmlSem += `<tr style="${!isPast ? 'opacity:0.4' : ''}">
@@ -1923,7 +2084,7 @@ async function carregarDashboard() {
         nomesCorrespondem(e.nome, d.entrevistador_nome || '')
       );
       const real = meus.filter(d => d.status_atual === 'realizada').length;
-      const pend = meus.filter(d => parseInt(d.semana) <= semanaAtual && d.status_atual !== 'realizada').length;
+      const pend = meus.filter(d => parseInt(d.semana) <= semanaAtual && STATUS_PENDENTES.includes(d.status_atual || 'nao_visitado')).length;
       const rec = meus.filter(d => d.status_atual === 'recusa').length;
       const pct = meus.length > 0 ? Math.round(real / meus.length * 100) : 0;
       html += `<tr>
@@ -1940,7 +2101,54 @@ async function carregarDashboard() {
     }
     html += '</tbody></table></div>';
     document.getElementById('tabela-produtividade').innerHTML = html;
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    erroCarregamento(['tabela-semanas', 'tabela-situacao', 'tabela-produtividade']);
+  }
+}
+
+// ── INDICADOR DE MORADORES PNAD ──
+let _moradoresLoadGen = 0;
+
+function _badgeMoradores(tem) {
+  if (tem === true)
+    return `<button onclick="irPara('importar-sigc')" title="Moradores PNAD cadastrados — clique para importar SIGC"
+      style="margin-top:3px;display:inline-flex;align-items:center;gap:3px;font-size:0.67rem;font-weight:700;
+             color:var(--verde);background:var(--verde-claro);padding:2px 8px;border-radius:10px;
+             border:1px solid #a7f3d0;cursor:pointer">👥 Moradores</button>`;
+  if (tem === false)
+    return `<button onclick="irPara('importar-sigc')" title="Sem moradores PNAD cadastrados — clique para importar SIGC"
+      style="margin-top:3px;display:inline-flex;align-items:center;gap:3px;font-size:0.67rem;font-weight:700;
+             color:var(--amarelo);background:var(--amarelo-claro);padding:2px 8px;border-radius:10px;
+             border:1px solid #fde68a;cursor:pointer">⚠️ Sem moradores</button>`;
+  return `<span style="font-size:0.67rem;color:var(--cinza)">⏳</span>`;
+}
+
+async function _carregarIndicadoresMoradores() {
+  const gen = ++_moradoresLoadGen;
+  const LOTE = 15;
+  for (let i = 0; i < todosdomicilios.length; i += LOTE) {
+    if (gen !== _moradoresLoadGen) return; // período mudou, cancela
+    const lote = todosdomicilios.slice(i, i + LOTE);
+    await Promise.all(lote.map(async (d) => {
+      if (d._tem_moradores !== undefined) {
+        // já carregado — garante que a célula está atualizada se a tabela foi re-renderizada
+        const el = document.getElementById('ind-morad-' + d.id);
+        if (el && el.innerHTML.includes('⏳')) el.innerHTML = _badgeMoradores(d._tem_moradores);
+        return;
+      }
+      try {
+        const snap = await getDocs(query(collection(db, 'domicilios', d.id, 'moradores'), limit(1)));
+        if (gen !== _moradoresLoadGen) return;
+        d._tem_moradores = !snap.empty;
+      } catch (e) {
+        if (gen !== _moradoresLoadGen) return;
+        d._tem_moradores = false;
+      }
+      const el = document.getElementById('ind-morad-' + d.id);
+      if (el) el.innerHTML = _badgeMoradores(d._tem_moradores);
+    }));
+  }
 }
 
 // ── DOMICÍLIOS ──
@@ -1952,9 +2160,12 @@ async function carregarDomicilios() {
     preencherFiltrosUpa();
     preencherFiltroEntrevistador();
     filtrarDomicilios();
-    // Renderiza mapa de setores após domicílios carregados (tem latitude_kml)
     renderizarMapaSetores();
-  } catch(e) { console.error(e); }
+    _carregarIndicadoresMoradores(); // background — não bloqueia a tela
+  } catch(e) {
+    console.error(e);
+    erroCarregamento('tabela-domicilios');
+  }
 }
 
 function preencherFiltrosUpa() {
@@ -2023,29 +2234,36 @@ window.filtrarDomicilios = () => {
     if (entrevistador && entrevistador !== '__sem__' && d.entrevistador_nome !== entrevistador) return false;
     const status = document.getElementById('filtro-status').value;
     if (status && (d.status_atual || 'nao_visitado') !== status) return false;
-    if (solicitacao && d.tipo_solicitacao !== solicitacao) return false;
+    if (solicitacao) {
+      const temNaLista = (d.solicitacoes || []).some(s => s.tipo === solicitacao);
+      const temLegado  = !(d.solicitacoes?.length) && d.tipo_solicitacao === solicitacao;
+      if (!temNaLista && !temLegado) return false;
+    }
     if (q && !(d.endereco||'').toLowerCase().includes(q) && !(d.morador||'').toLowerCase().includes(q)) return false;
     return true;
   });
   const ordem = document.getElementById('filtro-ordem').value;
   const ordemStatus = ['realizada','agendado','ausente','nao_visitado','carta_solicitada','recusa','supervisao'];
   filtrados.sort((a, b) => {
+    // Critério primário de cada modo de ordenação alternativo
     if (ordem === 'status') {
       const ia = ordemStatus.indexOf(a.status_atual || 'nao_visitado');
       const ib = ordemStatus.indexOf(b.status_atual || 'nao_visitado');
       if (ia !== ib) return ia - ib;
-    } else if (ordem === 'semana') {
-      if (a.semana !== b.semana) return parseInt(a.semana||0) - parseInt(b.semana||0);
     } else if (ordem === 'entrevistador') {
-      const ea = a.entrevistador_nome || 'ZZZ';
-      const eb = b.entrevistador_nome || 'ZZZ';
+      const ea = a.entrevistador_nome || '￿';
+      const eb = b.entrevistador_nome || '￿';
       if (ea !== eb) return ea.localeCompare(eb);
     }
-    // Ordem secundária: UPA → Setor → Dom
-    if (a.upa !== b.upa) return (a.upa||'').localeCompare(b.upa||'');
-    const sa = a.controle ? a.controle.slice(0,-1) : a.upa;
-    const sb = b.controle ? b.controle.slice(0,-1) : b.upa;
-    if (sa !== sb) return (sa||'').localeCompare(sb||'');
+    // Hierarquia base (padrão e desempate): Semana → UPA → Setor → Domicílio
+    const semDiff = parseInt(a.semana||0) - parseInt(b.semana||0);
+    if (semDiff !== 0) return semDiff;
+    const upaDiff = (a.upa||'').localeCompare(b.upa||'');
+    if (upaDiff !== 0) return upaDiff;
+    const sa = a.controle ? a.controle.slice(0,-1) : (a.upa||'');
+    const sb = b.controle ? b.controle.slice(0,-1) : (b.upa||'');
+    const setDiff = sa.localeCompare(sb);
+    if (setDiff !== 0) return setDiff;
     return parseInt(a.domicilio_num||0) - parseInt(b.domicilio_num||0);
   });
   renderizarDomicilios(filtrados);
@@ -2269,7 +2487,7 @@ window.gerarCartoes = async () => {
   const STATUS_LABEL = {
     nao_visitado: 'Não visitado', ausente: 'Ausente', agendado: 'Agendado',
     realizada: 'Realizada', recusa: 'Recusa', carta_solicitada: 'Carta solicitada',
-    supervisao: 'Supervisão',
+    supervisao: 'Supervisão', vago: 'Vago/Inapto',
   };
 
   const montarCartao = (d) => {
@@ -2497,13 +2715,15 @@ function renderizarDomicilios(lista) {
       <td style="font-size:0.82rem">${nomeEntr}</td>
       <td>
         <div style="font-size:0.85rem;font-weight:600">${d.endereco || '-'}</div>
-        <div style="font-size:0.75rem;color:var(--cinza)">${d.morador || ''}${d.telefone ? ' · ' + d.telefone : ''}</div>
+        <div style="font-size:0.75rem;color:var(--cinza)">${d.morador_cnefe || d.morador || ''}${d.telefone ? ' · ' + d.telefone : ''}</div>
+        <div id="ind-morad-${d.id}">${_badgeMoradores(d._tem_moradores)}</div>
       </td>
       <td>
         ${badgeStatus(d.status_atual || 'nao_visitado')}
-        ${d.tipo_solicitacao ? `<div style="margin-top:3px;font-size:0.68rem;font-weight:700;color:var(--laranja);background:var(--laranja-claro);padding:2px 6px;border-radius:10px;display:inline-block">${
-          {carta_abertura:'📄 Carta Abertura', carta_retorno:'🔄 Carta Retorno', carta_recusa:'✉️ Carta Recusa', apoio_supervisao:'👤 Supervisão', apoio_viatura:'🚗 Viatura'}[d.tipo_solicitacao] || d.tipo_solicitacao
-        }</div>` : ''}
+        ${(d.solicitacoes?.length ? d.solicitacoes : d.tipo_solicitacao ? [{ tipo: d.tipo_solicitacao }] : [])
+          .map(s => `<div style="margin-top:3px;font-size:0.68rem;font-weight:700;color:var(--laranja);background:var(--laranja-claro);padding:2px 6px;border-radius:10px;display:inline-block">${
+            {carta_abertura:'📄 Carta Abertura', carta_retorno:'🔄 Carta Retorno', carta_recusa:'✉️ Carta Recusa', apoio_supervisao:'👤 Supervisão', apoio_viatura:'🚗 Viatura', correcao_questionario:'✏️ Correção Quest.', comunicar_dmc:'📢 DMC', contato_informante:'📞 Informante', mais_empenho:'💪 Empenho'}[s.tipo] || s.tipo
+          }</div>`).join('')}
       </td>
       <td>
         <div style="display:flex;gap:0.5rem">
@@ -2534,13 +2754,10 @@ window.abrirFicha = (id) => {
   const setor = dom.controle ? dom.controle.slice(0,-1) : (dom.upa || '-');
   document.getElementById('ficha-upa').textContent = dom.upa || '—';
   document.getElementById('ficha-setor').textContent = setor;
-  document.getElementById('ficha-controle').textContent = dom.controle || '—';
   document.getElementById('ficha-endereco').textContent = dom.endereco || '—';
   document.getElementById('ficha-complemento').textContent = dom.complemento || '—';
-  document.getElementById('ficha-coordenadas').textContent = dom.coordenadas || '—';
   document.getElementById('ficha-morador-cnefe').textContent = dom.morador_cnefe || dom.morador || '—';
   document.getElementById('ficha-entrevistador').textContent = dom.entrevistador_nome || 'Não atribuído';
-  document.getElementById('ficha-supervisor').textContent = dom.supervisor_nome || 'Não atribuído';
 
   // ── HISTÓRICO UNIFICADO: etapas + entrevistador + telefone + observação ──
   const divUnif = document.getElementById('historico-unificado-ficha');
@@ -2617,10 +2834,93 @@ window.abrirFicha = (id) => {
   const _setorFicha = (typeof dom !== "undefined" && dom) ? (dom.controle ? dom.controle.slice(0,-1) : dom.upa) : "";
   if (_setorFicha && typeof carregarRoteiroSetor !== "undefined") carregarRoteiroSetor(_setorFicha, dom || {});
 
+  // Histórico de solicitações
+  renderizarHistoricoSolicitacoesFicha(id);
+
   // Navegar para a página da ficha
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('ativo'));
   document.getElementById('pag-ficha-domicilio').classList.add('ativa');
+};
+
+// ── EDIÇÃO INLINE DE CAMPOS DA FICHA ──
+const _CAMPOS_EDITAVEIS = {
+  endereco:     { spanId: 'ficha-endereco',     label: 'Endereço' },
+  morador_cnefe: { spanId: 'ficha-morador-cnefe', label: 'Morador CNEFE' },
+};
+
+window.editarCampoFicha = (campo) => {
+  const cfg = _CAMPOS_EDITAVEIS[campo];
+  if (!cfg || !domicilioAtualId) return;
+  const span = document.getElementById(cfg.spanId);
+  if (!span || span.dataset.editing === '1') return;
+
+  const valorAtual = span.textContent === '—' ? '' : span.textContent;
+  span.dataset.editing = '1';
+  span.style.display = 'none';
+
+  const pai = span.parentElement;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = valorAtual;
+  input.className = 'ficha-campo-input';
+  input.placeholder = cfg.label;
+
+  const btnSalvar = document.createElement('button');
+  btnSalvar.className = 'btn-acao';
+  btnSalvar.style.cssText = 'font-size:0.8rem;padding:0.3rem 0.8rem';
+  btnSalvar.textContent = '✓ Salvar';
+
+  const btnCancelar = document.createElement('button');
+  btnCancelar.className = 'btn-acao secundario';
+  btnCancelar.style.cssText = 'font-size:0.8rem;padding:0.3rem 0.7rem';
+  btnCancelar.textContent = '✕';
+
+  const acoes = document.createElement('div');
+  acoes.className = 'ficha-campo-acoes';
+  acoes.appendChild(btnSalvar);
+  acoes.appendChild(btnCancelar);
+
+  pai.appendChild(input);
+  pai.appendChild(acoes);
+  input.focus();
+  input.select();
+
+  const restaurar = () => {
+    pai.removeChild(input);
+    pai.removeChild(acoes);
+    span.style.display = '';
+    delete span.dataset.editing;
+  };
+
+  const salvar = async () => {
+    const novoValor = input.value.trim();
+    if (novoValor === valorAtual) { restaurar(); return; }
+    btnSalvar.disabled = true;
+    btnSalvar.textContent = '⏳';
+    try {
+      await updateDoc(doc(db, 'domicilios', domicilioAtualId), { [campo]: novoValor });
+      const domObj = todosdomicilios.find(d => d.id === domicilioAtualId);
+      if (domObj) domObj[campo] = novoValor;
+      span.textContent = novoValor || '—';
+      restaurar();
+      mostrarToast(cfg.label + ' atualizado com sucesso.', 'sucesso');
+      filtrarDomicilios();
+    } catch (e) {
+      console.error(e);
+      mostrarToast('Erro ao salvar: ' + e.message, 'erro');
+      btnSalvar.disabled = false;
+      btnSalvar.textContent = '✓ Salvar';
+    }
+  };
+
+  btnSalvar.onclick = salvar;
+  btnCancelar.onclick = restaurar;
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); salvar(); }
+    if (e.key === 'Escape') { restaurar(); }
+  });
 };
 
 // ── ATRIBUIÇÃO DE ENTREVISTADORES ──
@@ -2763,7 +3063,8 @@ window.abrirVisita = (id, endereco) => {
 
   const grid = document.getElementById('status-grid');
   grid.innerHTML = '';
-  for (const [key, val] of Object.entries(STATUS)) {
+  for (const key of ['nao_visitado', 'ausente', 'agendado', 'realizada', 'recusa', 'vago']) {
+    const val = STATUS[key];
     const btn = document.createElement('button');
     btn.className = 'status-btn';
     btn.textContent = val.label;
@@ -2781,6 +3082,8 @@ window.abrirVisita = (id, endereco) => {
 
 window.salvarVisita = async () => {
   if (!statusSelecionado) { mostrarToast('Selecione um status', 'erro'); return; }
+  const btn = document.getElementById('btn-registrar-visita');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   try {
     const domAtual = todosdomicilios.find(d => d.id === domicilioAtualId);
     const periodoVisita = (domAtual && domAtual.periodo) || (periodoAtual !== 'todos' ? periodoAtual : PERIODO_PADRAO);
@@ -2803,61 +3106,325 @@ window.salvarVisita = async () => {
     carregarDomicilios();
     carregarVisitas();
     carregarDashboard();
-  } catch(e) { mostrarToast('Erro ao registrar', 'erro'); console.error(e); }
+  } catch(e) {
+    mostrarToast('Erro ao registrar', 'erro');
+    console.error(e);
+    if (btn) { btn.disabled = false; btn.textContent = 'Registrar'; }
+  }
 };
 
 // ── SOLICITAR ──
-let tipoSolicitacaoSelecionado = null;
+const SOL_LABELS = {
+  carta_abertura:        '📄 Carta de Abertura',
+  carta_retorno:         '🔄 Carta de Retorno',
+  carta_recusa:          '✉️ Carta de Recusa',
+  apoio_supervisao:      '👤 Apoio da Supervisão',
+  apoio_viatura:         '🚗 Apoio da Viatura',
+  correcao_questionario: '✏️ Correção de Questionário',
+  comunicar_dmc:         '📢 Comunicar DMC',
+  contato_informante:    '📞 Contato com Informante',
+  mais_empenho:          '💪 Mais Empenho',
+};
+const SOL_TIPOS_CARTA      = ['carta_abertura', 'carta_retorno', 'carta_recusa'];
+const SOL_TIPOS_SUPERVISOR = ['correcao_questionario', 'comunicar_dmc', 'contato_informante', 'mais_empenho'];
+
+let tipoSolicitacaoSelecionado   = null;
 let statusSolicitacaoSelecionado = null;
+
+function calcularStatusSolicitacoes(sols, statusBase) {
+  const ativas = (sols || []).filter(s => !s.resolvido);
+  if (ativas.length === 0) return statusBase || 'nao_visitado';
+  if (ativas.some(s => ['apoio_supervisao', 'apoio_viatura', ...SOL_TIPOS_SUPERVISOR].includes(s.tipo)))
+    return 'supervisao';
+  return 'carta_solicitada';
+}
+
+function renderizarSolicitacoesExistentes(domId) {
+  const d = todosdomicilios.find(x => x.id === domId);
+  const sols = (d?.solicitacoes || []).filter(s => !s.resolvido);
+  const container = document.getElementById('solicitar-existentes');
+  const lista     = document.getElementById('solicitar-existentes-lista');
+  if (!container || !lista) return;
+  if (sols.length === 0) { container.style.display = 'none'; return; }
+  container.style.display = '';
+  lista.innerHTML = sols.map(s => {
+    let detalhes = '';
+    if (s.morador_carta)      detalhes += `<span style="color:var(--cinza)"> · ${esc(s.morador_carta)}</span>`;
+    if (s.nome_informante)    detalhes += `<div style="font-size:0.75rem;color:var(--cinza)">👤 ${esc(s.nome_informante)}${s.telefone_informante ? ' · 📞 ' + esc(s.telefone_informante) : ''}</div>`;
+    if (s.obs)                detalhes += `<div style="font-size:0.75rem;color:var(--cinza);margin-top:2px">${esc(s.obs)}</div>`;
+    return `<div style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.5rem 0.75rem;background:var(--cinza-claro);border-radius:6px;margin-bottom:0.4rem">
+      <div style="flex:1;font-size:0.83rem">
+        <span style="font-weight:700">${SOL_LABELS[s.tipo] || s.tipo}</span>${detalhes}
+      </div>
+      <button onclick="excluirSolicitar('${domId}','${s.id}')" title="Marcar como resolvida"
+        style="flex-shrink:0;background:var(--verde);color:#fff;border:none;border-radius:4px;padding:0.2rem 0.6rem;cursor:pointer;font-size:0.8rem;font-weight:700;line-height:1.4">✓</button>
+    </div>`;
+  }).join('');
+}
+
+let _solicitarMoradores = [];
+
+function renderizarMoradorPicker(limpar = false) {
+  const picker = document.getElementById('solicitar-morador-picker');
+  if (!picker) return;
+  const selAtual = limpar ? new Set() :
+    new Set([...picker.querySelectorAll('.chip-morador.selecionado')].map(b => b.dataset.nome));
+  if (_solicitarMoradores.length === 0) {
+    picker.innerHTML = '<span style="font-size:0.8rem;color:var(--cinza);font-style:italic">Carregando nomes...</span>';
+    return;
+  }
+  picker.innerHTML = _solicitarMoradores.map(nome => {
+    const sel = selAtual.has(nome);
+    return `<button type="button" class="chip-morador${sel ? ' selecionado' : ''}" data-nome="${esc(nome)}"
+      onclick="toggleMoradorCarta(this)"
+      style="padding:0.35rem 0.85rem;border-radius:20px;font-size:0.82rem;cursor:pointer;transition:all 0.15s;
+             border:1.5px solid ${sel ? 'var(--azul-medio)' : 'var(--borda)'};
+             background:${sel ? 'var(--azul-claro)' : 'var(--cinza-claro)'};
+             color:${sel ? 'var(--azul)' : 'inherit'};font-weight:${sel ? '700' : '400'}"
+    >${esc(nome)}</button>`;
+  }).join('');
+}
+
+window.toggleMoradorCarta = (btn) => {
+  const sel = btn.classList.toggle('selecionado');
+  btn.style.borderColor = sel ? 'var(--azul-medio)'  : 'var(--borda)';
+  btn.style.background  = sel ? 'var(--azul-claro)'  : 'var(--cinza-claro)';
+  btn.style.color       = sel ? 'var(--azul)'        : '';
+  btn.style.fontWeight  = sel ? '700'                : '400';
+};
+
+function getMoradoresSelecionados() {
+  return [...document.querySelectorAll('#solicitar-morador-picker .chip-morador.selecionado')]
+    .map(b => b.dataset.nome);
+}
+
+function _atualizarCamposDinamicos() {
+  const tipo      = tipoSolicitacaoSelecionado;
+  const ehCarta   = SOL_TIPOS_CARTA.includes(tipo);
+  const ehContato = tipo === 'contato_informante';
+  const ehEmpenho = tipo === 'mais_empenho';
+  const ehObs     = tipo && !ehCarta && !ehContato && !ehEmpenho;
+  document.getElementById('solicitar-morador-container').style.display = ehCarta   ? '' : 'none';
+  document.getElementById('sol-campos-contato').style.display          = ehContato ? '' : 'none';
+  document.getElementById('sol-campos-empenho').style.display          = ehEmpenho ? '' : 'none';
+  document.getElementById('sol-campos-obs').style.display              = ehObs     ? '' : 'none';
+  if (ehCarta) renderizarMoradorPicker();
+}
+
+function _resetarModalSolicitar() {
+  tipoSolicitacaoSelecionado   = null;
+  statusSolicitacaoSelecionado = null;
+  document.querySelectorAll('.solicitar-btn').forEach(b => b.classList.remove('selecionado'));
+  const sub = document.getElementById('sol-sub-carta');
+  if (sub) sub.style.display = 'none';
+  const grupoBtn = document.querySelector('.sol-grupo-carta');
+  if (grupoBtn) grupoBtn.textContent = '📋 Carta ▾';
+  document.getElementById('solicitar-morador-container').style.display = 'none';
+  document.getElementById('sol-campos-contato').style.display          = 'none';
+  document.getElementById('sol-campos-empenho').style.display          = 'none';
+  document.getElementById('sol-campos-obs').style.display              = 'none';
+  const elObs     = document.getElementById('solicitar-obs');       if (elObs)     elObs.value     = '';
+  const elNome    = document.getElementById('sol-contato-nome');    if (elNome)    elNome.value    = '';
+  const elTel     = document.getElementById('sol-contato-telefone');if (elTel)     elTel.value     = '';
+  const elContObs = document.getElementById('sol-contato-obs');     if (elContObs) elContObs.value = '';
+  const elEmpObs  = document.getElementById('sol-empenho-obs');     if (elEmpObs)  elEmpObs.value  = '';
+  renderizarMoradorPicker(true);
+  const btnConf = document.getElementById('btn-confirmar-solicitar');
+  if (btnConf) { btnConf.disabled = true; btnConf.textContent = 'Confirmar'; }
+}
 
 window.abrirSolicitar = (id) => {
   const d = todosdomicilios.find(x => x.id === id);
   if (!d) return;
   domicilioAtualId = id;
-  tipoSolicitacaoSelecionado = null;
-  statusSolicitacaoSelecionado = null;
+  _solicitarMoradores = [];
   document.getElementById('solicitar-domicilio-info').textContent = '📍 ' + (d.endereco || '');
-  document.getElementById('solicitar-obs').value = '';
-  document.querySelectorAll('.solicitar-btn').forEach(b => b.classList.remove('selecionado'));
+  _resetarModalSolicitar();
+  renderizarSolicitacoesExistentes(id);
   abrirModal('modal-solicitar');
+
+  // Pré-carrega nomes de moradores em background para o picker de cartas
+  (async () => {
+    const nomes = [];
+    try {
+      const snap = await getDocs(collection(db, 'domicilios', id, 'moradores'));
+      snap.docs.forEach(m => { const n = (m.data().nome || '').trim(); if (n) nomes.push(n); });
+    } catch(e) { console.error('Erro ao carregar moradores:', e); }
+    const cnefe = (d.morador_cnefe || d.morador || '').trim();
+    if (cnefe && !nomes.includes(cnefe)) nomes.push(cnefe);
+    nomes.push('Sr.(a) Morador(a)');
+    _solicitarMoradores = nomes;
+    if (tipoSolicitacaoSelecionado && SOL_TIPOS_CARTA.includes(tipoSolicitacaoSelecionado)) {
+      renderizarMoradorPicker();
+    }
+  })();
 };
 
 document.addEventListener('click', (e) => {
+  // Botão grupo "Carta" — abre/fecha submenu
+  const grupoBtn = e.target.closest('.sol-grupo-carta');
+  if (grupoBtn) {
+    const sub = document.getElementById('sol-sub-carta');
+    if (!sub) return;
+    const abrindo = sub.style.display === 'none' || !sub.style.display;
+    sub.style.display = abrindo ? 'flex' : 'none';
+    grupoBtn.textContent = abrindo ? '📋 Carta ▴' : '📋 Carta ▾';
+    if (!abrindo && SOL_TIPOS_CARTA.includes(tipoSolicitacaoSelecionado)) {
+      tipoSolicitacaoSelecionado   = null;
+      statusSolicitacaoSelecionado = null;
+      _atualizarCamposDinamicos();
+      const btnConf = document.getElementById('btn-confirmar-solicitar');
+      if (btnConf) btnConf.disabled = true;
+    }
+    return;
+  }
+
+  // Botões de tipo individual
   const btn = e.target.closest('.solicitar-btn');
-  if (!btn) return;
-  document.querySelectorAll('.solicitar-btn').forEach(b => b.classList.remove('selecionado'));
+  if (!btn || btn.classList.contains('sol-grupo-carta') || !btn.dataset.tipo) return;
+  document.querySelectorAll('.solicitar-btn:not(.sol-grupo-carta)').forEach(b => b.classList.remove('selecionado'));
   btn.classList.add('selecionado');
-  tipoSolicitacaoSelecionado = btn.dataset.tipo;
+  tipoSolicitacaoSelecionado   = btn.dataset.tipo;
   statusSolicitacaoSelecionado = btn.dataset.status;
+  _atualizarCamposDinamicos();
+  const btnConf = document.getElementById('btn-confirmar-solicitar');
+  if (btnConf) btnConf.disabled = false;
 });
 
 window.salvarSolicitar = async () => {
   if (!tipoSolicitacaoSelecionado) { mostrarToast('Selecione o tipo de solicitação', 'erro'); return; }
-  const LABELS = {
-    carta_abertura: 'Carta de Abertura', carta_retorno: 'Carta de Retorno',
-    carta_recusa: 'Carta de Recusa', apoio_supervisao: 'Apoio da Supervisão', apoio_viatura: 'Apoio da Viatura',
-  };
+
+  const ehCarta   = SOL_TIPOS_CARTA.includes(tipoSolicitacaoSelecionado);
+  const ehContato = tipoSolicitacaoSelecionado === 'contato_informante';
+  const ehEmpenho = tipoSolicitacaoSelecionado === 'mais_empenho';
+
+  const selecionados       = ehCarta   ? getMoradoresSelecionados() : [];
+  const moradorNome        = selecionados.length > 0 ? selecionados.join(' e ') : null;
+  const nomeInformante     = ehContato ? (document.getElementById('sol-contato-nome').value.trim()      || null) : null;
+  const telefoneInformante = ehContato ? (document.getElementById('sol-contato-telefone').value.trim()  || null) : null;
+  const obsContato         = ehContato ? (document.getElementById('sol-contato-obs').value.trim()       || null) : null;
+  const obsEmpenho         = ehEmpenho ? (document.getElementById('sol-empenho-obs').value.trim()       || null) : null;
+  const obsGenerica        = (!ehCarta && !ehContato && !ehEmpenho) ? (document.getElementById('solicitar-obs').value.trim() || null) : null;
+  const obs                = obsContato || obsEmpenho || obsGenerica || null;
+
+  if (ehCarta   && selecionados.length === 0) { mostrarToast('Selecione pelo menos um nome para a carta', 'erro'); return; }
+  if (ehEmpenho && !obsEmpenho)               { mostrarToast('Descreva o empenho esperado', 'erro'); return; }
+
+  const btnConf = document.getElementById('btn-confirmar-solicitar');
+  if (btnConf) { btnConf.disabled = true; btnConf.textContent = 'Salvando…'; }
   try {
     const domAtual = todosdomicilios.find(d => d.id === domicilioAtualId);
     const periodoVisita = (domAtual && domAtual.periodo) || (periodoAtual !== 'todos' ? periodoAtual : PERIODO_PADRAO);
-    const obs = document.getElementById('solicitar-obs').value.trim();
+    const novaSol = {
+      id:                  Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      tipo:                tipoSolicitacaoSelecionado,
+      morador_carta:       moradorNome,
+      nome_informante:     nomeInformante,
+      telefone_informante: telefoneInformante,
+      obs:                 obs,
+      criado_em_ts:        Date.now(),
+      criado_por_nome:     usuarioLogado.nome || usuarioLogado.email || '',
+    };
+    // Preserva o status original antes de ser sobreposto pela solicitação
+    const solsAtivasAntes = (domAtual?.solicitacoes || []).filter(s => !s.resolvido);
+    const statusBase = solsAtivasAntes.length === 0 ? (domAtual?.status_atual || 'nao_visitado') : undefined;
+    const novasSols = [...(domAtual?.solicitacoes || []), novaSol];
     await addDoc(collection(db, 'visitas'), {
       domicilio_id: domicilioAtualId, entrevistador_id: usuarioLogado.uid,
       data_visita: serverTimestamp(), status: statusSolicitacaoSelecionado,
       tipo_solicitacao: tipoSolicitacaoSelecionado,
-      observacao: LABELS[tipoSolicitacaoSelecionado] + (obs ? ' — ' + obs : ''),
+      observacao: SOL_LABELS[tipoSolicitacaoSelecionado] + (obs ? ' — ' + obs : ''),
       carta_solicitada: statusSolicitacaoSelecionado === 'carta_solicitada', periodo: periodoVisita
     });
     await updateDoc(doc(db, 'domicilios', domicilioAtualId), {
-      status_atual: statusSolicitacaoSelecionado, tipo_solicitacao: tipoSolicitacaoSelecionado,
+      solicitacoes: novasSols,
+      status_atual: calcularStatusSolicitacoes(novasSols, statusBase),
+      tipo_solicitacao: tipoSolicitacaoSelecionado,
       ultima_visita: serverTimestamp(),
+      ...(statusBase !== undefined ? { status_base: statusBase } : {}),
     });
-    fecharModal('modal-solicitar');
-    mostrarToast(LABELS[tipoSolicitacaoSelecionado] + ' solicitada!', 'sucesso');
+    if (domAtual) {
+      domAtual.solicitacoes = novasSols;
+      domAtual.status_atual = calcularStatusSolicitacoes(novasSols, statusBase);
+      if (statusBase !== undefined) domAtual.status_base = statusBase;
+    }
+    mostrarToast(SOL_LABELS[tipoSolicitacaoSelecionado] + ' solicitada!', 'sucesso');
+    _resetarModalSolicitar();
+    renderizarSolicitacoesExistentes(domicilioAtualId);
     carregarDomicilios();
     carregarDashboard();
-  } catch(e) { mostrarToast('Erro ao salvar solicitação', 'erro'); console.error(e); }
+  } catch(e) {
+    mostrarToast('Erro ao salvar solicitação', 'erro');
+    console.error(e);
+    if (btnConf) { btnConf.disabled = false; btnConf.textContent = 'Confirmar'; }
+  }
 };
+
+window.excluirSolicitar = async (domId, solId) => {
+  const domAtual = todosdomicilios.find(d => d.id === domId);
+  if (!domAtual) return;
+  const agora = Date.now();
+  const novasSols = (domAtual.solicitacoes || []).map(s =>
+    s.id === solId
+      ? { ...s, resolvido: true, resolvido_em: agora, resolvido_por: usuarioLogado.nome || usuarioLogado.email || '' }
+      : s
+  );
+  const ativas = novasSols.filter(s => !s.resolvido);
+  const novoStatus = ativas.length > 0
+    ? calcularStatusSolicitacoes(novasSols, domAtual.status_base)
+    : (domAtual.status_base || 'nao_visitado');
+  try {
+    await updateDoc(doc(db, 'domicilios', domId), {
+      solicitacoes: novasSols,
+      status_atual: novoStatus,
+      tipo_solicitacao: ativas.length > 0 ? ativas[ativas.length - 1].tipo : null,
+    });
+    domAtual.solicitacoes = novasSols;
+    domAtual.status_atual = novoStatus;
+    renderizarSolicitacoesExistentes(domId);
+    if (typeof domicilioAtualId !== 'undefined' && domicilioAtualId === domId)
+      renderizarHistoricoSolicitacoesFicha(domId);
+    mostrarToast('Solicitação resolvida ✓', 'sucesso');
+    carregarDomicilios();
+    carregarDashboard();
+  } catch(e) {
+    mostrarToast('Erro ao resolver solicitação', 'erro');
+    console.error(e);
+  }
+};
+
+function renderizarHistoricoSolicitacoesFicha(domId) {
+  const div = document.getElementById('historico-solicitacoes-ficha');
+  if (!div) return;
+  const dom = todosdomicilios.find(d => d.id === domId);
+  const sols = [...(dom?.solicitacoes || [])].sort((a, b) => (b.criado_em_ts || 0) - (a.criado_em_ts || 0));
+  if (sols.length === 0) {
+    div.innerHTML = '<div class="vazio" style="padding:1.25rem"><div class="icone-vazio">📋</div>Nenhuma solicitação registrada para este domicílio.</div>';
+    return;
+  }
+  div.innerHTML = sols.map(s => {
+    const ativa = !s.resolvido;
+    const dataCriacao = s.criado_em_ts ? new Date(s.criado_em_ts).toLocaleDateString('pt-BR') : '—';
+    let detalhes = '';
+    if (s.morador_carta)   detalhes += `<div style="font-size:0.78rem;color:var(--cinza)">👤 ${esc(s.morador_carta)}</div>`;
+    if (s.nome_informante) detalhes += `<div style="font-size:0.78rem;color:var(--cinza)">📞 ${esc(s.nome_informante)}${s.telefone_informante ? ' · ' + esc(s.telefone_informante) : ''}</div>`;
+    if (s.obs)             detalhes += `<div style="font-size:0.78rem;color:var(--cinza);margin-top:2px">${esc(s.obs)}</div>`;
+    const resolvidoInfo = (s.resolvido && s.resolvido_em)
+      ? `<div style="font-size:0.73rem;color:var(--verde);margin-top:4px">✅ Resolvida em ${new Date(s.resolvido_em).toLocaleDateString('pt-BR')}${s.resolvido_por ? ' por ' + esc(s.resolvido_por) : ''}</div>`
+      : '';
+    return `<div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.65rem 0.85rem;border-radius:8px;margin-bottom:0.5rem;
+        background:${ativa ? 'var(--azul-claro)' : 'var(--cinza-claro)'};border:1px solid ${ativa ? 'var(--azul-medio)' : 'var(--borda)'}">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+          <span style="font-size:0.85rem;font-weight:700;color:${ativa ? 'var(--azul)' : 'var(--cinza)'}">${SOL_LABELS[s.tipo] || s.tipo}</span>
+          <span class="badge ${ativa ? 'badge-azul' : 'badge-cinza'}" style="font-size:0.68rem">${ativa ? 'Ativa' : 'Resolvida'}</span>
+          <span style="font-size:0.72rem;color:var(--cinza);margin-left:auto">${dataCriacao}${s.criado_por_nome ? ' · ' + esc(s.criado_por_nome) : ''}</span>
+        </div>
+        ${detalhes}${resolvidoInfo}
+      </div>
+    </div>`;
+  }).join('');
+}
 
 async function carregarVisitas() {
   try {
@@ -2884,7 +3451,10 @@ async function carregarVisitas() {
     }
     html += '</tbody></table>';
     document.getElementById('tabela-visitas').innerHTML = html;
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    erroCarregamento('tabela-visitas');
+  }
 }
 
 // ── SETORES ──
@@ -2984,7 +3554,7 @@ async function carregarSetores() {
       for (const [setor, dados] of Object.entries(setores).sort()) {
         const total = dados.domicilios.length;
         const realizadas = dados.domicilios.filter(d => d.status_atual === 'realizada').length;
-        const pendentes = dados.domicilios.filter(d => ['nao_visitado','ausente','agendado'].includes(d.status_atual || 'nao_visitado')).length;
+        const pendentes = dados.domicilios.filter(d => STATUS_PENDENTES.includes(d.status_atual || 'nao_visitado')).length;
         const pct = total > 0 ? Math.round(realizadas / total * 100) : 0;
         const isSameUpa = setor === upa;
         const temCSV = setoresComCSV.has(setor);
@@ -3014,7 +3584,10 @@ async function carregarSetores() {
 
     html += '</tbody></table></div>';
     document.getElementById('tabela-setores').innerHTML = html;
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    erroCarregamento('tabela-setores');
+  }
 }
 
 window.abrirModalSetor = async () => {
@@ -3065,7 +3638,10 @@ async function carregarUsuarios() {
     }
     html += '</tbody></table>';
     document.getElementById('tabela-usuarios').innerHTML = html;
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    erroCarregamento('tabela-usuarios');
+  }
 }
 
 window.abrirModalUsuario = async () => {
@@ -3501,15 +4077,18 @@ async function carregarAvisos() {
       const data = a.criado_em?.toDate?.()?.toLocaleDateString('pt-BR') || '—';
       html += `<div style="background:var(--azul-claro);border-radius:8px;padding:1rem;border-left:4px solid var(--azul-medio)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <strong style="color:var(--azul)">${a.titulo}</strong>
+          <strong style="color:var(--azul)">${esc(a.titulo)}</strong>
           <span style="font-size:0.75rem;color:var(--cinza)">${data}</span>
         </div>
-        <p style="font-size:0.87rem;color:var(--cinza-escuro)">${a.mensagem}</p>
+        <p style="font-size:0.87rem;color:var(--cinza-escuro)">${esc(a.mensagem)}</p>
       </div>`;
     }
     html += '</div>';
     document.getElementById('lista-avisos').innerHTML = html;
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    erroCarregamento('lista-avisos');
+  }
 }
 
 window.abrirModalAviso = () => {
@@ -3579,7 +4158,10 @@ async function carregarTentativas() {
     }
 
     filtrarTentativas();
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    erroCarregamento('tabela-tentativas');
+  }
 }
 
 window.filtrarTentativas = () => {
@@ -3662,6 +4244,18 @@ function iniciarChat() {
       container.appendChild(div);
     });
     container.scrollTop = container.scrollHeight;
+  }, (erro) => {
+    console.error('Chat: erro no listener do Firestore', erro);
+    const container = document.getElementById('chat-msgs');
+    if (container) {
+      container.innerHTML =
+        '<div class="vazio" style="padding:1rem">' +
+          '<div class="icone-vazio">⚠️</div>' +
+          'O chat perdeu a conexão. ' +
+          '<button class="btn-acao secundario" style="display:inline;padding:0.25rem 0.7rem;font-size:0.8rem;vertical-align:middle" ' +
+            'onclick="location.reload()">Recarregue a página</button> para reconectar.' +
+        '</div>';
+    }
   });
   unsubs.push(unsub);
 }
@@ -3819,45 +4413,55 @@ let mapasCarregados = {};
 
 function parseKML(kmlText) {
   const parser = new DOMParser();
-  const doc = parser.parseFromString(kmlText, 'text/xml');
+  const xmlDoc = parser.parseFromString(kmlText, 'text/xml');
   const ns = 'http://www.opengis.net/kml/2.2';
-  
-  const folders = doc.getElementsByTagNameNS(ns, 'Folder');
+
+  // KMLs do IBGE/Google Earth às vezes omitem o namespace ou usam variante sem versão.
+  // Tenta com namespace primeiro; se vazio, cai para busca sem namespace.
+  const getEls = (parent, tag) => {
+    const comNs = parent.getElementsByTagNameNS(ns, tag);
+    return comNs.length > 0 ? comNs : parent.getElementsByTagName(tag);
+  };
+
+  const folders = getEls(xmlDoc, 'Folder');
   const resultado = {};
-  
+
   Array.from(folders).forEach(folder => {
-    const nameEl = folder.getElementsByTagNameNS(ns, 'name')[0];
+    const nameEl = getEls(folder, 'name')[0];
     const setor = nameEl ? nameEl.textContent.trim() : '';
     if (!setor || setor === 'Contorno') return;
-    
+
     resultado[setor] = [];
-    const placemarks = folder.getElementsByTagNameNS(ns, 'Placemark');
-    
+    const placemarks = getEls(folder, 'Placemark');
+
     Array.from(placemarks).forEach(pm => {
-      const pmName = pm.getElementsByTagNameNS(ns, 'name')[0];
-      const desc = pm.getElementsByTagNameNS(ns, 'description')[0];
-      const coords = pm.getElementsByTagNameNS(ns, 'coordinates')[0];
-      
+      const pmName = getEls(pm, 'name')[0];
+      const desc   = getEls(pm, 'description')[0];
+      const coords = getEls(pm, 'coordinates')[0];
+
       if (!coords) return;
-      const [lng, lat] = coords.textContent.trim().split(',').map(Number);
-      
-      // Parse description HTML
+
+      // Coordenadas KML: "lng,lat,alt" — separa por vírgula ou espaço
+      const partes = coords.textContent.trim().split(/[,\s]+/).map(Number);
+      const lng = partes[0], lat = partes[1];
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+
       const descHtml = desc ? desc.textContent : '';
-      const logMatch = descHtml.match(/Logradouro[^:]*:[^A-Z]*([A-Z][^<]+)/i);
-      const numMatch = descHtml.match(/N.mero[^:]*:[^0-9]*([0-9][^<]*)/i);
+      const logMatch  = descHtml.match(/Logradouro[^:]*:[^A-Z]*([A-Z][^<]+)/i);
+      const numMatch  = descHtml.match(/N.mero[^:]*:[^0-9]*([0-9][^<]*)/i);
       const compMatch = descHtml.match(/Complemento[^:]*:[^A-Za-z]*([A-Za-z][^<]+)/i);
-      
+
       resultado[setor].push({
         dom: pmName ? pmName.textContent.trim() : '',
         lat, lng,
-        logradouro: logMatch ? logMatch[1].trim() : '',
-        numero: numMatch ? numMatch[1].trim() : '',
+        logradouro:  logMatch  ? logMatch[1].trim()  : '',
+        numero:      numMatch  ? numMatch[1].trim()  : '',
         complemento: compMatch ? compMatch[1].trim() : '',
-        desc: descHtml
+        desc: descHtml,
       });
     });
   });
-  
+
   return resultado;
 }
 
@@ -3914,6 +4518,14 @@ window.importarKML = (input) => {
     renderizarMapaSetores();
     mostrarToast(`KML importado: ${salvos} coordenadas salvas!${naoEncontrados > 0 ? ' ' + naoEncontrados + ' não encontrados.' : ''}`, naoEncontrados > 0 ? 'erro' : 'sucesso');
   };
+  reader.onerror = () => {
+    const statusEl = document.getElementById('kml-status');
+    if (statusEl) {
+      statusEl.textContent = `❌ Falha ao ler o arquivo "${file.name}". Verifique se o arquivo não está corrompido e tente novamente.`;
+      statusEl.style.color = 'var(--vermelho)';
+    }
+    mostrarToast('Erro ao ler o arquivo KML', 'erro');
+  };
   reader.readAsText(file, 'UTF-8');
 };
 
@@ -3961,10 +4573,56 @@ async function renderizarMapaSetores() {
   mapaDiv.innerHTML = '<div id="leaflet-setores" style="width:100%;height:400px"></div>';
 
   const iniciar = () => iniciarMapaSetores(pinsParaMapa);
-  obterLeaflet().then(iniciar);
+  obterLeaflet().then(iniciar).catch(() => {
+    mapaDiv.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:400px;' +
+      'color:var(--vermelho);flex-direction:column;gap:0.5rem;text-align:center;padding:1rem">' +
+      '<div style="font-size:2rem">⚠️</div>' +
+      '<div>Não foi possível carregar a biblioteca de mapas (CDN indisponível).</div>' +
+      '<div style="font-size:0.8rem;color:var(--cinza)">Verifique sua conexão e recarregue a página.</div>' +
+      '</div>';
+  });
 }
 
 let _mapaSetoresInstance = null;
+
+// Cria tile layer com fallback automático entre provedores.
+// Se o provedor primário estiver bloqueado (proxy corporativo/governamental),
+// troca silenciosamente para o próximo após 4 tiles com erro.
+function criarTileLayer(mapa) {
+  const provedores = [
+    {
+      url:  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      opts: { subdomains: 'abcd', crossOrigin: 'anonymous', maxZoom: 19,
+              attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>' }
+    },
+    {
+      url:  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      opts: { crossOrigin: 'anonymous', maxZoom: 19,
+              attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }
+    },
+    {
+      url:  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      opts: { maxZoom: 17, attribution: '© Esri' }
+    },
+  ];
+  let idx = 0, camada = null, erros = 0;
+  function ativar() {
+    if (camada) mapa.removeLayer(camada);
+    const p = provedores[idx];
+    camada = window.L.tileLayer(p.url, p.opts).addTo(mapa);
+    erros = 0;
+    camada.on('tileerror', () => {
+      erros++;
+      if (erros >= 4 && idx < provedores.length - 1) {
+        idx++;
+        console.warn('[Mapa] Provedor de tiles bloqueado, alternando para:', provedores[idx].url);
+        ativar();
+      }
+    });
+  }
+  ativar();
+}
 
 function iniciarMapaSetores(pins) {
   // Destroi mapa anterior se existir
@@ -3974,9 +4632,7 @@ function iniciarMapaSetores(pins) {
   }
 
   _mapaSetoresInstance = window.L.map('leaflet-setores');
-  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-  }).addTo(_mapaSetoresInstance);
+  criarTileLayer(_mapaSetoresInstance);
 
   const bounds = [];
   const pinsComOffset = offsetEspiral(pins);
@@ -4300,9 +4956,7 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
 
   const iniciar = async () => {
     _mapaRoteiroInstance = window.L.map('leaflet-roteiro').setView([latAlvo, lngAlvo], 16);
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-    }).addTo(_mapaRoteiroInstance);
+    criarTileLayer(_mapaRoteiroInstance);
 
     // Busca a lista de entrevistadores (usa cache se já carregada, evita consulta repetida ao banco)
     let entrevistadoresMapa = entrevistadoresCache;
@@ -4369,7 +5023,15 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
     setTimeout(() => { if (_mapaRoteiroInstance) _mapaRoteiroInstance.invalidateSize(); }, 200);
   };
   
-  obterLeaflet().then(iniciar);
+  obterLeaflet().then(iniciar).catch(() => {
+    mapaDiv.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;' +
+      'color:var(--vermelho);font-size:0.85rem;flex-direction:column;gap:0.5rem;text-align:center;padding:1rem">' +
+      '<div style="font-size:1.5rem">⚠️</div>' +
+      '<div>Não foi possível carregar a biblioteca de mapas (CDN indisponível).</div>' +
+      '<div style="font-size:0.75rem;color:var(--cinza)">Verifique sua conexão e recarregue a página.</div>' +
+      '</div>';
+  });
 }
 
 window.imprimirRoteiro = () => {
@@ -4746,7 +5408,16 @@ window.confirmarSIGC = async () => {
       });
     }
 
-    await updateDoc(doc(db, 'domicilios', domicilioAtualId), {
+    // Leituras antes do batch (Firestore não permite leituras dentro de um writeBatch)
+    const ops = await Promise.all(moradores.map(async (m) => {
+      const existentes = await getDocs(
+        query(collection(db, 'domicilios', domicilioAtualId, 'moradores'), where('codigo', '==', m.codigo))
+      );
+      return { m, existingRef: existentes.empty ? null : existentes.docs[0].ref };
+    }));
+
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'domicilios', domicilioAtualId), {
       entrevista_numero:   entrevista.numero,
       entrevista_tipo:     entrevista.tipo,
       entrevista_data:     entrevista.data,
@@ -4757,27 +5428,39 @@ window.confirmarSIGC = async () => {
       observacao_sigc:     entrevista.observacao,
       historico_especies:  historico_atualizado
     });
-    for (const m of moradores) {
-      const existentes = await getDocs(
-        query(collection(db, 'domicilios', domicilioAtualId, 'moradores'), where('codigo', '==', m.codigo))
-      );
-      if (existentes.empty) {
-        await addDoc(collection(db, 'domicilios', domicilioAtualId, 'moradores'), {
-          ...m, origem: 'sigc', criado_em: serverTimestamp()
-        });
-      } else {
-        await updateDoc(existentes.docs[0].ref, {
+    for (const { m, existingRef } of ops) {
+      if (existingRef) {
+        batch.update(existingRef, {
           nome: m.nome, sexo: m.sexo, nascimento: m.nascimento,
           idade: m.idade, condicao: m.condicao, cor_raca: m.cor_raca
         });
+      } else {
+        batch.set(doc(collection(db, 'domicilios', domicilioAtualId, 'moradores')), {
+          ...m, origem: 'sigc', criado_em: serverTimestamp()
+        });
       }
     }
+    await batch.commit();
     fecharModal('modal-sigc');
     mostrarToast('Dados capturados com sucesso!', 'sucesso');
     carregarMoradores(domicilioAtualId);
+    // Atualiza indicador na lista sem esperar o background loader
+    const domObjFicha = todosdomicilios.find(d => d.id === domicilioAtualId);
+    if (domObjFicha) {
+      domObjFicha._tem_moradores = moradores.length > 0 || domObjFicha._tem_moradores === true;
+      const indElFicha = document.getElementById('ind-morad-' + domicilioAtualId);
+      if (indElFicha) indElFicha.innerHTML = _badgeMoradores(domObjFicha._tem_moradores);
+    }
   } catch(e) {
     console.error(e);
-    mostrarToast('Erro ao salvar dados', 'erro');
+    const tentados = moradores.map(m => m.nome).filter(Boolean).join(', ');
+    const detalhe = e?.message ? ` — ${e.message}` : '';
+    mostrarToast(
+      tentados
+        ? `Erro ao salvar${detalhe}. Nenhum dado foi gravado (moradores: ${tentados}).`
+        : `Erro ao salvar dados${detalhe}. Nenhum dado foi gravado.`,
+      'erro'
+    );
   }
 };
 
@@ -4825,33 +5508,29 @@ window.processarCentralSIGC = async () => {
   }
 
   try {
-    // 3. BUSCA SUPER FLEXÍVEL NO FIREBASE
-    // Primeiro busca apenas os domicílios que possuem o mesmo código de controle exato
-    // (restrito ao período selecionado no topo, para não cruzar com setores homônimos de outro período)
-    const qDom = query(collection(db, 'domicilios'), where('controle', '==', controle));
-    const snapDomBruto = await getDocs(qDom);
-    const snapDom = { docs: snapDomBruto.docs.filter(d => pertencePeriodo(d.data())), empty: false };
-    snapDom.empty = snapDom.docs.length === 0;
-
+    const numProcurado = parseInt(domicilio_num);
     let targetDoc = null;
 
-    if (!snapDom.empty) {
-      // Converte o número colado do SIGC para inteiro (ex: a string "02" vira o número 2, ignorando zeros)
-      const numProcurado = parseInt(domicilio_num);
+    // Busca primeiro no cache em memória — elimina o round-trip ao Firestore
+    // no caso comum (domicílios importados via CSV sempre têm endereco e estão no cache).
+    if (todosdomicilios.length > 0) {
+      const candidatos = todosdomicilios.filter(d =>
+        d.controle === controle && pertencePeriodo(d)
+      );
+      targetDoc = candidatos.find(d =>
+        parseInt(d.domicilio_num || d.numero_sequencial || '-1') === numProcurado
+      ) || (candidatos.length === 1 ? candidatos[0] : null);
+    }
 
-      // Procura na lista retornada o domicílio exato
-      targetDoc = snapDom.docs.find(d => {
-        const dados = d.data();
-        // Permite encontrar o registro seja pelo campo "domicilio_num" ou "numero_sequencial"
-        const nDom = parseInt(dados.domicilio_num || dados.numero_sequencial || '-1');
-        return nDom === numProcurado;
-      });
-
-      // Fallback: Se não encontrou o número exato, mas existe apenas 1 domicílio no banco vinculado àquele Controle,
-      // ele assume que é aquele por dedução lógica.
-      if (!targetDoc && snapDom.docs.length === 1) {
-         targetDoc = snapDom.docs[0];
-      }
+    // Fallback ao Firestore para domicílios sem endereco (ausentes do cache)
+    if (!targetDoc) {
+      const snapBruto = await getDocs(query(collection(db, 'domicilios'), where('controle', '==', controle)));
+      const candidatos = snapBruto.docs
+        .filter(d => pertencePeriodo(d.data()))
+        .map(d => ({ id: d.id, ...d.data() }));
+      targetDoc = candidatos.find(d =>
+        parseInt(d.domicilio_num || d.numero_sequencial || '-1') === numProcurado
+      ) || (candidatos.length === 1 ? candidatos[0] : null);
     }
 
     if (!targetDoc) {
@@ -4876,12 +5555,13 @@ window.processarCentralSIGC = async () => {
     // Mapeia o status dinâmico com base no tipo retornado
     let status_atual = 'nao_visitado';
     const tipoLower = (entrevista.tipo || '').toLowerCase();
-    if (tipoLower.includes('realizada')) status_atual = 'realizada';
-    else if (tipoLower.includes('recusa')) status_atual = 'recusa';
-    else if (tipoLower.includes('ausente')) status_atual = 'ausente';
+    if (tipoLower.includes('realizada'))                             status_atual = 'realizada';
+    else if (tipoLower.includes('recusa'))                           status_atual = 'recusa';
+    else if (tipoLower.includes('ausente') || tipoLower.includes('fechado')) status_atual = 'ausente';
+    else if (/vago|ocasional|desocupado|outros/i.test(tipoLower))   status_atual = 'vago';
 
     // NOVA LÓGICA DE HISTÓRICO
-    let historico_atualizado = targetDoc.data().historico_especies || [];
+    let historico_atualizado = targetDoc.historico_especies || [];
     const etapaNum = entrevista.numero ? entrevista.numero.replace(/\D/g, '') : null;
     
     if (etapaNum) {
@@ -4893,21 +5573,6 @@ window.processarCentralSIGC = async () => {
         mes_ano: entrevista.data ? entrevista.data.substring(3, 10) : new Date().toLocaleDateString('pt-BR').substring(3)
       });
     }
-
-    // Salva metadados da entrevista na ficha geral
-    await updateDoc(doc(db, 'domicilios', targetId), {
-      entrevista_numero:   entrevista.numero || null,
-      entrevista_tipo:     entrevista.tipo || null,
-      entrevista_data:     entrevista.data || null,
-      telefone:            entrevista.telefone || null,
-      supervisor_sigc:     entrevista.supervisor || null,
-      entrevistador_sigc:  entrevista.entrevistador || null,
-      ultima_posicao:      entrevista.ultima_posicao || null,
-      observacao_sigc:     entrevista.observacao || null,
-      status_atual:        status_atual,
-      historico_especies:  historico_atualizado,
-      ultima_visita:       serverTimestamp()
-    });
 
     // Extração e processamento de moradores
     const linhasBruto = texto.split('\n').map(l => l.trim());
@@ -4982,30 +5647,62 @@ window.processarCentralSIGC = async () => {
       }
     }
 
-    // Grava ou atualiza a subcoleção de moradores do domicílio encontrado
-    for (const m of moradores) {
-      const existentes = await getDocs(
-        query(collection(db, 'domicilios', targetId, 'moradores'), where('codigo', '==', m.codigo))
-      );
-      if (existentes.empty) {
-        await addDoc(collection(db, 'domicilios', targetId, 'moradores'), {
-          ...m, origem: 'central_sigc', criado_em: serverTimestamp()
-        });
-      } else {
-        await updateDoc(existentes.docs[0].ref, {
-          nome: m.nome, sexo: m.sexo, nascimento: m.nascimento,
-          idade: m.idade, condicao: m.condicao, cor_raca: m.cor_raca
-        });
-      }
+    // Carrega TODOS os moradores existentes para substituição completa (delete-all → add-all)
+    const moradoresExistentesSnap = await getDocs(collection(db, 'domicilios', targetId, 'moradores'));
+
+    const batch = writeBatch(db);
+
+    // 1. Apaga todos os moradores existentes
+    moradoresExistentesSnap.docs.forEach(d => batch.delete(d.ref));
+
+    // 2. Adiciona todos os moradores vindos do SIGC como documentos novos
+    moradores.forEach(m => {
+      batch.set(doc(collection(db, 'domicilios', targetId, 'moradores')), {
+        ...m, origem: 'central_sigc', criado_em: serverTimestamp()
+      });
+    });
+
+    // 3. Atualiza o documento pai
+    batch.update(doc(db, 'domicilios', targetId), {
+      entrevista_numero:   entrevista.numero || null,
+      entrevista_tipo:     entrevista.tipo || null,
+      entrevista_data:     entrevista.data || null,
+      telefone:            entrevista.telefone || null,
+      supervisor_sigc:     entrevista.supervisor || null,
+      entrevistador_sigc:  entrevista.entrevistador || null,
+      ultima_posicao:      entrevista.ultima_posicao || null,
+      observacao_sigc:     entrevista.observacao || null,
+      status_atual:        status_atual,
+      historico_especies:  historico_atualizado,
+      qtd_moradores_pnad:  moradores.length,
+      ultima_visita:       serverTimestamp()
+    });
+
+    await batch.commit();
+
+    // Atualiza indicador em memória imediatamente, sem esperar o reload
+    const domObjCentral = todosdomicilios.find(d => d.id === targetId);
+    if (domObjCentral) {
+      domObjCentral._tem_moradores = moradores.length > 0;
+      domObjCentral.qtd_moradores_pnad = moradores.length;
+      const indEl = document.getElementById('ind-morad-' + targetId);
+      if (indEl) indEl.innerHTML = _badgeMoradores(domObjCentral._tem_moradores);
     }
 
     statusConteudo.innerHTML = `
       <div style="background:var(--verde-claro);color:var(--verde);padding:0.75rem;border-radius:6px;font-weight:600;margin-bottom:0.5rem;">
         ✅ Domicílio Sincronizado com Sucesso!
       </div>
-      <p style="font-size:0.85rem;margin-bottom:0.25rem;"><strong>Endereço Alvo:</strong> ${targetDoc.data().endereco || '—'}</p>
+      <p style="font-size:0.85rem;margin-bottom:0.25rem;"><strong>Endereço Alvo:</strong> ${targetDoc.endereco || '—'}</p>
       <p style="font-size:0.85rem;margin-bottom:0.25rem;"><strong>Chave de Busca:</strong> Controle ${controle} | Dom. ${domicilio_num}</p>
-      <p style="font-size:0.85rem;margin-bottom:0.25rem;"><strong>Tipo Entrevista:</strong> ${entrevista.tipo || '—'} | <strong>Moradores Processados:</strong> ${moradores.length}</p>
+      <p style="font-size:0.85rem;margin-bottom:0.25rem;"><strong>Tipo Entrevista:</strong> ${entrevista.tipo || '—'}</p>
+      <p style="font-size:0.85rem;margin-bottom:0.25rem;">
+        <strong>Moradores:</strong>
+        ${moradoresExistentesSnap.docs.length > 0 ? `${moradoresExistentesSnap.docs.length} anteriores removidos → ` : ''}
+        ${moradores.length > 0
+          ? `<span style="color:var(--verde);font-weight:700">${moradores.length} salvos ✓</span> (${moradores.map(m=>m.nome).join(', ')})`
+          : `<span style="color:var(--amarelo);font-weight:700">⚠️ Nenhum morador encontrado no texto — verifique se copiou a tela completa do SIGC (Ctrl+A)</span>`}
+      </p>
     `;
     mostrarToast('Sincronização concluída com sucesso!', 'sucesso');
     document.getElementById('central-sigc-texto').value = '';
@@ -5015,7 +5712,8 @@ window.processarCentralSIGC = async () => {
 
   } catch (error) {
     console.error(error);
-    statusConteudo.innerHTML = `<div style="color:var(--vermelho);font-weight:600;padding:0.5rem 0;">❌ Ocorreu um erro crítico de gravação no banco de dados. Verifique o console do desenvolvedor.</div>`;
+    const detalhe = error?.message ? ` (${error.message})` : '';
+    statusConteudo.innerHTML = `<div style="color:var(--vermelho);font-weight:600;padding:0.5rem 0;">❌ Erro ao gravar no banco de dados${detalhe}. Nenhum dado foi salvo — tente novamente.</div>`;
   }
 };
 </script>
