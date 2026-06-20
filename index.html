@@ -921,6 +921,9 @@
             <option value="carta_solicitada">Carta solicitada</option>
             <option value="supervisao">Supervisão necessária</option>
           </select>
+          <select id="filtro-entrevistador" onchange="filtrarDomicilios()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:180px">
+            <option value="">Todos os entrevistadores</option>
+          </select>
           <input type="text" id="busca-domicilio" placeholder="Buscar endereço ou morador..." style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);flex:1;min-width:160px" oninput="filtrarDomicilios()">
           <select id="filtro-ordem" onchange="filtrarDomicilios()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
             <option value="padrao">Ordem padrão (UPA/Dom)</option>
@@ -1805,6 +1808,7 @@ async function carregarDomicilios() {
     todosdomicilios = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(d => d.endereco && pertencePeriodo(d));
     preencherFiltrosUpa();
+    preencherFiltroEntrevistador();
     filtrarDomicilios();
     // Renderiza mapa de setores após domicílios carregados (tem latitude_kml)
     renderizarMapaSetores();
@@ -1820,6 +1824,23 @@ function preencherFiltrosUpa() {
     const opt = document.createElement('option');
     opt.value = u;
     opt.textContent = 'UPA ' + u;
+    sel.appendChild(opt);
+  });
+  sel.value = val;
+}
+
+function preencherFiltroEntrevistador() {
+  const sel = document.getElementById('filtro-entrevistador');
+  if (!sel) return;
+  const val = sel.value;
+  const nomes = [...new Set(todosdomicilios.map(d => d.entrevistador_nome).filter(Boolean))].sort();
+  const semAtribuicao = todosdomicilios.some(d => !d.entrevistador_nome);
+  sel.innerHTML = '<option value="">Todos os entrevistadores</option>';
+  if (semAtribuicao) sel.innerHTML += '<option value="__sem__">Não atribuído</option>';
+  nomes.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
     sel.appendChild(opt);
   });
   sel.value = val;
@@ -1848,12 +1869,15 @@ window.filtrarDomicilios = () => {
   const upa = document.getElementById('filtro-upa').value;
   const setor = document.getElementById('filtro-setor').value;
   const semana = document.getElementById('filtro-semana').value;
+  const entrevistador = document.getElementById('filtro-entrevistador').value;
   const q = document.getElementById('busca-domicilio').value.toLowerCase();
   const filtrados = todosdomicilios.filter(d => {
     const setorDom = d.controle ? d.controle.slice(0,-1) : d.upa;
     if (upa && d.upa !== upa) return false;
     if (setor && setorDom !== setor) return false;
     if (semana && d.semana !== semana) return false;
+    if (entrevistador === '__sem__' && d.entrevistador_nome) return false;
+    if (entrevistador && entrevistador !== '__sem__' && d.entrevistador_nome !== entrevistador) return false;
     const status = document.getElementById('filtro-status').value;
     if (status && (d.status_atual || 'nao_visitado') !== status) return false;
     if (q && !(d.endereco||'').toLowerCase().includes(q) && !(d.morador||'').toLowerCase().includes(q)) return false;
@@ -1888,6 +1912,7 @@ window.limparFiltros = () => {
   document.getElementById('filtro-setor').value = '';
   document.getElementById('filtro-semana').value = '';
   document.getElementById('filtro-status').value = '';
+  document.getElementById('filtro-entrevistador').value = '';
   document.getElementById('filtro-ordem').value = 'padrao';
   document.getElementById('busca-domicilio').value = '';
   filtrarPorUpa();
@@ -2085,6 +2110,7 @@ window.atribuirSelecionados = async () => {
     desmarcarTodos();
     select.value = ''; // Reseta o select para o padrão
     mostrarToast(isRemover ? selecionados.length + ' domicílio(s) desvinculado(s)' : selecionados.length + ' domicílio(s) atribuídos a ' + novoNome, 'sucesso');
+    preencherFiltroEntrevistador();
   } catch(e) { mostrarToast('Erro ao atualizar', 'erro'); console.error(e); }
 };
 
@@ -2956,6 +2982,7 @@ window.atribuirEntrevistadorMapa = async (domId) => {
     const dom = todosdomicilios.find(d => d.id === domId);
     if (dom) { dom.entrevistador_id = novoId; dom.entrevistador_nome = novoNome; }
     mostrarToast(novoNome ? 'Atribuído a ' + novoNome : 'Atribuição removida', 'sucesso');
+    preencherFiltroEntrevistador();
     // Atualiza a linha da lista de domicílios, se estiver visível
     const cel = document.querySelector(`#row-${domId} td:nth-child(5)`);
     if (cel) cel.innerHTML = novoNome || '<span style="color:var(--cinza);font-style:italic;font-size:0.78rem">Não atribuído</span>';
