@@ -1818,7 +1818,7 @@ async function carregarDashboard() {
     for (const e of entrevistadores) {
       const meus = docs.filter(d =>
         d.entrevistador_id === e.uid ||
-        (d.entrevistador_nome || '').toUpperCase().includes((e.nome || '').toUpperCase().split(' ')[0])
+        nomesCorrespondem(e.nome, d.entrevistador_nome || '')
       );
       const real = meus.filter(d => d.status_atual === 'realizada').length;
       const pend = meus.filter(d => parseInt(d.semana) <= semanaAtual && d.status_atual !== 'realizada').length;
@@ -2883,11 +2883,45 @@ async function preencherSelectEntrevistadores(idSelect) {
   });
 }
 
+// ── MATCHING DE NOMES (entrevistador cadastrado × nome vindo do SIGC/CSV) ──
+// Os nomes cadastrados em "Usuários" costumam ser uma versão curta (ex: "Matheus
+// Monteiro"), enquanto o SIGC/CSV traz o nome completo (ex: "MATHEUS DE SOUZA
+// MONTEIRO"). Em vez de exigir igualdade exata, consideramos correspondência
+// quando TODAS as palavras do nome cadastrado aparecem, em qualquer ordem,
+// dentro do nome importado — isso evita falso positivo de bater só 1 palavra
+// (ex: "José" não deve casar com qualquer um que tenha "José" no nome).
+function normalizarNomeGlobal(s) {
+  return (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .trim().toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function nomesCorrespondem(nomeCadastrado, nomeImportado) {
+  const cadastrado = normalizarNomeGlobal(nomeCadastrado);
+  const importado = normalizarNomeGlobal(nomeImportado);
+  if (!cadastrado || !importado) return false;
+  if (cadastrado === importado) return true;
+  const palavrasCadastro = cadastrado.split(' ').filter(p => p.length > 1); // ignora iniciais soltas
+  if (palavrasCadastro.length === 0) return false;
+  return palavrasCadastro.every(p => importado.includes(p));
+}
+
+// Recebe a lista de entrevistadores ({id, nome}) e o nome importado (SIGC/CSV);
+// retorna o ID do entrevistador cadastrado que corresponde, ou null se nenhum bater.
+// Se mais de um entrevistador corresponder ao mesmo nome importado, retorna null
+// (ambíguo) em vez de arriscar vincular à pessoa errada.
+function encontrarIdPorNomeGlobal(listaEntrevistadores, nomeImportado) {
+  if (!nomeImportado) return null;
+  const correspondencias = listaEntrevistadores.filter(e => nomesCorrespondem(e.nome, nomeImportado));
+  return correspondencias.length === 1 ? correspondencias[0].id : null;
+}
+
 
 // ── CORES DOS ENTREVISTADORES ──
 const CORES_ENTREVISTADORES = {
-  'ARTHUR SILVA MOCO':                '#F59E0B',
-  'ARTHUR':                           '#F59E0B',
+  'ARTHUR SILVA MOCO':                '#FBBF24',
+  'ARTHUR':                           '#FBBF24',
   'BRENO BITTENCOURT DE QUEIROZ VIEIRA': '#F97316',
   'BRENO':                            '#F97316',
   'DIEGO DA HORA OLEGARIO PESSANHA':  '#EF4444',
@@ -3317,13 +3351,7 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
       } catch(e) { console.error(e); entrevistadoresMapa = []; }
     }
 
-    const normalizarNome = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-    const encontrarIdPorNome = (nome) => {
-      if (!nome) return null;
-      const alvo = normalizarNome(nome);
-      const achado = entrevistadoresMapa.find(e => normalizarNome(e.nome) === alvo);
-      return achado ? achado.id : null;
-    };
+    const encontrarIdPorNome = (nome) => encontrarIdPorNomeGlobal(entrevistadoresMapa, nome);
 
     const montarSeletorAtribuicao = (domId, entrevistadorIdAtual, nomeFallback) => {
       if (!domId) return '';
