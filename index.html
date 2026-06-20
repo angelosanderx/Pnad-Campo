@@ -1047,8 +1047,10 @@
             <code>periodo</code>. Ao reimportar depois disso, o sistema criou um <em>novo</em> documento
             com período definido para cada domicílio — e o documento antigo (sem período) ficou no banco,
             sendo contado em dobro no Dashboard. Esta ferramenta encontra domicílios com o mesmo
-            Controle + Número que existem tanto SEM período quanto COM período, e remove apenas a
-            versão antiga (sem período), mantendo a mais recente.
+            Controle + Número que existem tanto SEM período quanto COM período; antes de excluir a versão
+            antiga, ela copia automaticamente para a versão atual qualquer dado importante que só exista
+            na antiga (coordenadas do KML, histórico de etapas, dados do SIGC etc.), evitando perda de
+            informação.
           </p>
           <button class="btn-acao" style="background:var(--vermelho)" onclick="removerDuplicadosSemPeriodo()">
             🗑️ Remover duplicados sem período
@@ -2522,6 +2524,16 @@ window.removerDuplicadosSemPeriodo = async () => {
   }
   const statusDiv = document.getElementById('duplicados-status');
 
+  // Campos que podem existir só na versão antiga (sem período) e precisam ser
+  // preservados — copiados para a versão nova (com período) antes de excluir
+  // a antiga, desde que a versão nova ainda não tenha um valor preenchido.
+  const CAMPOS_A_MIGRAR = [
+    'latitude_kml', 'longitude_kml', 'logradouro_kml', 'numero_kml', 'complemento_kml',
+    'entrevista_numero', 'entrevista_tipo', 'entrevista_data', 'telefone',
+    'supervisor_sigc', 'entrevistador_sigc', 'ultima_posicao', 'observacao_sigc',
+    'historico_especies', 'historico_telefones', 'entrevistador_id', 'entrevistador_nome'
+  ];
+
   statusDiv.innerHTML = '<div class="loader">Lendo domicílios...</div>';
   try {
     const snap = await getDocs(collection(db, 'domicilios'));
@@ -2538,16 +2550,46 @@ window.removerDuplicadosSemPeriodo = async () => {
       grupos[k].push(d);
     });
 
-    // Para cada grupo, se houver pelo menos 1 versão SEM periodo e pelo menos
-    // 1 versão COM periodo, marca a(s) versão(ões) SEM periodo para remoção.
+    // Para cada grupo com versão SEM período e versão COM período: a versão
+    // COM período mais recente é o "destino" (mantido); as demais (sem período,
+    // e também eventuais versões "com período" antigas) são removidas — mas
+    // antes disso, qualquer campo relevante que só exista nas versões removidas
+    // é copiado para o destino, sem sobrescrever o que já estiver preenchido nele.
     const paraRemover = [];
+    const migracoes = []; // { destinoId, campos: {...} }
+
     Object.values(grupos).forEach(grupo => {
       if (grupo.length < 2) return; // sem duplicidade
       const semPeriodo = grupo.filter(d => !d.periodo);
       const comPeriodo = grupo.filter(d => d.periodo);
-      if (semPeriodo.length > 0 && comPeriodo.length > 0) {
-        paraRemover.push(...semPeriodo);
+      if (semPeriodo.length === 0 || comPeriodo.length === 0) return;
+
+      // Escolhe como destino o documento "com período" com criado_em mais recente
+      // (ou o primeiro, se não houver timestamp para comparar).
+      const destino = comPeriodo.reduce((maisRecente, atual) => {
+        const tMaisRecente = maisRecente.criado_em?.toMillis?.() || 0;
+        const tAtual = atual.criado_em?.toMillis?.() || 0;
+        return tAtual > tMaisRecente ? atual : maisRecente;
+      }, comPeriodo[0]);
+
+      const remover = grupo.filter(d => d.id !== destino.id);
+      const camposMigrados = {};
+      remover.forEach(antigo => {
+        CAMPOS_A_MIGRAR.forEach(campo => {
+          const destinoVazio = destino[campo] === undefined || destino[campo] === null || destino[campo] === '' ||
+            (Array.isArray(destino[campo]) && destino[campo].length === 0);
+          const antigoTemValor = antigo[campo] !== undefined && antigo[campo] !== null && antigo[campo] !== '' &&
+            !(Array.isArray(antigo[campo]) && antigo[campo].length === 0);
+          if (destinoVazio && antigoTemValor && camposMigrados[campo] === undefined) {
+            camposMigrados[campo] = antigo[campo];
+          }
+        });
+      });
+
+      if (Object.keys(camposMigrados).length > 0) {
+        migracoes.push({ destinoId: destino.id, campos: camposMigrados });
       }
+      paraRemover.push(...remover);
     });
 
     if (paraRemover.length === 0) {
@@ -2555,15 +2597,32 @@ window.removerDuplicadosSemPeriodo = async () => {
       return;
     }
 
+    const totalMigracoes = migracoes.length;
     const confirmar = confirm(
-      `Foram encontrados ${paraRemover.length} domicílio(s) antigo(s) sem período que têm uma versão ` +
-      `mais nova (com período) equivalente. Eles serão excluídos permanentemente. Deseja continuar?`
+      `Foram encontrados ${paraRemover.length} domicílio(s) antigo(s) duplicado(s). ` +
+      `Antes de excluir, ${totalMigracoes} domicílio(s) vão receber dados importantes (coordenadas KML, ` +
+      `histórico, etc.) copiados da versão antiga, caso ainda não tenham esses dados preenchidos. ` +
+      `Depois disso, as versões antigas serão excluídas permanentemente. Deseja continuar?`
     );
     if (!confirmar) {
       statusDiv.innerHTML = `<div style="color:var(--cinza)">Operação cancelada. ${paraRemover.length} domicílio(s) seriam removidos.</div>`;
       return;
     }
 
+    // 1) Migra os campos relevantes para os destinos antes de remover qualquer coisa
+    statusDiv.innerHTML = `<div class="loader">Migrando dados (coordenadas, histórico) para ${totalMigracoes} domicílio(s)...</div>`;
+    let migradosOk = 0, migradosErro = 0;
+    for (const m of migracoes) {
+      try {
+        await updateDoc(doc(db, 'domicilios', m.destinoId), m.campos);
+        migradosOk++;
+      } catch (e) {
+        migradosErro++;
+        console.error('Erro ao migrar campos para', m.destinoId, e);
+      }
+    }
+
+    // 2) Remove as versões antigas/duplicadas
     statusDiv.innerHTML = `<div class="loader">Removendo 0 / ${paraRemover.length} domicílios...</div>`;
     let ok = 0, erros = 0;
 
@@ -2579,7 +2638,7 @@ window.removerDuplicadosSemPeriodo = async () => {
       statusDiv.innerHTML = `<div class="loader">Removendo ${i + 1} / ${paraRemover.length} domicílios...</div>`;
     }
 
-    statusDiv.innerHTML = `<div style="color:var(--verde);font-weight:700">✅ Concluído! ${ok} domicílio(s) duplicado(s) removido(s)${erros > 0 ? `, ${erros} erro(s)` : ''}.</div>`;
+    statusDiv.innerHTML = `<div style="color:var(--verde);font-weight:700">✅ Concluído! ${migradosOk} domicílio(s) receberam dados migrados${migradosErro > 0 ? ` (${migradosErro} erro(s) na migração)` : ''}. ${ok} domicílio(s) duplicado(s) removido(s)${erros > 0 ? `, ${erros} erro(s)` : ''}.</div>`;
     mostrarToast('Duplicados removidos: ' + ok, 'sucesso');
 
     await carregarDomicilios();
@@ -2950,11 +3009,11 @@ window.importarKML = (input) => {
     document.getElementById('kml-status').style.color = 'var(--cinza)';
 
     // Salva coordenadas no Firestore para cada domicílio
-    let salvos = 0, erros = 0;
+    let salvos = 0, erros = 0, naoEncontrados = 0;
     for (const [setor, doms] of Object.entries(kmlDados)) {
       for (const d of doms) {
         if (!d.lat || !d.lng) continue;
-        // Busca o domicílio pelo UPA/setor e número
+        // Busca o domicílio pelo UPA/setor e número (somente dentro do período atualmente selecionado)
         const domObj = todosdomicilios.find(td =>
           (td.upa === setor || (td.controle && td.controle.slice(0,-1) === setor)) &&
           (td.domicilio_num === d.dom || td.numero_sequencial === d.dom)
@@ -2973,17 +3032,22 @@ window.importarKML = (input) => {
             domObj.longitude_kml = String(d.lng);
             salvos++;
           } catch(err) { erros++; }
+        } else {
+          naoEncontrados++;
         }
       }
     }
 
-    document.getElementById('kml-status').textContent = 
-      `✅ ${setores} setores, ${total} domicílios — ${salvos} coordenadas salvas no banco`;
-    document.getElementById('kml-status').style.color = 'var(--verde)';
+    const avisoNaoEncontrados = naoEncontrados > 0
+      ? ` ⚠️ ${naoEncontrados} ponto(s) do KML não bateram com nenhum domicílio do período atual (${PERIODOS[periodoAtual] || periodoAtual}) — confira se o período selecionado é o certo.`
+      : '';
+    document.getElementById('kml-status').textContent =
+      `✅ ${setores} setores, ${total} domicílios — ${salvos} coordenadas salvas no banco.${avisoNaoEncontrados}`;
+    document.getElementById('kml-status').style.color = naoEncontrados > 0 ? 'var(--laranja)' : 'var(--verde)';
     // Recarrega domicílios para atualizar latitude_kml/longitude_kml em memória
     await carregarDomicilios();
     renderizarMapaSetores();
-    mostrarToast(`KML importado: ${salvos} coordenadas salvas!`, 'sucesso');
+    mostrarToast(`KML importado: ${salvos} coordenadas salvas!${naoEncontrados > 0 ? ' ' + naoEncontrados + ' não encontrados.' : ''}`, naoEncontrados > 0 ? 'erro' : 'sucesso');
   };
   reader.readAsText(file, 'UTF-8');
 };
