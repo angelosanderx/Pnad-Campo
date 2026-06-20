@@ -3266,7 +3266,16 @@ function iniciarMapaSetores(pins) {
     bounds.push([d.lat, d.lng]);
   });
 
-  if (bounds.length > 0) _mapaSetoresInstance.fitBounds(bounds, { padding: [20, 20] });
+  if (bounds.length > 0) {
+    _mapaSetoresInstance.fitBounds(bounds, { padding: [20, 20] });
+  } else {
+    _mapaSetoresInstance.setView([-21.75, -41.33], 10); // centro padrão Campos/RJ
+  }
+
+  // Força o Leaflet a recalcular o tamanho do contêiner após renderização
+  setTimeout(() => {
+    if (_mapaSetoresInstance) _mapaSetoresInstance.invalidateSize();
+  }, 200);
 }
 
 // ── ROTEIRO DE CAMPO NA FICHA ──
@@ -3509,6 +3518,11 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
           (k.domViz?.entrevistador_nome ? '<br><small>' + k.domViz.entrevistador_nome + '</small>' : '') +
           montarSeletorAtribuicao(k.domViz?.id, k.domViz?.entrevistador_id, k.domViz?.entrevistador_nome));
     });
+
+    // Força recálculo do tamanho após renderização
+    setTimeout(() => {
+      if (_mapaRoteiroInstance) _mapaRoteiroInstance.invalidateSize();
+    }, 200);
   };
   
   obterLeaflet().then(iniciar);
