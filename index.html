@@ -746,6 +746,27 @@
   .cron-acc-hd:hover { background:var(--azul-medio); }
   .cron-acc-body { display:none; }
   .cron-acc-body.aberto { display:block; }
+  .cron-sem-chip { padding:0.28rem 0.65rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;background:#fff;cursor:pointer;color:var(--cinza-escuro);transition:background 0.12s,border-color 0.12s,color 0.12s; }
+  .cron-sem-chip.ativo { background:var(--azul);border-color:var(--azul);color:#fff;font-weight:600; }
+  .cron-msel-reveal { opacity:0;transition:opacity 0.15s; }
+  .cron-equipe-hd:hover .cron-msel-reveal { opacity:0.8; }
+  .cron-equipe-hd:hover .cron-msel-reveal:hover { opacity:1; }
+  /* Equipe blocks */
+  .cron-equipe { border-top:1px solid #edf2f7;border-left:3px solid var(--borda); }
+  .cron-equipe:first-child { border-top:none; }
+  .cron-equipe-hd { display:flex;align-items:center;gap:0.3rem;padding:0.2rem 0.65rem 0.15rem;flex-wrap:wrap; }
+  .cron-equipe-body { padding:0.15rem 0.65rem 0.2rem; }
+  .cron-equipe-add-setor { opacity:0;transition:opacity 0.15s;background:none;border:none;cursor:pointer;font-size:0.7rem;padding:1px 3px;color:var(--cinza-escuro);display:block;margin-top:2px; }
+  .cron-equipe:hover .cron-equipe-add-setor { opacity:0.35; }
+  .cron-equipe:hover .cron-equipe-add-setor:hover { opacity:1; }
+  .cron-equipe-del { opacity:0.3;transition:opacity 0.15s;background:none;border:none;cursor:pointer;font-size:0.78rem;padding:0 2px;color:var(--cinza);margin-left:auto;flex-shrink:0; }
+  .cron-equipe:hover .cron-equipe-del { opacity:0.7; }
+  .cron-add-equipe-btn { opacity:0;transition:opacity 0.15s;background:none;border:none;cursor:pointer;font-size:0.72rem;padding:0.18rem 0.7rem;color:var(--cinza-escuro);display:block;width:100%;text-align:left; }
+  .cron-card:hover .cron-add-equipe-btn { opacity:0.35; }
+  .cron-card:hover .cron-add-equipe-btn:hover { opacity:1; }
+  /* Período livre */
+  .cron-card-periodo { border-left-color:#FAC775 !important; }
+  .cron-card-periodo .cron-card-top { background:#fffbf0; }
 
   .solicitar-btn {
     width: 100%;
@@ -1298,13 +1319,12 @@
               <option value="11">Novembro</option>
               <option value="12">Dezembro</option>
             </select>
-            <select id="cron-filtro-semana" onchange="renderCronograma()" style="padding:0.35rem 0.6rem;border:1px solid var(--borda);border-radius:6px;font-size:0.85rem">
-              <option value="">Semana...</option>
-              <option value="1">Semana 1</option>
-              <option value="2">Semana 2</option>
-              <option value="3">Semana 3</option>
-              <option value="4">Semana 4</option>
-            </select>
+            <div id="cron-semanas-chips" style="display:flex;gap:0.3rem">
+              <button class="cron-sem-chip" data-sem="1" onclick="cronToggleSemana(1)">Sem. 1</button>
+              <button class="cron-sem-chip" data-sem="2" onclick="cronToggleSemana(2)">Sem. 2</button>
+              <button class="cron-sem-chip" data-sem="3" onclick="cronToggleSemana(3)">Sem. 3</button>
+              <button class="cron-sem-chip" data-sem="4" onclick="cronToggleSemana(4)">Sem. 4</button>
+            </div>
             <button onclick="window.print()" style="padding:0.35rem 0.9rem;border:1px solid var(--borda);border-radius:6px;font-size:0.85rem;background:#fff;cursor:pointer">🖨️ Imprimir</button>
           </div>
         </div>
@@ -4408,14 +4428,32 @@ window.limparFiltrosAM = () => {
 
 // ── CRONOGRAMA DA SEMANA ──────────────────────────────────────────────────────
 let _cronLinhas      = [];   // linhas da semana atual
-let _cronMes         = null;
-let _cronSemana      = null;
-let _cronSaveTimer   = null;
+let _cronMes            = null;
+let _cronSemana         = null;
+let _cronSemanasAtivas  = new Set();
+let _cronSaveTimer      = null;
 let _cronEntrevs     = [];   // [{nome}] carregados de usuarios
 let _cronSetores     = [];   // [{upa, label, localidade, etapas}] da semana
 let _cronEntrevsOk   = false;
 
 const _TIPOS_SERVICO = ['Coleta PNAD-C', 'Coleta CNEFE', 'Entregar cartas', 'Pendências'];
+const _CORES_EQUIPE  = ['#64748b','#0d9488','#ea580c','#7c3aed','#db2777','#ca8a04','#0284c7'];
+
+function _migrarParaEquipes(ln) {
+  if (!ln || typeof ln !== 'object') return { equipes: [{ entrevistadores:'', upas:[''], localidades:[''], tipos:[''] }] };
+  if (ln.tipo_card === 'periodo_livre') return ln;
+  if (ln.equipes) return ln;
+  return {
+    data: ln.data || '',
+    hora: ln.hora || '',
+    equipes: [{
+      entrevistadores: ln.entrevistadores || '',
+      upas:       ln.upas       || (ln.upa       ? [ln.upa]       : ['']),
+      localidades: ln.localidades || (ln.localidade !== undefined ? [ln.localidade] : ['']),
+      tipos:      ln.tipos      || (ln.tipo      ? [ln.tipo]      : [''])
+    }]
+  };
+}
 
 async function _carregarEntrevsLista() {
   if (_cronEntrevsOk) return;
@@ -4429,11 +4467,15 @@ async function _carregarEntrevsLista() {
 }
 
 async function carregarCronograma() {
-  // Restaura último mês/semana selecionados
-  const elMes    = document.getElementById('cron-filtro-mes');
-  const elSemana = document.getElementById('cron-filtro-semana');
-  if (elMes    && !elMes.value)    elMes.value    = localStorage.getItem('pnad_cron_mes')    || '';
-  if (elSemana && !elSemana.value) elSemana.value = localStorage.getItem('pnad_cron_semana') || '';
+  const elMes = document.getElementById('cron-filtro-mes');
+  if (elMes && !elMes.value) elMes.value = localStorage.getItem('pnad_cron_mes') || '';
+  if (_cronSemanasAtivas.size === 0) {
+    const saved = localStorage.getItem('pnad_cron_semanas') || '';
+    saved.split(',').filter(Boolean).forEach(s => _cronSemanasAtivas.add(parseInt(s)));
+    document.querySelectorAll('.cron-sem-chip').forEach(b => {
+      b.classList.toggle('ativo', _cronSemanasAtivas.has(parseInt(b.dataset.sem)));
+    });
+  }
   await Promise.all([
     _carregarLocalidades(),
     _carregarEntrevsLista(),
@@ -4441,6 +4483,18 @@ async function carregarCronograma() {
   ]);
   renderCronograma();
 }
+
+window.cronToggleSemana = (sem) => {
+  if (_cronSemanasAtivas.has(sem)) _cronSemanasAtivas.delete(sem);
+  else _cronSemanasAtivas.add(sem);
+  document.querySelectorAll('.cron-sem-chip').forEach(b => {
+    b.classList.toggle('ativo', _cronSemanasAtivas.has(parseInt(b.dataset.sem)));
+  });
+  const saved = [..._cronSemanasAtivas].sort().join(',');
+  if (saved) localStorage.setItem('pnad_cron_semanas', saved);
+  else localStorage.removeItem('pnad_cron_semanas');
+  renderCronograma();
+};
 
 function _buildCronSetores(mes, semana) {
   if (!_amCache) { _cronSetores = []; return; }
@@ -4523,85 +4577,119 @@ function _cronRenderTabela() {
   const mes = _cronMes, semana = _cronSemana;
   const inf = _SEMANAS_CAL[mes]?.[semana];
   const periodo = inf ? `${inf.de} a ${inf.ate}` : '—';
-
   const _tipoCor = t => ({'Coleta PNAD-C':'#2563a8','Coleta CNEFE':'#16a34a','Entregar cartas':'#d97706','Pendências':'#dc2626'}[t]||'#94a3b8');
-  const hdrCss = 'font-size:0.6rem;color:var(--cinza);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding-bottom:2px';
 
   let cards = '';
   _cronLinhas.forEach((ln, i) => {
-    const upas  = _getUpas(ln);
-    const locs  = _getLocs(ln);
-    const tipos = ln.tipos || (ln.tipo ? [ln.tipo] : ['']);
-    // Alinha tipos[] com upas[] para retrocompatibilidade
-    const tiposAl = upas.map((_, si) => tipos[si] || tipos[0] || '');
-    const entrevSel = ln.entrevistadores ? ln.entrevistadores.split(',').map(s=>s.trim()).filter(Boolean) : [];
-    const borderCor = _tipoCor(tiposAl[0]);
-    const chips = entrevSel.map(n => {
-      const c = corEntrevistador(n);
-      return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${_primeiroNome(n)}</span>`;
-    }).join('');
+    if (!ln) return;
 
-    // Células de cada setor
-    let setorCells = '';
-    upas.forEach((u, si) => {
-      const sinf = _cronSetores.find(s => s.upa === u);
-      const etapas = sinf?.etapas || [];
-      const etBadge = etapas.length
-        ? etapas.map(et=>`<span style="padding:1px 5px;border-radius:8px;font-size:0.65rem;font-weight:700;${_COR_ETAPA[et]||''}">${et}ª</span>`).join(' ')
-        : '<span style="color:var(--cinza);font-size:0.7rem">—</span>';
-      const setorOpts = ['', ..._cronSetores.map(s=>s.upa)].map((v,k) =>
-        `<option value="${v}"${v===u?' selected':''}>${k===0?'Setor...':_cronSetores[k-1].label}</option>`
-      ).join('');
-      const locVal = (locs[si] ?? '').replace(/"/g,'&quot;');
-      const delBtn = upas.length > 1
-        ? `<button onclick="cronRemoveSetor(${i},${si})" style="background:none;border:none;cursor:pointer;color:var(--cinza);font-size:0.75rem;padding:0 2px" title="Remover">×</button>`
-        : '<span style="width:14px;display:inline-block"></span>';
-      const tc = _tipoCor(tiposAl[si]);
-      const tipoOpts = ['', ..._TIPOS_SERVICO].map(t =>
-        `<option value="${t}"${t===tiposAl[si]?' selected':''}>${t||'Tipo...'}</option>`
-      ).join('');
-      setorCells += `
-        <select onchange="cronSetTipoParaSetor(${i},${si},this.value)"
-          style="border:1px solid var(--borda);border-left:3px solid ${tc};border-radius:4px;padding:1px 3px;font-size:0.68rem;font-weight:600;color:${tc};background:#fafafa;min-width:85px">${tipoOpts}</select>
-        <select onchange="cronSetorItem(${i},${si},this.value)"
-          style="border:1px solid var(--borda);border-radius:4px;padding:1px 3px;font-size:0.68rem;background:#fafafa;font-family:monospace;min-width:0">${setorOpts}</select>
-        <input type="text" value="${locVal}" placeholder="Localidade..."
-          onblur="cronSetLocalidade(${i},${si},this.value)"
-          style="border:1px solid var(--borda);border-radius:4px;padding:1px 4px;font-size:0.68rem;background:#fafafa;min-width:0">
-        <div style="text-align:center;padding:0 2px;white-space:nowrap">${etBadge}</div>
-        <div>${delBtn}</div>`;
-    });
+    // — PERÍODO LIVRE —
+    if (ln.tipo_card === 'periodo_livre') {
+      cards += `<div class="cron-card cron-card-periodo" data-i="${i}">
+        <div class="cron-card-top">
+          <input type="date" value="${ln.data_inicio||''}" onchange="cronSet(${i},'data_inicio',this.value)"
+            style="border:1px solid var(--borda);border-radius:4px;padding:3px 7px;font-size:0.88rem;background:transparent;flex-shrink:0">
+          <span style="font-size:0.72rem;color:var(--cinza);flex-shrink:0">até</span>
+          <input type="date" value="${ln.data_fim||''}" onchange="cronSet(${i},'data_fim',this.value)"
+            style="border:1px solid var(--borda);border-radius:4px;padding:3px 7px;font-size:0.88rem;background:transparent;flex-shrink:0">
+          <span style="font-size:0.72rem;color:var(--cinza-escuro);flex-shrink:0">horário a combinar</span>
+          <span style="padding:1px 8px;border-radius:10px;font-size:0.65rem;font-weight:700;background:#FAC77522;color:#b45309;border:1px solid #FAC77577;white-space:nowrap;flex-shrink:0">período livre</span>
+          <div style="flex:1"></div>
+          <button onclick="cronDelRow(${i})" style="background:none;border:none;cursor:pointer;color:var(--cinza);font-size:0.95rem;padding:0 2px;flex-shrink:0" title="Remover">🗑️</button>
+        </div>
+      </div>`;
+      return;
+    }
 
-    // Msel entrevistadores inline no header
-    const mselChecks = _cronEntrevs.map(u => {
-      const ok = entrevSel.includes(u.nome) ? 'checked' : '';
-      const ne = u.nome.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-      const c = corEntrevistador(u.nome);
-      return `<label><input type="checkbox" ${ok} onchange="cronToggleEntrev(${i},'${ne}',this.checked)" onclick="event.stopPropagation()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="color:${c}">${_primeiroNome(u.nome)}</span></label>`;
-    }).join('');
-    const mselLabel = entrevSel.length ? `${entrevSel.length} selecionado${entrevSel.length>1?'s':''}` : 'Equipe...';
+    // — DATA FIXA —
+    const equipes = ln.equipes || [];
+    let equipesHtml = '';
 
-    cards += `<div class="cron-card" data-i="${i}" style="border-left-color:${borderCor}">
-      <div class="cron-card-top">
-        <input type="date" value="${ln.data||''}" onchange="cronSet(${i},'data',this.value)"
-          style="border:1px solid var(--borda);border-radius:4px;padding:1px 4px;font-size:0.75rem;background:transparent;flex-shrink:0">
-        <input type="time" value="${ln.hora||''}" onchange="cronSet(${i},'hora',this.value)"
-          style="border:1px solid var(--borda);border-radius:4px;padding:1px 4px;font-size:0.75rem;background:transparent;flex-shrink:0">
-        <div style="flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:3px;min-width:0">
-          <div id="cron-chips-${i}" class="cron-chips">${chips}</div>
-          <div class="cron-msel" onclick="event.stopPropagation()">
+    equipes.forEach((eq, j) => {
+      const corEq = _CORES_EQUIPE[j % _CORES_EQUIPE.length];
+      const upas  = eq.upas       || [''];
+      const locs  = eq.localidades || [''];
+      const tipos = eq.tipos      || [''];
+      const tiposAl   = upas.map((_, si) => tipos[si] || tipos[0] || '');
+      const entrevSel = eq.entrevistadores ? eq.entrevistadores.split(',').map(s=>s.trim()).filter(Boolean) : [];
+
+      const chips = entrevSel.map(n => {
+        const c = corEntrevistador(n);
+        return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${_primeiroNome(n)}</span>`;
+      }).join('');
+
+      const mselChecks = _cronEntrevs.map(u => {
+        const ok = entrevSel.includes(u.nome) ? 'checked' : '';
+        const ne = u.nome.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        const c  = corEntrevistador(u.nome);
+        return `<label><input type="checkbox" ${ok} onchange="cronToggleEntrevEq(${i},${j},'${ne}',this.checked)" onclick="event.stopPropagation()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="color:${c}">${_primeiroNome(u.nome)}</span></label>`;
+      }).join('');
+      const mselLabel = entrevSel.length ? `${entrevSel.length} selecionado${entrevSel.length>1?'s':''}` : 'Equipe...';
+
+      let setorCells = '';
+      upas.forEach((u, si) => {
+        const sinf    = _cronSetores.find(s => s.upa === u);
+        const etapas  = sinf?.etapas || [];
+        const etBadge = etapas.length
+          ? etapas.map(et=>`<span style="padding:1px 5px;border-radius:8px;font-size:0.65rem;font-weight:700;${_COR_ETAPA[et]||''}">${et}ª</span>`).join(' ')
+          : '<span style="color:var(--cinza);font-size:0.7rem">—</span>';
+        const setorOpts = ['', ..._cronSetores.map(s=>s.upa)].map((v,k) =>
+          `<option value="${v}"${v===u?' selected':''}>${k===0?'Setor...':_cronSetores[k-1].label}</option>`
+        ).join('');
+        const locVal   = (locs[si] ?? '').replace(/"/g,'&quot;');
+        const tc       = _tipoCor(tiposAl[si]);
+        const tipoText = tiposAl[si] || '＋ tipo';
+        const tipoCss  = tiposAl[si]
+          ? `color:${tc};background:${tc}18;border:1.5px solid ${tc}55`
+          : `color:var(--cinza);background:var(--cinza-claro);border:1.5px dashed var(--borda)`;
+        const tipoBadge = `<span onclick="event.stopPropagation();cronCiclarTipoEq(${i},${j},${si})" style="padding:1px 7px;border-radius:10px;font-size:0.63rem;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;${tipoCss}" title="Clique para mudar o tipo">${tipoText}</span>`;
+        const delBtn    = upas.length > 1
+          ? `<button onclick="cronRemoveSetorEq(${i},${j},${si})" style="background:none;border:none;cursor:pointer;color:var(--cinza);font-size:0.75rem;padding:0 2px" title="Remover">×</button>`
+          : '<span style="width:14px;display:inline-block"></span>';
+        setorCells += `
+          <select onchange="cronSetorEq(${i},${j},${si},this.value)"
+            style="border:1px solid var(--borda);border-left:3px solid ${tc};border-radius:4px;padding:1px 3px;font-size:0.68rem;background:#fafafa;font-family:monospace;min-width:0">${setorOpts}</select>
+          <input type="text" value="${locVal}" placeholder="Localidade..."
+            onblur="cronSetLocalidadeEq(${i},${j},${si},this.value)"
+            style="border:1px solid var(--borda);border-radius:4px;padding:1px 4px;font-size:0.68rem;background:#fafafa;min-width:0">
+          <div style="text-align:center;padding:0 2px;white-space:nowrap">${etBadge}</div>
+          <div>${tipoBadge}</div>
+          <div>${delBtn}</div>`;
+      });
+
+      const delEqBtn = equipes.length > 1
+        ? `<button onclick="cronRemoveEquipe(${i},${j})" class="cron-equipe-del" title="Remover equipe">🗑️</button>`
+        : '';
+
+      equipesHtml += `<div class="cron-equipe" style="border-left-color:${corEq}">
+        <div class="cron-equipe-hd">
+          <div id="cron-chips-${i}-${j}" class="cron-chips">${chips}</div>
+          <div class="cron-msel cron-msel-reveal" onclick="event.stopPropagation()">
             <div class="cron-msel-btn" onclick="cronAbrirMsel(this)" style="font-size:0.72rem;padding:2px 6px">${mselLabel} ▾</div>
             <div class="cron-msel-list" style="display:none">${mselChecks}</div>
           </div>
+          ${delEqBtn}
         </div>
+        <div class="cron-equipe-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:2px 5px;align-items:center">
+            ${setorCells}
+          </div>
+          <button onclick="cronAddSetorEq(${i},${j})" class="cron-equipe-add-setor">＋ setor</button>
+        </div>
+      </div>`;
+    });
+
+    cards += `<div class="cron-card" data-i="${i}" style="border-left:none">
+      <div class="cron-card-top">
+        <input type="date" value="${ln.data||''}" onchange="cronSet(${i},'data',this.value)"
+          style="border:1px solid var(--borda);border-radius:4px;padding:3px 7px;font-size:0.88rem;background:transparent;flex-shrink:0">
+        <input type="time" value="${ln.hora||''}" onchange="cronSet(${i},'hora',this.value)"
+          style="border:1px solid var(--borda);border-radius:4px;padding:1px 4px;font-size:0.75rem;background:transparent;flex-shrink:0">
+        <div style="flex:1"></div>
         <button onclick="cronDelRow(${i})" style="background:none;border:none;cursor:pointer;color:var(--cinza);font-size:0.95rem;padding:0 2px;flex-shrink:0" title="Remover">🗑️</button>
       </div>
-      <div class="cron-card-body">
-        <div style="display:grid;grid-template-columns:auto 1fr 1fr auto auto;gap:2px 5px;align-items:center">
-          ${setorCells}
-        </div>
-        <button onclick="cronAddSetor(${i})" class="cron-add-setor" title="Adicionar setor">＋ setor</button>
-      </div>
+      ${equipesHtml}
+      <button onclick="cronAddEquipe(${i})" class="cron-add-equipe-btn">＋ equipe</button>
     </div>`;
   });
 
@@ -4617,9 +4705,96 @@ function _cronRenderTabela() {
     </div>
     <div style="padding:0.6rem 0.85rem 0.5rem">
       ${cards}
-      <button onclick="cronAddRow()" style="width:100%;padding:0.55rem;border:1.5px dashed var(--azul);border-radius:8px;color:var(--azul);background:#f0f7ff;cursor:pointer;font-size:0.85rem;font-weight:500">＋ Adicionar atividade</button>
+      <div style="display:flex;gap:0.5rem;margin-top:0.35rem">
+        <button onclick="cronAddDataFixa()" style="flex:1;padding:0.45rem;border:1.5px dashed var(--azul);border-radius:8px;color:var(--azul);background:#f0f7ff;cursor:pointer;font-size:0.8rem;font-weight:500">＋ data fixa</button>
+        <button onclick="cronAddPeriodoLivre()" style="flex:1;padding:0.45rem;border:1.5px dashed #FAC775;border-radius:8px;color:#b45309;background:#fffbf0;cursor:pointer;font-size:0.8rem;font-weight:500">＋ período livre</button>
+      </div>
     </div>
   </div>`;
+}
+
+function _cronRenderVistaGlobal(mes, semanas, dadosPorSemana) {
+  const el = document.getElementById('cron-conteudo');
+  const _tipoCor = t => ({'Coleta PNAD-C':'#2563a8','Coleta CNEFE':'#16a34a','Entregar cartas':'#d97706','Pendências':'#dc2626'}[t]||'#94a3b8');
+
+  let sectionsHtml = '';
+  for (const semana of semanas) {
+    const linhas = (dadosPorSemana[semana] || []).map(_migrarParaEquipes);
+    const inf    = _SEMANAS_CAL[mes]?.[semana];
+    const periodo = inf ? `${inf.de} a ${inf.ate}` : '—';
+    _buildCronSetores(mes, semana);
+
+    let cards = '';
+    linhas.forEach(ln => {
+      if (!ln || Object.keys(ln).length === 0) return;
+
+      // Período livre
+      if (ln.tipo_card === 'periodo_livre') {
+        if (!ln.data_inicio && !ln.data_fim) return;
+        cards += `<div class="cron-card cron-card-periodo">
+          <div class="cron-card-top">
+            <span style="font-size:0.82rem;font-weight:600;color:#92400e">${ln.data_inicio||'?'} até ${ln.data_fim||'?'}</span>
+            <span style="font-size:0.72rem;color:var(--cinza)">horário a combinar</span>
+            <span style="padding:1px 8px;border-radius:10px;font-size:0.65rem;font-weight:700;background:#FAC77522;color:#b45309;border:1px solid #FAC77577">período livre</span>
+          </div>
+        </div>`;
+        return;
+      }
+
+      // Data fixa
+      const equipes = ln.equipes || [];
+      let equipesHtml = '';
+      equipes.forEach((eq, j) => {
+        if (!eq || (!eq.entrevistadores && !(eq.upas||[]).some(u=>u))) return;
+        const corEq   = _CORES_EQUIPE[j % _CORES_EQUIPE.length];
+        const upas    = eq.upas || [''];
+        const locs    = eq.localidades || [''];
+        const tipos   = eq.tipos || [''];
+        const tiposAl = upas.map((_,si) => tipos[si]||tipos[0]||'');
+        const entrevSel = eq.entrevistadores ? eq.entrevistadores.split(',').map(s=>s.trim()).filter(Boolean) : [];
+        const chips = entrevSel.map(n => {
+          const c = corEntrevistador(n);
+          return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${_primeiroNome(n)}</span>`;
+        }).join('');
+        let setorTexts = '';
+        upas.forEach((u, si) => {
+          const sinf    = _cronSetores.find(s => s.upa === u);
+          const etapas  = sinf?.etapas || [];
+          const etBadge = etapas.length ? etapas.map(et=>`<span style="padding:1px 5px;border-radius:8px;font-size:0.65rem;font-weight:700;${_COR_ETAPA[et]||''}">${et}ª</span>`).join(' ') : '';
+          const tc      = _tipoCor(tiposAl[si]);
+          const upaLabel = sinf?.label || u || '—';
+          const locText  = locs[si] || '';
+          setorTexts += `<div style="display:flex;align-items:center;gap:5px;padding:1px 0;flex-wrap:wrap">
+            ${tiposAl[si] ? `<span style="padding:1px 6px;border-radius:3px;font-size:0.65rem;font-weight:700;color:${tc};background:${tc}18;border-left:2px solid ${tc};white-space:nowrap">${tiposAl[si]}</span>` : ''}
+            <span style="font-family:monospace;font-size:0.7rem;color:var(--azul);font-weight:700;white-space:nowrap">${upaLabel}</span>
+            ${locText ? `<span style="font-size:0.68rem;color:var(--cinza-escuro)">${locText}</span>` : ''}
+            ${etBadge}
+          </div>`;
+        });
+        equipesHtml += `<div class="cron-equipe" style="border-left-color:${corEq}">
+          <div class="cron-equipe-hd">${chips}</div>
+          <div class="cron-equipe-body">${setorTexts||'<span style="font-size:0.75rem;color:var(--cinza)">—</span>'}</div>
+        </div>`;
+      });
+      if (!equipesHtml) return;
+      const dataHora = [ln.data, ln.hora].filter(Boolean).join(' ');
+      cards += `<div class="cron-card" style="border-left:none">
+        ${dataHora ? `<div class="cron-card-top"><span style="font-size:0.88rem;font-weight:600;color:var(--texto)">${dataHora}</span></div>` : ''}
+        ${equipesHtml}
+      </div>`;
+    });
+
+    if (!cards) cards = '<div style="font-size:0.82rem;color:var(--cinza);padding:0.35rem 0">Nenhuma atividade registrada.</div>';
+    sectionsHtml += `<div class="card-tabela" style="margin-bottom:1rem">
+      <div class="card-tabela-header">
+        <h3>${_NOMES_MES[mes]||'Mês '+mes} — Semana ${semana}
+          <span style="font-weight:400;font-size:0.82rem;color:var(--cinza);margin-left:0.5rem">📆 ${periodo}</span>
+        </h3>
+      </div>
+      <div style="padding:0.6rem 0.85rem 0.5rem">${cards}</div>
+    </div>`;
+  }
+  el.innerHTML = sectionsHtml;
 }
 
 function _cronRenderPainelMes(mes) {
@@ -4635,13 +4810,12 @@ function _cronRenderPainelMes(mes) {
     if (!porSemanaFinal[s].has(k)) porSemanaFinal[s].set(k, r);
   });
 
-  const semAtual = _cronSemana;
   let acc = '';
 
   for (const sem of Object.keys(porSemanaFinal).map(Number).sort((a,b)=>a-b)) {
     const inf = _SEMANAS_CAL[mes]?.[sem];
     const periodo = inf ? `${inf.de} a ${inf.ate}` : '';
-    const isAtual = sem === semAtual;
+    const isAtual = _cronSemanasAtivas.has(sem);
     const porUpa = new Map();
     [...porSemanaFinal[sem].values()]
       .sort((a,b) => (a.upa||'').localeCompare(b.upa||''))
@@ -4696,25 +4870,41 @@ window.cronToggleAcc = (hd) => {
 window.renderCronograma = async () => {
   const el = document.getElementById('cron-conteudo');
   if (!el) return;
-  const mes    = parseInt(document.getElementById('cron-filtro-mes')?.value) || null;
-  const semana = parseInt(document.getElementById('cron-filtro-semana')?.value) || null;
-  if (mes)    localStorage.setItem('pnad_cron_mes', mes);
-  if (semana) localStorage.setItem('pnad_cron_semana', semana);
-  // Painel lateral atualiza com qualquer mudança de mês
+  const mes = parseInt(document.getElementById('cron-filtro-mes')?.value) || null;
+  if (mes) localStorage.setItem('pnad_cron_mes', mes);
   _cronRenderPainelMes(mes);
-  if (!mes || !semana) {
+  if (!mes || _cronSemanasAtivas.size === 0) {
     el.innerHTML = '<div class="vazio"><div class="icone-vazio">📅</div>Selecione o mês e a semana para gerar o cronograma.</div>';
     return;
   }
-  _cronMes = mes; _cronSemana = semana;
+  _cronMes = mes;
   el.innerHTML = '<div class="loader">Carregando...</div>';
-  try {
-    const snap = await getDoc(doc(db, 'cronograma', `${mes}_${semana}`));
-    _cronLinhas = snap.exists() ? (snap.data().linhas || []) : [];
-  } catch(e) { _cronLinhas = []; console.warn('cron load:', e); }
-  while (_cronLinhas.length < 5) _cronLinhas.push({});
-  _buildCronSetores(mes, semana);
-  _cronRenderTabela();
+  if (_cronSemanasAtivas.size === 1) {
+    const semana = [..._cronSemanasAtivas][0];
+    _cronSemana = semana;
+    try {
+      const snap = await getDoc(doc(db, 'cronograma', `${mes}_${semana}`));
+      _cronLinhas = snap.exists() ? (snap.data().linhas || []) : [];
+    } catch(e) { _cronLinhas = []; console.warn('cron load:', e); }
+    while (_cronLinhas.length < 5) _cronLinhas.push({});
+    _cronLinhas = _cronLinhas.map(_migrarParaEquipes);
+    _buildCronSetores(mes, semana);
+    _cronRenderTabela();
+  } else {
+    _cronSemana = null;
+    const semanas = [..._cronSemanasAtivas].sort((a,b) => a-b);
+    try {
+      const snaps = await Promise.all(semanas.map(s => getDoc(doc(db, 'cronograma', `${mes}_${s}`))));
+      const dadosPorSemana = {};
+      semanas.forEach((s, idx) => {
+        dadosPorSemana[s] = snaps[idx].exists() ? (snaps[idx].data().linhas || []) : [];
+      });
+      _cronRenderVistaGlobal(mes, semanas, dadosPorSemana);
+    } catch(e) {
+      console.warn('cron multi load:', e);
+      el.innerHTML = '<div class="vazio">Erro ao carregar cronograma.</div>';
+    }
+  }
 };
 
 window.cronSet = (i, campo, valor) => {
@@ -4761,6 +4951,18 @@ window.cronSetTipoParaSetor = (rowIdx, setorIdx, val) => {
   const _tipoCor = t => ({'Coleta PNAD-C':'#2563a8','Coleta CNEFE':'#16a34a','Entregar cartas':'#d97706','Pendências':'#dc2626'}[t]||'#94a3b8');
   const card = document.querySelector(`div[data-i="${rowIdx}"]`);
   if (card) card.style.borderLeftColor = _tipoCor(tiposAl[0]);
+};
+
+window.cronCiclarTipo = (rowIdx, setorIdx) => {
+  const ln = _cronLinhas[rowIdx]; if (!ln) return;
+  const upas = _getUpas(ln);
+  const tipos = ln.tipos || (ln.tipo ? [ln.tipo] : []);
+  const tiposAl = upas.map((_, si) => tipos[si] || tipos[0] || '');
+  const all = ['', ..._TIPOS_SERVICO];
+  tiposAl[setorIdx] = all[(all.indexOf(tiposAl[setorIdx]) + 1) % all.length];
+  ln.tipos = tiposAl; delete ln.tipo;
+  _cronScheduleSave();
+  _cronRenderTabela();
 };
 
 window.cronAddSetor = (rowIdx) => {
@@ -4828,23 +5030,93 @@ window.cronAbrirMsel = (btn) => {
   list.style.display = list.style.display === 'none' ? 'block' : 'none';
 };
 
-window.cronToggleEntrev = (rowIdx, nome, checked) => {
-  if (!_cronLinhas[rowIdx]) _cronLinhas[rowIdx] = {};
-  const arr = (_cronLinhas[rowIdx].entrevistadores||'').split(',').map(s=>s.trim()).filter(Boolean);
+// Toggle entrevistador numa equipe específica (atualiza chips sem re-render completo)
+window.cronToggleEntrevEq = (ci, ei, nome, checked) => {
+  const eq = _cronLinhas[ci]?.equipes?.[ei]; if (!eq) return;
+  const arr = (eq.entrevistadores||'').split(',').map(s=>s.trim()).filter(Boolean);
   if (checked) { if (!arr.includes(nome)) arr.push(nome); }
   else { const idx = arr.indexOf(nome); if (idx>=0) arr.splice(idx,1); }
-  _cronLinhas[rowIdx].entrevistadores = arr.join(', ');
-  const btn = document.querySelector(`div[data-i="${rowIdx}"] .cron-msel-btn`);
-  if (btn) btn.textContent = (arr.length ? `${arr.length} selecionado${arr.length>1?'s':''}` : 'Equipe...') + ' ▾';
-  const chipsDiv = document.getElementById(`cron-chips-${rowIdx}`);
-  if (chipsDiv) chipsDiv.innerHTML = arr.map(n => {
-    const c = corEntrevistador(n);
-    return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${_primeiroNome(n)}</span>`;
-  }).join('');
+  eq.entrevistadores = arr.join(', ');
+  const chipsDiv = document.getElementById(`cron-chips-${ci}-${ei}`);
+  if (chipsDiv) {
+    chipsDiv.innerHTML = arr.map(n => {
+      const c = corEntrevistador(n);
+      return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${_primeiroNome(n)}</span>`;
+    }).join('');
+    const mselBtn = chipsDiv.closest('.cron-equipe-hd')?.querySelector('.cron-msel-btn');
+    if (mselBtn) mselBtn.textContent = (arr.length ? `${arr.length} selecionado${arr.length>1?'s':''}` : 'Equipe...') + ' ▾';
+  }
   _cronScheduleSave();
 };
 
-window.cronAddRow = () => { _cronLinhas.push({}); _cronScheduleSave(); _cronRenderTabela(); };
+// Operações de setor por equipe
+window.cronSetorEq = (ci, ei, si, upa) => {
+  const eq = _cronLinhas[ci]?.equipes?.[ei]; if (!eq) return;
+  const upas = [...(eq.upas||[''])]; upas[si] = upa; eq.upas = upas;
+  const locs = [...(eq.localidades||[''])];
+  if (!locs[si]) { const sf = _cronSetores.find(s=>s.upa===upa); if (sf?.localidade) locs[si] = sf.localidade; }
+  eq.localidades = locs;
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+window.cronSetLocalidadeEq = (ci, ei, si, val) => {
+  const eq = _cronLinhas[ci]?.equipes?.[ei]; if (!eq) return;
+  const locs = [...(eq.localidades||[])]; locs[si] = val; eq.localidades = locs;
+  _cronScheduleSave();
+};
+
+window.cronCiclarTipoEq = (ci, ei, si) => {
+  const eq = _cronLinhas[ci]?.equipes?.[ei]; if (!eq) return;
+  const upas    = eq.upas||[''];
+  const tiposAl = upas.map((_,k) => (eq.tipos||[])[k]||(eq.tipos||[])[0]||'');
+  const all = ['', ..._TIPOS_SERVICO];
+  tiposAl[si] = all[(all.indexOf(tiposAl[si])+1) % all.length];
+  eq.tipos = tiposAl;
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+window.cronAddSetorEq = (ci, ei) => {
+  const eq = _cronLinhas[ci]?.equipes?.[ei]; if (!eq) return;
+  (eq.upas        = eq.upas||['']).push('');
+  (eq.localidades = eq.localidades||['']).push('');
+  (eq.tipos       = eq.tipos||['']).push(eq.tipos?.[0]||'');
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+window.cronRemoveSetorEq = (ci, ei, si) => {
+  const eq = _cronLinhas[ci]?.equipes?.[ei]; if (!eq) return;
+  const up = eq.upas||['']; up.splice(si,1); eq.upas = up.length?up:[''];
+  const lo = eq.localidades||['']; lo.splice(si,1); eq.localidades = lo.length?lo:[''];
+  const ti = eq.tipos||['']; ti.splice(si,1); eq.tipos = ti.length?ti:[''];
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+// Gerenciar equipes dentro de um card
+window.cronAddEquipe = (ci) => {
+  const ln = _cronLinhas[ci]; if (!ln) return;
+  if (!ln.equipes) ln.equipes = [];
+  ln.equipes.push({ entrevistadores:'', upas:[''], localidades:[''], tipos:[''] });
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+window.cronRemoveEquipe = (ci, ei) => {
+  const ln = _cronLinhas[ci]; if (!ln?.equipes || ln.equipes.length <= 1) return;
+  ln.equipes.splice(ei,1);
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+// Adicionar cards novos
+window.cronAddDataFixa = () => {
+  _cronLinhas.push({ data:'', hora:'', equipes:[{ entrevistadores:'', upas:[''], localidades:[''], tipos:[''] }] });
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+window.cronAddPeriodoLivre = () => {
+  _cronLinhas.push({ tipo_card:'periodo_livre', data_inicio:'', data_fim:'' });
+  _cronScheduleSave(); _cronRenderTabela();
+};
+
+window.cronAddRow = window.cronAddDataFixa;  // compat
 window.cronDelRow = (i) => { _cronLinhas.splice(i,1); _cronScheduleSave(); _cronRenderTabela(); };
 
 function _cronScheduleSave() {
