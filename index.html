@@ -7004,7 +7004,11 @@ window.importarEnderecoCompleto = (input) => {
       carregarSetores(); // atualiza ✅ na tabela de setores
       if (domicilioAtualId) {
         const dom = todosdomicilios.find(d => d.id === domicilioAtualId);
-        if (dom) { const s = dom.controle ? dom.controle.slice(0,-1) : dom.upa; carregarRoteiroSetor(s, dom); }
+        if (dom) {
+          const s = dom.controle ? dom.controle.slice(0,-1) : dom.upa;
+          const lista = listagemSetor[s];
+          if (lista) renderizarRoteiro(lista, dom, s); // só atualiza a lista, não recria o mapa
+        }
       }
     } catch(err) { console.error(err); mostrarToast('Erro: ' + err.message, 'erro'); }
   };
@@ -7263,7 +7267,12 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
     setTimeout(() => { if (_mapaRoteiroInstance) _mapaRoteiroInstance.invalidateSize(); }, 200);
   };
   
-  obterLeaflet().then(iniciar).catch(() => {
+  obterLeaflet().then(() => {
+    if (!document.getElementById('leaflet-roteiro')) return; // elemento sumiu antes de iniciar
+    return iniciar();
+  }).catch((err) => {
+    console.error('[Mapa Roteiro]', err);
+    if (!document.getElementById('roteiro-mapa')) return;
     mapaDiv.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:center;height:100%;' +
       'color:var(--vermelho);font-size:0.85rem;flex-direction:column;gap:0.5rem;text-align:center;padding:1rem">' +
