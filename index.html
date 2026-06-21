@@ -4378,7 +4378,24 @@ window.limparFiltrosAM = () => {
 };
 
 // ── CRONOGRAMA DA SEMANA ──────────────────────────────────────────────────────
-let _cronCache = null; // { docId: { entrevistadores, data, horario } }
+let _cronLinhas      = [];   // linhas da semana atual
+let _cronMes         = null;
+let _cronSemana      = null;
+let _cronSaveTimer   = null;
+let _cronEntrevs     = [];   // [{nome}] carregados de usuarios
+let _cronSetores     = [];   // [{upa, label, localidade, etapas}] da semana
+let _cronEntrevsOk   = false;
+
+const _TIPOS_SERVICO = ['Coleta PNAD-C', 'Coleta CNEFE', 'Entregar cartas'];
+
+async function _carregarEntrevsLista() {
+  if (_cronEntrevsOk) return;
+  try {
+    const snap = await getDocs(collection(db, 'usuarios'));
+    _cronEntrevs = snap.docs.map(d => d.data()).filter(u => u.nome).sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
+    _cronEntrevsOk = true;
+  } catch(e) { console.warn('usuarios cron:', e); }
+}
 
 async function carregarCronograma() {
   // Restaura último mês/semana selecionados
@@ -4386,7 +4403,191 @@ async function carregarCronograma() {
   const elSemana = document.getElementById('cron-filtro-semana');
   if (elMes    && !elMes.value)    elMes.value    = localStorage.getItem('pnad_cron_mes')    || '';
   if (elSemana && !elSemana.value) elSemana.value = localStorage.getItem('pnad_cron_semana') || '';
-  if (_cronCache) { renderCronograma(); return; }
+  await Promise.all([
+    _carregarLocalidades(),
+    _carregarEntrevsLista(),
+    (!_amCache ? getDocs(collection(db, 'amostra_mestra')).then(s => { _amCache = s.docs.map(d => d.data()); }) : Promise.resolve())
+  ]);
+  renderCronograma();
+}
+
+function _buildCronSetores(mes, semana) {
+  if (!_amCache) { _cronSetores = []; return; }
+  const seen = new Map();
+  _amCache.filter(r => r.mes === mes && r.semana === semana).forEach(r => {
+    const k = `${r.upa||''}|${r.codigo_controle||''}`;
+    if (!seen.has(k)) seen.set(k, r);
+  });
+  const regs = [...seen.values()].sort((a,b) => (a.upa||'').localeCompare(b.upa||'') || (a.codigo_controle||'').localeCompare(b.codigo_controle||''));
+  const porUpa = new Map();
+  regs.forEach(r => { const k = r.upa||'—'; if (!porUpa.has(k)) porUpa.set(k, []); porUpa.get(k).push(r); });
+  const ctrl4 = c => String(c||'').slice(-4);
+  _cronSetores = [];
+  for (const [upa, setores] of [...porUpa.entries()].sort()) {
+    const upaSuf = ctrl4(upa);
+    const extras = setores.filter(r => ctrl4(r.codigo_controle) !== upaSuf);
+    const label = extras.length === 0 ? upa : `${upa}/${extras.map(r=>ctrl4(r.codigo_controle)).join('/')}`;
+    const etapas = [...new Set(setores.map(r=>r.numero_entrevista).filter(Boolean))].sort();
+    _cronSetores.push({ upa, label, localidade: (_localidadesCache||{})[upa]||'', etapas });
+  }
+}
+
+function _cronRenderTabela() {
+  const el = document.getElementById('cron-conteudo');
+  if (!el) return;
+  const mes = _cronMes, semana = _cronSemana;
+  const inf = _SEMANAS_CAL[mes]?.[semana];
+  const periodo = inf ? `${inf.de} a ${inf.ate}` : '—';
+
+  const tiposOpts = ['', ..._TIPOS_SERVICO].map(t => `<option value="${t}">${t||'Tipo...'}</option>`).join('');
+  const setoresOpts = ['', ..._cronSetores.map(s=>s.upa)].map((v,i) =>
+    `<option value="${v}">${i===0 ? 'Setor...' : _cronSetores[i-1].label}</option>`).join('');
+  const entrevOpts = _cronEntrevs.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
+
+  const styleSel = `width:100%;border:1px solid var(--borda);border-radius:4px;padding:3px 5px;font-size:0.78rem;background:#fafafa`;
+  const styleInp = `width:100%;border:1px solid var(--borda);border-radius:4px;padding:3px 5px;font-size:0.78rem;background:#fafafa`;
+
+  let rows = '';
+  _cronLinhas.forEach((ln, i) => {
+    const si = _cronSetores.find(s => s.upa === ln.upa);
+    const etBadge = si?.etapas?.length
+      ? si.etapas.map(et=>`<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:0.7rem;font-weight:700;${_COR_ETAPA[et]||''}">${et}ª</span>`).join(' ')
+      : '<span style="color:var(--cinza)">—</span>';
+    const loc = ln.localidade !== undefined ? ln.localidade : (si?.localidade||'');
+    rows += `<tr data-i="${i}" style="border-top:1px solid var(--borda)">
+      <td style="min-width:90px;padding:4px 6px">
+        <input type="date" value="${ln.data||''}" onchange="cronSet(${i},'data',this.value)" style="${styleInp};margin-bottom:3px">
+        <input type="time" value="${ln.hora||''}" onchange="cronSet(${i},'hora',this.value)" style="${styleInp}">
+      </td>
+      <td style="min-width:130px;padding:4px 6px">
+        <select onchange="cronSet(${i},'tipo',this.value)" style="${styleSel}">${tiposOpts}</select>
+      </td>
+      <td style="min-width:175px;padding:4px 6px">
+        <select onchange="cronSetor(${i},this.value)" style="${styleSel};font-family:monospace;font-size:0.75rem">${setoresOpts}</select>
+      </td>
+      <td style="min-width:120px;padding:4px 6px">
+        <input type="text" value="${loc.replace(/"/g,'&quot;')}" placeholder="Localidade..."
+          onblur="cronSet(${i},'localidade',this.value)" style="${styleInp}">
+      </td>
+      <td style="text-align:center;padding:4px 6px;white-space:nowrap">${etBadge}</td>
+      <td style="min-width:140px;padding:4px 6px">
+        <select multiple style="${styleSel};height:58px" onchange="cronSet(${i},'entrevistadores',Array.from(this.selectedOptions).map(o=>o.value).join(', '))">
+          ${entrevOpts}
+        </select>
+      </td>
+      <td style="padding:4px 6px;text-align:center">
+        <button onclick="cronDelRow(${i})" title="Remover linha" style="background:none;border:none;cursor:pointer;font-size:1rem;color:var(--cinza)">🗑️</button>
+      </td>
+    </tr>`;
+  });
+
+  el.innerHTML = `<div class="card-tabela">
+    <div class="card-tabela-header" style="flex-wrap:wrap;gap:0.5rem">
+      <h3>${_NOMES_MES[mes]||'Mês '+mes} — Semana ${semana}
+        <span style="font-weight:400;font-size:0.82rem;color:var(--cinza);margin-left:0.5rem">📆 ${periodo}</span>
+      </h3>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <span id="cron-status" style="font-size:0.75rem;color:var(--cinza)"></span>
+        <button onclick="cronAddRow()" style="padding:0.3rem 0.8rem;border:1px solid var(--azul);border-radius:6px;color:var(--azul);background:#fff;cursor:pointer;font-size:0.82rem">+ Linha</button>
+        <button onclick="window.print()" style="padding:0.3rem 0.8rem;border:1px solid var(--borda);border-radius:6px;background:#fff;cursor:pointer;font-size:0.82rem">🖨️ Imprimir</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;min-width:900px">
+      <thead><tr>
+        <th style="width:100px">Data / Hora</th>
+        <th style="width:140px">Tipo de Serviço</th>
+        <th>Setor</th>
+        <th style="width:130px">Localidade / Cidade</th>
+        <th style="width:60px;text-align:center">Etapa</th>
+        <th style="width:150px">Entrevistador(es)</th>
+        <th style="width:36px"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    </div>
+    <div style="padding:0.6rem 1rem;border-top:1px solid var(--borda)">
+      <button onclick="cronAddRow()" style="padding:0.35rem 1rem;border:1px dashed var(--azul);border-radius:6px;color:var(--azul);background:#f0f7ff;cursor:pointer;font-size:0.83rem">+ Adicionar linha</button>
+    </div>
+  </div>`;
+
+  // Restaura valores dos selects (não dá via value= no HTML gerado)
+  _cronLinhas.forEach((ln, i) => {
+    const tr = el.querySelector(`tr[data-i="${i}"]`);
+    if (!tr) return;
+    const sels = tr.querySelectorAll('select');
+    if (sels[0] && ln.tipo) sels[0].value = ln.tipo;
+    if (sels[1] && ln.upa)  sels[1].value = ln.upa;
+    if (sels[2] && ln.entrevistadores) {
+      const nomes = ln.entrevistadores.split(',').map(s=>s.trim());
+      Array.from(sels[2].options).forEach(o => { o.selected = nomes.includes(o.value); });
+    }
+  });
+}
+
+window.renderCronograma = async () => {
+  const el = document.getElementById('cron-conteudo');
+  if (!el) return;
+  const mes    = parseInt(document.getElementById('cron-filtro-mes')?.value) || null;
+  const semana = parseInt(document.getElementById('cron-filtro-semana')?.value) || null;
+  if (mes)    localStorage.setItem('pnad_cron_mes', mes);
+  if (semana) localStorage.setItem('pnad_cron_semana', semana);
+  if (!mes || !semana) {
+    el.innerHTML = '<div class="vazio"><div class="icone-vazio">📅</div>Selecione o mês e a semana para gerar o cronograma.</div>';
+    return;
+  }
+  _cronMes = mes; _cronSemana = semana;
+  el.innerHTML = '<div class="loader">Carregando...</div>';
+  try {
+    const snap = await getDoc(doc(db, 'cronograma', `${mes}_${semana}`));
+    _cronLinhas = snap.exists() ? (snap.data().linhas || []) : [];
+  } catch(e) { _cronLinhas = []; console.warn('cron load:', e); }
+  while (_cronLinhas.length < 5) _cronLinhas.push({});
+  _buildCronSetores(mes, semana);
+  _cronRenderTabela();
+};
+
+window.cronSet = (i, campo, valor) => {
+  if (!_cronLinhas[i]) _cronLinhas[i] = {};
+  _cronLinhas[i][campo] = valor;
+  _cronScheduleSave();
+};
+
+window.cronSetor = (i, upa) => {
+  if (!_cronLinhas[i]) _cronLinhas[i] = {};
+  _cronLinhas[i].upa = upa;
+  const si = _cronSetores.find(s => s.upa === upa);
+  if (si && !_cronLinhas[i].localidade) _cronLinhas[i].localidade = si.localidade;
+  _cronScheduleSave();
+  _cronRenderTabela();
+};
+
+window.cronAddRow = () => { _cronLinhas.push({}); _cronScheduleSave(); _cronRenderTabela(); };
+
+window.cronDelRow = (i) => { _cronLinhas.splice(i,1); _cronScheduleSave(); _cronRenderTabela(); };
+
+function _cronScheduleSave() {
+  const st = document.getElementById('cron-status');
+  if (st) st.textContent = 'Salvando...';
+  if (_cronSaveTimer) clearTimeout(_cronSaveTimer);
+  _cronSaveTimer = setTimeout(async () => {
+    if (!_cronMes || !_cronSemana) return;
+    try {
+      await setDoc(doc(db, 'cronograma', `${_cronMes}_${_cronSemana}`), { linhas: _cronLinhas });
+      const st2 = document.getElementById('cron-status');
+      if (st2) { st2.textContent = '✓ Salvo'; setTimeout(()=>{ if(st2) st2.textContent=''; }, 2000); }
+    } catch(e) {
+      console.error('cron save:', e);
+      mostrarToast('Erro ao salvar cronograma', 'erro');
+    }
+  }, 800);
+}
+
+window.salvarCronograma = window.cronSet; // compat
+
+async function carregarCronograma_OLD_REMOVE() { /* removido */ }
+
+async function carregarSetores() {
   await Promise.all([
     _carregarLocalidades(),
     (async () => {
