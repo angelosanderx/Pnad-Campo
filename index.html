@@ -4253,46 +4253,28 @@ window.renderAmostraMestra = () => {
         <span>Semana ${sem}${dataBadge}</span>
         <span style="font-weight:400;font-size:0.78rem;color:var(--cinza)">${nUpas} UPA${nUpas!==1?'s':''} · ${regs.length} setor${regs.length!==1?'es':''}</span>
       </div>
-      <table style="min-width:700px;width:100%;table-layout:fixed">
+      <table style="min-width:500px;width:100%;table-layout:fixed">
         <thead><tr>
-          <th style="width:160px">UPA</th>
-          <th style="width:120px">Cód. Controle</th>
+          <th>UPA / Controle</th>
           <th>Município</th>
-          <th style="width:60px;text-align:center">Etapa</th>
-          <th style="width:80px">Situação</th>
-          <th style="width:90px">Entrada</th>
-          <th style="width:90px">Saída</th>
+          <th style="width:70px;text-align:center">Etapa</th>
         </tr></thead>
         <tbody>`;
       for (const [upa, setores] of Object.entries(porUpa).sort()) {
-        setores.forEach((r, idx) => {
-          const etapa = r.numero_entrevista;
-          const etBadge = etapa
-            ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:700;${_COR_ETAPA[etapa]||''}">${etapa}ª</span>`
+        const upaCtrls = setores.map(r =>
+          `<span style="display:block;font-family:monospace;font-size:0.8rem;font-weight:700;color:var(--azul)">${upa}/${r.codigo_controle||'?'}</span>`
+        ).join('');
+        const etapas = setores.map(r => {
+          const et = r.numero_entrevista;
+          return et
+            ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:700;${_COR_ETAPA[et]||''};margin:1px">${et}ª</span>`
             : '—';
-          const _sitRaw = String(r.situacao_tipo ?? '');
-          const sit = !_sitRaw ? '—'
-            : /^1|urban/i.test(_sitRaw) ? 'Urbano'
-            : /^2|rural/i.test(_sitRaw) ? 'Rural'
-            : _sitRaw;
-          const entrada = r.ano_entrada ? `${r.ano_entrada}T${r.trimestre_entrada}` : '—';
-          const saida   = r.ano_saida   ? `${r.ano_saida}T${r.trimestre_saida}`     : '—';
-          const saidaStyle = (r.ano_saida === r.ano && r.trimestre_saida === r.trimestre)
-            ? 'color:var(--vermelho);font-weight:700' : '';
-          // Mostra UPA só na primeira linha do grupo
-          const upaCel = idx === 0
-            ? `<td rowspan="${setores.length}" style="font-weight:700;color:var(--azul);font-size:0.8rem;vertical-align:top;border-right:2px solid var(--azul-claro)">${upa}</td>`
-            : '';
-          html += `<tr${idx===0?' style="border-top:2px solid var(--borda)"':''}>
-            ${upaCel}
-            <td style="font-family:monospace;font-size:0.8rem">${r.codigo_controle||'—'}</td>
-            <td style="font-size:0.82rem">${r.nome_municipio||'—'}</td>
-            <td style="text-align:center">${etBadge}</td>
-            <td style="font-size:0.78rem;color:var(--cinza)">${sit}</td>
-            <td style="font-size:0.78rem">${entrada}</td>
-            <td style="font-size:0.78rem;${saidaStyle}">${saida}</td>
-          </tr>`;
-        });
+        }).join(' ');
+        html += `<tr style="border-top:2px solid var(--borda)">
+          <td style="vertical-align:middle">${upaCtrls}</td>
+          <td style="font-size:0.82rem;vertical-align:middle">${setores[0]?.nome_municipio||'—'}</td>
+          <td style="text-align:center;vertical-align:middle">${etapas}</td>
+        </tr>`;
       }
       html += '</tbody></table>';
     }
