@@ -534,6 +534,7 @@ function processarDados() {
     else if (posicao.includes('parcialmente')) status = 'ausente';
     else if (posicao.includes('recusa')) status = 'recusa';
     else if (posicao.includes('carta')) status = 'carta_solicitada';
+    else if (posicao.includes('vago') || posicao.includes('inapt')) status = 'vago';
 
     // Monta histórico de espécies
     // Regra: o nome do entrevistador só é gravado na etapa que corresponde à
@@ -556,6 +557,15 @@ function processarDados() {
           });
         }
       }
+    }
+
+    // Se o histórico de espécies indicar vago/inapto na etapa atual (ou em qualquer etapa
+    // se ainda não visitado), prevalece sobre o status derivado da ÚltimaPosição
+    if (status === 'nao_visitado' || status === 'realizada') {
+      const resultadoAtual = historicoEspecies.find(h => String(h.entrevista) === String(etapaAtualNum))?.resultado || '';
+      const ultimaEspecie  = historicoEspecies.length > 0 ? historicoEspecies[historicoEspecies.length - 1].resultado : '';
+      const checarVago = (s) => /vago|inapt|fechado|demol|inexist/i.test(s);
+      if (checarVago(resultadoAtual) || checarVago(ultimaEspecie)) status = 'vago';
     }
 
     // Monta histórico de telefones

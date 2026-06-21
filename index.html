@@ -1148,6 +1148,14 @@
             <option value="3">Semana 3</option>
             <option value="4">Semana 4</option>
           </select>
+          <select id="filtro-etapa" onchange="filtrarDomicilios()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
+            <option value="">Todas as etapas</option>
+            <option value="1">Etapa 1</option>
+            <option value="2">Etapa 2</option>
+            <option value="3">Etapa 3</option>
+            <option value="4">Etapa 4</option>
+            <option value="5">Etapa 5 (última)</option>
+          </select>
           <select id="filtro-status" onchange="filtrarDomicilios()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
             <option value="">Todos os status</option>
             <option value="nao_visitado">Não visitado</option>
@@ -2473,7 +2481,6 @@ async function carregarDomicilios() {
       if (data.qtd_moradores_pnad > 0) data._tem_moradores = true;
       return data;
     }).filter(d => d.endereco && pertencePeriodo(d));
-    preencherFiltrosUpa();
     preencherFiltroEntrevistador();
     filtrarDomicilios();
     renderizarMapaSetores();
@@ -2484,18 +2491,64 @@ async function carregarDomicilios() {
   }
 }
 
+function _domFiltradosSemUpaSetor() {
+  const semana = document.getElementById('filtro-semana')?.value || '';
+  const etapa  = document.getElementById('filtro-etapa')?.value || '';
+  const status = document.getElementById('filtro-status')?.value || '';
+  const solicitacao = document.getElementById('filtro-solicitacao')?.value || '';
+  const entrevistador = document.getElementById('filtro-entrevistador')?.value || '';
+  const q = (document.getElementById('busca-domicilio')?.value || '').toLowerCase();
+  return todosdomicilios.filter(d => {
+    if (semana && d.semana !== semana) return false;
+    if (etapa  && String(d.visita_etapa || '') !== etapa) return false;
+    if (entrevistador === '__sem__' && d.entrevistador_nome) return false;
+    if (entrevistador && entrevistador !== '__sem__' && d.entrevistador_nome !== entrevistador) return false;
+    if (status && (d.status_atual || 'nao_visitado') !== status) return false;
+    if (solicitacao) {
+      const temNaLista = (d.solicitacoes || []).some(s => s.tipo === solicitacao);
+      const temLegado  = !(d.solicitacoes?.length) && d.tipo_solicitacao === solicitacao;
+      if (!temNaLista && !temLegado) return false;
+    }
+    if (q && !(d.endereco||'').toLowerCase().includes(q) && !(d.morador||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
 function preencherFiltrosUpa() {
-  const upas = [...new Set(todosdomicilios.map(d => d.upa).filter(Boolean))].sort();
-  const sel = document.getElementById('filtro-upa');
-  const val = sel.value;
-  sel.innerHTML = '<option value="">Todas as UPAs (' + upas.length + ')</option>';
+  _atualizarDropdownsUpaSetor();
+}
+
+function _atualizarDropdownsUpaSetor() {
+  const base = _domFiltradosSemUpaSetor();
+  const upaAtual   = document.getElementById('filtro-upa').value;
+  const setorAtual = document.getElementById('filtro-setor').value;
+
+  // UPA dropdown
+  const upas = [...new Set(base.map(d => d.upa).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const selUpa = document.getElementById('filtro-upa');
+  selUpa.innerHTML = '<option value="">Todas as UPAs (' + upas.length + ')</option>';
   upas.forEach(u => {
     const opt = document.createElement('option');
-    opt.value = u;
-    opt.textContent = 'UPA ' + u;
-    sel.appendChild(opt);
+    opt.value = u; opt.textContent = 'UPA ' + u;
+    selUpa.appendChild(opt);
   });
-  sel.value = val;
+  selUpa.value = upas.includes(upaAtual) ? upaAtual : '';
+
+  // Setor dropdown — filtra pela UPA selecionada (ou todas)
+  const upaEfetiva = selUpa.value;
+  const setores = [...new Set(
+    base.filter(d => !upaEfetiva || d.upa === upaEfetiva)
+      .map(d => d.controle ? d.controle.slice(0,-1) : d.upa)
+      .filter(Boolean)
+  )].sort((a,b) => a.localeCompare(b));
+  const selSetor = document.getElementById('filtro-setor');
+  selSetor.innerHTML = '<option value="">Todos os setores (' + setores.length + ')</option>';
+  setores.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = 'Setor ' + s;
+    selSetor.appendChild(opt);
+  });
+  selSetor.value = setores.includes(setorAtual) ? setorAtual : '';
 }
 
 function preencherFiltroEntrevistador() {
@@ -2517,18 +2570,17 @@ function preencherFiltroEntrevistador() {
 
 window.filtrarPorUpa = () => {
   const upa = document.getElementById('filtro-upa').value;
+  const base = _domFiltradosSemUpaSetor();
   const setores = [...new Set(
-    todosdomicilios
-      .filter(d => !upa || d.upa === upa)
+    base.filter(d => !upa || d.upa === upa)
       .map(d => d.controle ? d.controle.slice(0,-1) : d.upa)
       .filter(Boolean)
-  )].sort();
+  )].sort((a,b) => a.localeCompare(b));
   const sel = document.getElementById('filtro-setor');
   sel.innerHTML = '<option value="">Todos os setores (' + setores.length + ')</option>';
   setores.forEach(s => {
     const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = 'Setor ' + s;
+    opt.value = s; opt.textContent = 'Setor ' + s;
     sel.appendChild(opt);
   });
   filtrarDomicilios();
@@ -2540,9 +2592,11 @@ function _indicarFiltroAtivo(cardId, ativo) {
 }
 
 window.filtrarDomicilios = () => {
+  _atualizarDropdownsUpaSetor();
   const upa = document.getElementById('filtro-upa').value;
   const setor = document.getElementById('filtro-setor').value;
   const semana = document.getElementById('filtro-semana').value;
+  const etapa = document.getElementById('filtro-etapa').value;
   const entrevistador = document.getElementById('filtro-entrevistador').value;
   const q = document.getElementById('busca-domicilio').value.toLowerCase();
   const solicitacao = document.getElementById('filtro-solicitacao').value;
@@ -2551,6 +2605,7 @@ window.filtrarDomicilios = () => {
     if (upa && d.upa !== upa) return false;
     if (setor && setorDom !== setor) return false;
     if (semana && d.semana !== semana) return false;
+    if (etapa && String(d.visita_etapa || '') !== etapa) return false;
     if (entrevistador === '__sem__' && d.entrevistador_nome) return false;
     if (entrevistador && entrevistador !== '__sem__' && d.entrevistador_nome !== entrevistador) return false;
     const status = document.getElementById('filtro-status').value;
@@ -2589,11 +2644,11 @@ window.filtrarDomicilios = () => {
   });
   renderizarDomicilios(filtrados);
   const _status = document.getElementById('filtro-status')?.value || '';
-  const _temFiltro = !!(upa || setor || semana || _status || solicitacao || entrevistador || q);
+  const _temFiltro = !!(upa || setor || semana || etapa || _status || solicitacao || entrevistador || q);
   _indicarFiltroAtivo('card-lista-dom', _temFiltro);
   const _cardPend = document.getElementById('card-pendentes-dom');
   if (_cardPend) _cardPend.style.display = _temFiltro ? 'none' : '';
-  ['filtro-upa','filtro-setor','filtro-semana','filtro-status','filtro-solicitacao','filtro-entrevistador'].forEach(id => {
+  ['filtro-upa','filtro-setor','filtro-semana','filtro-etapa','filtro-status','filtro-solicitacao','filtro-entrevistador'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('filtro-ativo-ctrl', !!el.value);
   });
   const _bDom = document.getElementById('busca-domicilio');
@@ -2604,12 +2659,13 @@ window.limparFiltros = () => {
   document.getElementById('filtro-upa').value = '';
   document.getElementById('filtro-setor').value = '';
   document.getElementById('filtro-semana').value = '';
+  document.getElementById('filtro-etapa').value = '';
   document.getElementById('filtro-status').value = '';
   document.getElementById('filtro-solicitacao').value = '';
   document.getElementById('filtro-entrevistador').value = '';
   document.getElementById('filtro-ordem').value = 'padrao';
   document.getElementById('busca-domicilio').value = '';
-  filtrarPorUpa();
+  filtrarDomicilios();
 };
 
 // ── ETIQUETAS DE ENDEREÇO (Pimaco 6181 — 2×7 = 14 por folha A4) ──
@@ -5697,7 +5753,7 @@ async function carregarSetores() {
       '<th>UPA / Setor</th><th>Município</th><th>Dom.</th><th>Realizadas</th><th>Progresso</th><th>Pendentes</th><th>End. Completo</th>' +
       '</tr></thead><tbody>';
 
-    for (const [upa, setores] of Object.entries(upas).sort()) {
+    for (const [upa, setores] of Object.entries(upas).sort((a,b) => a[0].localeCompare(b[0]))) {
       const totalUpa = Object.values(setores).reduce((s, v) => s + v.domicilios.length, 0);
       const realizadasUpa = Object.values(setores).reduce((s, v) =>
         s + v.domicilios.filter(d => d.status_atual === 'realizada').length, 0);
@@ -5711,7 +5767,7 @@ async function carregarSetores() {
         </td>
       </tr>`;
 
-      for (const [setor, dados] of Object.entries(setores).sort()) {
+      for (const [setor, dados] of Object.entries(setores).sort((a,b) => a[0].localeCompare(b[0]))) {
         const total = dados.domicilios.length;
         const realizadas = dados.domicilios.filter(d => d.status_atual === 'realizada').length;
         const pendentes = dados.domicilios.filter(d => STATUS_PENDENTES.includes(d.status_atual || 'nao_visitado')).length;
@@ -6971,7 +7027,6 @@ window.importarEnderecoCompleto = (input) => {
         res.push(cur.trim()); return res;
       };
 
-      // Uma única passagem: extrai controle e campos juntos
       const novo = {};
       let total = 0;
       for (let i = 1; i < linhas.length; i++) {
@@ -7001,13 +7056,13 @@ window.importarEnderecoCompleto = (input) => {
       }
 
       mostrarToast(`Importado: ${total} endereços em ${setoresCount} setor(es)`, 'sucesso');
-      carregarSetores(); // atualiza ✅ na tabela de setores
+      carregarSetores();
       if (domicilioAtualId) {
         const dom = todosdomicilios.find(d => d.id === domicilioAtualId);
         if (dom) {
           const s = dom.controle ? dom.controle.slice(0,-1) : dom.upa;
           const lista = listagemSetor[s];
-          if (lista) renderizarRoteiro(lista, dom, s); // só atualiza a lista, não recria o mapa
+          if (lista) renderizarRoteiro(lista, dom, s);
         }
       }
     } catch(err) { console.error(err); mostrarToast('Erro: ' + err.message, 'erro'); }
@@ -7042,10 +7097,6 @@ window.carregarRoteiroSetor = async (setor, domAtual) => {
     }
 
     if (lista && lista.length > 0) {
-      const domNum = String(domAtual.domicilio_num || domAtual.numero_sequencial || '');
-      let idxAlvo = lista.findIndex(d => d.dom === domNum);
-      if (idxAlvo < 0) idxAlvo = lista.findIndex(d => d.seq_visita === domNum);
-      renderizarMapaRoteiro(idxAlvo >= 0 ? lista[idxAlvo] : null, [], [], setor, cor, domComCoords);
       renderizarRoteiro(lista, domAtual, setor);
     } else {
       renderizarMapaRoteiro(null, [], [], setor, cor, domComCoords);
