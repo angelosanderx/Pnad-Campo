@@ -9064,11 +9064,17 @@ async function carregarCnefeQualidade() {
       return;
     }
 
-    // Agrupa por UPA efetiva
+    // Agrupa por UPA efetiva — guarda mês CNEFE do primeiro setor encontrado
     const porUpa = new Map();
     comUpa.forEach(s => {
-      if (!porUpa.has(s._upaEfetiva)) porUpa.set(s._upaEfetiva, []);
-      porUpa.get(s._upaEfetiva).push(s);
+      if (!porUpa.has(s._upaEfetiva)) {
+        porUpa.set(s._upaEfetiva, {
+          setores: [],
+          mesCnefe: s.mesCnefe || 0,
+          anoCnefe: s.anoCnefe || 0,
+        });
+      }
+      porUpa.get(s._upaEfetiva).setores.push(s);
     });
 
     const qualAgente = {};
@@ -9085,28 +9091,49 @@ async function carregarCnefeQualidade() {
       </div>`;
     }
 
-    // ── Tabela por UPA ─────────────────────────────────────────────────────────
+    // ── Tabela por UPA — ordenada por mês CNEFE → UPA ─────────────────────────
     if (porUpa.size > 0) {
+      // Ordena: anoCnefe ASC → mesCnefe ASC → upaId ASC
+      const upasOrdenadas = [...porUpa].sort(([aId, aD], [bId, bD]) => {
+        const aK = `${aD.anoCnefe}_${String(aD.mesCnefe).padStart(2,'0')}_${aId}`;
+        const bK = `${bD.anoCnefe}_${String(bD.mesCnefe).padStart(2,'0')}_${bId}`;
+        return aK.localeCompare(bK);
+      });
+
       html += `<div style="overflow-x:auto"><table style="min-width:700px">
         <thead><tr>
           <th>UPA / Setores</th><th>Agente</th>
+          <th style="text-align:center">Mês CNEFE</th>
           <th style="text-align:center">Dom. PNAD</th>
           <th style="text-align:center">Erros CNEFE</th>
           <th style="text-align:center">% Acerto</th>
           <th>Domicílios com erro</th>
         </tr></thead><tbody>`;
 
-      for (const [upaId, setores] of [...porUpa].sort((a,b) => a[0].localeCompare(b[0]))) {
+      let mesAtual = '';
+      for (const [upaId, { setores, mesCnefe, anoCnefe }] of upasOrdenadas) {
+        const mesLabel = mesCnefe ? `${_CNEFE_MESES[mesCnefe-1]} ${anoCnefe}` : 'Sem mês';
+        const mesKey   = mesCnefe ? `${anoCnefe}_${String(mesCnefe).padStart(2,'0')}` : 'sem';
+
+        // Cabeçalho de mês quando muda
+        if (mesKey !== mesAtual) {
+          mesAtual = mesKey;
+          const upasDoMes = upasOrdenadas.filter(([, d]) =>
+            (d.mesCnefe ? `${d.anoCnefe}_${String(d.mesCnefe).padStart(2,'0')}` : 'sem') === mesKey
+          ).length;
+          html += `<tr style="background:var(--azul);color:#fff">
+            <td colspan="7" style="font-weight:700;font-size:0.83rem;padding:0.45rem 0.9rem;letter-spacing:0.3px">
+              📅 ${mesLabel} — ${upasDoMes} UPA${upasDoMes!==1?'s':''}
+            </td></tr>`;
+        }
+
         const domsUpa = todosdomicilios.filter(d => d.upa === upaId && parseInt(d.visita_etapa) === 1);
         const erros   = domsUpa.filter(d => !STATUS_OK.has(d.status_atual || 'nao_visitado'));
         const total   = domsUpa.length;
         const pctAcerto = total > 0 ? Math.round((total - erros.length) / total * 100) : 100;
         const corPct    = pctAcerto >= 90 ? 'var(--verde)' : pctAcerto >= 70 ? 'var(--amarelo)' : 'var(--vermelho)';
 
-        // Todos os setores (codigo_controle) desta UPA segundo a amostra_mestra
-        const todosSetoresAm = amUpa2Ctrl.has(upaId)
-          ? [...amUpa2Ctrl.get(upaId)].sort() : [];
-
+        const todosSetoresAm = amUpa2Ctrl.has(upaId) ? [...amUpa2Ctrl.get(upaId)].sort() : [];
         const agentesUpa = [...new Set(setores.map(s => (s.agente_nome||'').split(' ')[0]).filter(Boolean))].join(', ') || '—';
 
         // Acumula por agente
@@ -9124,7 +9151,6 @@ async function carregarCnefeQualidade() {
           </span>`
         ).join('');
 
-        // Setores da amostra_mestra para esta UPA
         const amSetoresHtml = todosSetoresAm.length
           ? todosSetoresAm.map(ctrl => {
               const cnefeSector = setores.find(s => s.setor === ctrl);
@@ -9135,14 +9161,19 @@ async function carregarCnefeQualidade() {
           : `<code style="font-size:0.72rem;color:var(--texto-secundario)">${upaId}</code>`;
 
         html += `<tr style="background:var(--azul-claro)">
-          <td colspan="6" style="font-weight:700;font-size:0.82rem;padding:0.4rem 0.8rem;color:var(--azul)">
+          <td colspan="7" style="font-weight:700;font-size:0.82rem;padding:0.4rem 0.8rem;color:var(--azul)">
             📍 UPA ${upaId}
             <span style="font-weight:400;font-size:0.75rem;margin-left:0.75rem">Setores: ${amSetoresHtml}</span>
           </td></tr>`;
 
+        const mesBadge = mesCnefe
+          ? `<span class="badge badge-azul" style="font-size:0.7rem">${_CNEFE_MESES[mesCnefe-1]}/${anoCnefe}</span>`
+          : '—';
+
         html += `<tr>
           <td style="padding-left:1.5rem;font-size:0.82rem">UPA ${upaId}</td>
           <td style="font-size:0.82rem">${agentesUpa}</td>
+          <td style="text-align:center">${mesBadge}</td>
           <td style="text-align:center;font-weight:600">${total || '<span style="color:var(--amarelo)" title="Sem domicílios carregados">?</span>'}</td>
           <td style="text-align:center;font-weight:700;color:${erros.length>0?'var(--vermelho)':'var(--verde)'}">
             ${total ? erros.length : '—'}
@@ -9154,7 +9185,7 @@ async function carregarCnefeQualidade() {
         </tr>`;
 
         // Sub-linhas: setores CNEFE associados a esta UPA
-        setores.forEach(s => {
+        setores.sort((a,b) => a.setor.localeCompare(b.setor)).forEach(s => {
           const origem = s.upa_id ? '✔ manual' : '🔗 amostra mestra';
           html += `<tr style="background:rgba(0,0,0,0.015)">
             <td style="padding-left:2.5rem;font-size:0.78rem">
@@ -9162,7 +9193,7 @@ async function carregarCnefeQualidade() {
               <span style="font-size:0.7rem;color:var(--texto-secundario);margin-left:0.4rem">${origem}</span>
             </td>
             <td style="font-size:0.78rem">${(s.agente_nome||'—').split(' ')[0]}</td>
-            <td colspan="4" style="font-size:0.75rem;color:var(--texto-secundario)">setor integrante da UPA acima</td>
+            <td colspan="5" style="font-size:0.75rem;color:var(--texto-secundario)">setor integrante da UPA acima</td>
           </tr>`;
         });
       }
