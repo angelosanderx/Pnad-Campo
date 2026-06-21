@@ -4237,13 +4237,24 @@ window.renderAmostraMestra = () => {
       📆 ${_NOMES_MES[mes] || 'Mês '+mes}
     </div>${ptAviso}`;
     for (const sem of Object.keys(grupos[mes]).map(Number).sort((a,b)=>a-b)) {
-      const regs = grupos[mes][sem].slice().sort((a,b) =>
+      // Deduplica por UPA+controle (elimina docs antigos com chave errada)
+      const seen = new Map();
+      grupos[mes][sem].forEach(r => {
+        const k = `${r.upa||''}|${r.codigo_controle||''}`;
+        if (!seen.has(k)) seen.set(k, r);
+      });
+      const regs = [...seen.values()].sort((a,b) =>
         (a.upa||'').localeCompare(b.upa||'') || (a.codigo_controle||'').localeCompare(b.codigo_controle||'')
       );
-      // Agrupa por UPA dentro da semana
-      const porUpa = {};
-      regs.forEach(r => { const k = r.upa||'—'; (porUpa[k]=porUpa[k]||[]).push(r); });
-      const nUpas = Object.keys(porUpa).length;
+      // Agrupa setores por UPA
+      const porUpa = new Map();
+      regs.forEach(r => {
+        const k = r.upa||'—';
+        if (!porUpa.has(k)) porUpa.set(k, []);
+        porUpa.get(k).push(r);
+      });
+      const nUpas = porUpa.size;
+      const nSetores = regs.length;
 
       const inf = _SEMANAS_CAL[mes]?.[sem];
       const dataBadge = inf
@@ -4251,7 +4262,7 @@ window.renderAmostraMestra = () => {
         : '';
       html += `<div style="background:var(--azul-claro);padding:0.4rem 1.1rem;font-weight:700;font-size:0.82rem;color:var(--azul);border-bottom:2px solid var(--azul-medio);display:flex;justify-content:space-between;align-items:center">
         <span>Semana ${sem}${dataBadge}</span>
-        <span style="font-weight:400;font-size:0.78rem;color:var(--cinza)">${nUpas} UPA${nUpas!==1?'s':''} · ${regs.length} setor${regs.length!==1?'es':''}</span>
+        <span style="font-weight:400;font-size:0.78rem;color:var(--cinza)">${nUpas} UPA${nUpas!==1?'s':''} · ${nSetores} setor${nSetores!==1?'es':''}</span>
       </div>
       <table style="min-width:500px;width:100%;table-layout:fixed">
         <thead><tr>
@@ -4260,10 +4271,17 @@ window.renderAmostraMestra = () => {
           <th style="width:70px;text-align:center">Etapa</th>
         </tr></thead>
         <tbody>`;
-      for (const [upa, setores] of Object.entries(porUpa).sort()) {
-        const upaCtrls = setores.map(r =>
-          `<span style="display:block;font-family:monospace;font-size:0.8rem;font-weight:700;color:var(--azul)">${upa}/${r.codigo_controle||'?'}</span>`
-        ).join('');
+      for (const [upa, setores] of [...porUpa.entries()].sort()) {
+        // Últimos 4 dígitos do controle
+        const ctrl4 = c => String(c||'').slice(-4);
+        // Sufixo da própria UPA (últimos 4 dígitos)
+        const upaSufixo = ctrl4(upa);
+        // Se único setor e controle == sufixo da UPA → só mostra a UPA
+        const upaCell = setores.length === 1 && ctrl4(setores[0].codigo_controle) === upaSufixo
+          ? `<span style="font-family:monospace;font-size:0.8rem;font-weight:700;color:var(--azul)">${upa}</span>`
+          : setores.map(r =>
+              `<span style="display:block;font-family:monospace;font-size:0.8rem;font-weight:700;color:var(--azul)">${upa}/<b>${ctrl4(r.codigo_controle)}</b></span>`
+            ).join('');
         const etapas = setores.map(r => {
           const et = r.numero_entrevista;
           return et
@@ -4271,7 +4289,7 @@ window.renderAmostraMestra = () => {
             : '—';
         }).join(' ');
         html += `<tr style="border-top:2px solid var(--borda)">
-          <td style="vertical-align:middle">${upaCtrls}</td>
+          <td style="vertical-align:middle">${upaCell}</td>
           <td style="font-size:0.82rem;vertical-align:middle">${setores[0]?.nome_municipio||'—'}</td>
           <td style="text-align:center;vertical-align:middle">${etapas}</td>
         </tr>`;
