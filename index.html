@@ -856,6 +856,15 @@
     border-top: 1px solid var(--borda);
     margin: 2.5rem 0;
   }
+  /* ── CNEFE ── */
+  .cnefe-tabs { display:flex; gap:0; border-bottom:2px solid var(--borda); margin-bottom:1.25rem; flex-wrap:wrap; }
+  .cnefe-tab-btn { padding:0.6rem 1.25rem; border:none; background:none; font-size:0.88rem; font-family:var(--fonte); color:var(--cinza); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-weight:600; transition:color 0.15s,border-color 0.15s; }
+  .cnefe-tab-btn:hover { color:var(--azul-medio); background:var(--azul-claro); }
+  .cnefe-tab-btn.ativo { color:var(--azul-medio); border-bottom-color:var(--azul-medio); }
+  .cnefe-tab-panel { display:none; }
+  .cnefe-tab-panel.ativo { display:block; }
+  .grid-stats-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:0.75rem; margin-bottom:1.25rem; }
+  @media(max-width:700px) { .grid-stats-4 { grid-template-columns:repeat(2,1fr); } }
 </style>
 </head>
 <body>
@@ -926,6 +935,9 @@
     </div>
     <div class="nav-item" id="nav-setores" onclick="irPara('setores')">
       <span class="icone">🗺️</span> Setores
+    </div>
+    <div class="nav-item" id="nav-cnefe" onclick="irPara('cnefe')">
+      <span class="icone">📍</span> CNEFE
     </div>
     <div class="nav-item" id="nav-usuarios" onclick="irPara('usuarios')">
       <span class="icone">👥</span> Usuários
@@ -1443,6 +1455,86 @@
             </div>
           </div>
           <div id="hist-xlsx-status" style="margin-top:0.85rem;font-size:0.85rem"></div>
+        </div>
+      </div>
+
+      <div class="card-tabela" style="margin-top:1.25rem" id="card-cnefe-agentes-secao">
+        <div class="card-tabela-header">
+          <h3>📍 Agentes CNEFE</h3>
+          <button class="btn-acao" onclick="abrirModalCnefeAgente()">+ Novo agente</button>
+        </div>
+        <div id="tabela-cnefe-agentes"><div class="loader">Carregando...</div></div>
+      </div>
+    </div>
+
+    <div class="pagina" id="pag-cnefe">
+      <div class="titulo-pagina">📍 CNEFE</div>
+
+      <div class="cnefe-tabs">
+        <button class="cnefe-tab-btn ativo" onclick="cnefeMudarAba('setores',this)">Setores</button>
+        <button class="cnefe-tab-btn" onclick="cnefeMudarAba('listagem',this)">Listagem de Campo</button>
+        <button class="cnefe-tab-btn" onclick="cnefeMudarAba('qualidade',this)">Qualidade</button>
+      </div>
+
+      <!-- ABA SETORES -->
+      <div class="cnefe-tab-panel ativo" id="cnefe-panel-setores">
+        <div class="grid-stats-4">
+          <div class="card-stat" style="border-left:4px solid var(--azul-medio)">
+            <div class="numero" id="cnefe-stat-total">—</div>
+            <div class="rotulo">Total de setores</div>
+          </div>
+          <div class="card-stat verde" style="border-left:4px solid var(--verde)">
+            <div class="numero" id="cnefe-stat-prazo">—</div>
+            <div class="rotulo">No prazo</div>
+          </div>
+          <div class="card-stat" style="border-left:4px solid var(--vermelho)">
+            <div class="numero" style="color:var(--vermelho)" id="cnefe-stat-atrasados">—</div>
+            <div class="rotulo">Atrasados</div>
+          </div>
+          <div class="card-stat verde" style="border-left:4px solid var(--verde)">
+            <div class="numero" id="cnefe-stat-concluidos">—</div>
+            <div class="rotulo">Concluídos</div>
+          </div>
+        </div>
+        <div class="card-tabela">
+          <div class="card-tabela-header">
+            <h3>Setores CNEFE</h3>
+            <button class="btn-acao" onclick="abrirModalCnefeSetorNovo()">+ Adicionar setor</button>
+          </div>
+          <div id="cnefe-setores-tabela"><div class="loader">Carregando...</div></div>
+        </div>
+      </div>
+
+      <!-- ABA LISTAGEM DE CAMPO -->
+      <div class="cnefe-tab-panel" id="cnefe-panel-listagem">
+        <div class="card-tabela" style="margin-bottom:0.75rem">
+          <div style="padding:0.85rem 1.25rem;display:flex;flex-wrap:wrap;gap:0.6rem;align-items:center">
+            <span id="cnefe-listagem-setor-atual" style="font-size:0.85rem;font-weight:700;color:var(--azul);flex:1">Nenhum setor selecionado</span>
+            <input type="hidden" id="cnefe-listagem-setor-val" value="">
+            <input type="text" id="cnefe-busca" placeholder="Buscar logradouro..." style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:180px" oninput="filtrarCnefeListagem()">
+            <select id="cnefe-filtro-quadra" onchange="filtrarCnefeListagem()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
+              <option value="">Todas as quadras</option>
+            </select>
+            <select id="cnefe-filtro-face" onchange="filtrarCnefeListagem()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro)">
+              <option value="">Todas as faces</option>
+            </select>
+            <label class="btn-acao secundario" style="cursor:pointer">
+              📂 Importar CSV
+              <input type="file" accept=".csv" style="display:none" onchange="importarCnefeCSV(this)">
+            </label>
+            <button class="btn-acao secundario" onclick="imprimirCnefeListagem()">🖨️ Imprimir</button>
+          </div>
+        </div>
+        <div class="card-tabela">
+          <div id="cnefe-listagem-tabela"><div class="vazio"><div class="icone-vazio">📋</div>Selecione um setor na aba Setores para ver a listagem.</div></div>
+        </div>
+      </div>
+
+      <!-- ABA QUALIDADE -->
+      <div class="cnefe-tab-panel" id="cnefe-panel-qualidade">
+        <div class="card-tabela">
+          <div class="card-tabela-header"><h3>Cruzamento CNEFE × PNAD</h3></div>
+          <div id="cnefe-qualidade-tabela"><div class="loader">Carregando...</div></div>
         </div>
       </div>
     </div>
@@ -2016,6 +2108,135 @@
   </div>
 </div>
 
+<!-- Modal: Agente CNEFE -->
+<div class="modal-overlay" id="modal-cnefe-agente">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="cnefe-agente-modal-titulo">Agente CNEFE</h3>
+      <button class="btn-fechar" onclick="fecharModal('modal-cnefe-agente')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cnefe-agente-id">
+      <div class="form-grid">
+        <div class="form-grupo full">
+          <label>Nome completo</label>
+          <input type="text" id="cnefe-agente-nome" placeholder="Nome do agente">
+        </div>
+        <div class="form-grupo">
+          <label>Matrícula</label>
+          <input type="text" id="cnefe-agente-matricula" placeholder="Matrícula IBGE">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-acao secundario" onclick="fecharModal('modal-cnefe-agente')">Cancelar</button>
+      <button class="btn-acao" onclick="salvarCnefeAgente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Novo setor CNEFE manual -->
+<div class="modal-overlay" id="modal-cnefe-setor-novo">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Adicionar setor CNEFE</h3>
+      <button class="btn-fechar" onclick="fecharModal('modal-cnefe-setor-novo')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-grupo full">
+          <label>Código do setor</label>
+          <input type="text" id="cnefe-setor-novo-setor" placeholder="Ex: 330060005">
+        </div>
+        <div class="form-grupo full">
+          <label>Pesquisa</label>
+          <input type="text" id="cnefe-setor-novo-pesquisa" placeholder="Ex: POF 2025, PNAD-C">
+        </div>
+        <div class="form-grupo full">
+          <label>Agente</label>
+          <select id="cnefe-setor-novo-agente">
+            <option value="">Sem agente</option>
+          </select>
+        </div>
+        <div class="form-grupo">
+          <label>Mês/ano do CNEFE</label>
+          <input type="month" id="cnefe-setor-novo-mes">
+        </div>
+        <div class="form-grupo">
+          <label>Prazo final</label>
+          <input type="date" id="cnefe-setor-novo-prazo">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-acao secundario" onclick="fecharModal('modal-cnefe-setor-novo')">Cancelar</button>
+      <button class="btn-acao" onclick="salvarCnefeSetorNovo()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar setor CNEFE (atribuir agente / marcar concluído) -->
+<div class="modal-overlay" id="modal-cnefe-setor-edit">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Editar setor CNEFE</h3>
+      <button class="btn-fechar" onclick="fecharModal('modal-cnefe-setor-edit')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cnefe-setor-edit-id">
+      <input type="hidden" id="cnefe-setor-edit-setor">
+      <div class="form-grid">
+        <div class="form-grupo full">
+          <label>Agente responsável</label>
+          <select id="cnefe-setor-edit-agente">
+            <option value="">Sem agente</option>
+          </select>
+        </div>
+        <div class="form-grupo full">
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+            <input type="checkbox" id="cnefe-setor-edit-concluido">
+            Marcar como concluído
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-acao secundario" onclick="fecharModal('modal-cnefe-setor-edit')">Cancelar</button>
+      <button class="btn-acao" onclick="salvarCnefeSetorEdit()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar endereço CNEFE -->
+<div class="modal-overlay" id="modal-cnefe-endereco">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Editar endereço CNEFE</h3>
+      <button class="btn-fechar" onclick="fecharModal('modal-cnefe-endereco')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cnefe-end-edit-id">
+      <p id="cnefe-end-edit-desc" style="font-weight:600;font-size:0.9rem;margin-bottom:1rem;color:var(--azul)"></p>
+      <div class="form-grid">
+        <div class="form-grupo full">
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+            <input type="checkbox" id="cnefe-end-edit-pnad">
+            Marcar como amostra PNAD atual
+          </label>
+        </div>
+        <div class="form-grupo full">
+          <label>Observação</label>
+          <textarea id="cnefe-end-edit-obs" rows="3" style="width:100%;padding:0.5rem;border:1.5px solid var(--borda);border-radius:6px;font-family:var(--fonte);font-size:0.85rem;resize:vertical"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-acao secundario" onclick="fecharModal('modal-cnefe-endereco')">Cancelar</button>
+      <button class="btn-acao" onclick="salvarCnefeEndereco()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script type="module">
@@ -2250,6 +2471,7 @@ window.irPara = (pag) => {
       }
     }, 100);
   }
+  if (pag === 'cnefe') carregarCnefe();
 };
 
 window.toggleSidebar = () => {
@@ -8015,6 +8237,582 @@ window.processarCentralSIGC = async () => {
     const detalhe = error?.message ? ` (${error.message})` : '';
     statusConteudo.innerHTML = `<div style="color:var(--vermelho);font-weight:600;padding:0.5rem 0;">❌ Erro ao gravar no banco de dados${detalhe}. Nenhum dado foi salvo — tente novamente.</div>`;
   }
+};
+
+// ── MÓDULO CNEFE ──────────────────────────────────────────────────────────────
+
+let _cnefeAgentesCache = null;
+let _cnefeSetoresCache = null;
+const _cnefeEnderecoCache = {};
+const _CNEFE_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+window.cnefeMudarAba = (aba, btn) => {
+  document.querySelectorAll('.cnefe-tab-btn').forEach(b => b.classList.remove('ativo'));
+  document.querySelectorAll('.cnefe-tab-panel').forEach(p => p.classList.remove('ativo'));
+  btn.classList.add('ativo');
+  document.getElementById('cnefe-panel-' + aba).classList.add('ativo');
+  if (aba === 'setores')  carregarCnefeSetores();
+  if (aba === 'listagem') { if (!document.getElementById('cnefe-listagem-setor-val').value) return; carregarCnefeListagem(document.getElementById('cnefe-listagem-setor-val').value); }
+  if (aba === 'qualidade') carregarCnefeQualidade();
+};
+
+window.carregarCnefe = async () => {
+  // Garante amostra_mestra no cache (reutiliza o mesmo _amCache do cronograma/setores)
+  if (!_amCache) {
+    try {
+      const snap = await getDocs(collection(db, 'amostra_mestra'));
+      _amCache = snap.docs.map(d => d.data());
+    } catch(e) { console.warn('[CNEFE] amostra_mestra:', e); }
+  }
+  carregarCnefeAgentes();
+  carregarCnefeSetores();
+};
+
+// ── ABA SETORES ───────────────────────────────────────────────────────────────
+
+async function carregarCnefeSetores() {
+  const el = document.getElementById('cnefe-setores-tabela');
+  if (!el) return;
+  el.innerHTML = '<div class="loader">Carregando...</div>';
+  try {
+    if (!_cnefeAgentesCache) {
+      const snap = await getDocs(collection(db, 'cnefe_agentes'));
+      _cnefeAgentesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    const snapS = await getDocs(collection(db, 'cnefe_setores'));
+    _cnefeSetoresCache = snapS.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const setores = [];
+
+    // Origem automática: amostra_mestra, 1ª entrevista
+    if (_amCache) {
+      const vistos = new Set();
+      _amCache.filter(r => r.numero_entrevista === 1).forEach(r => {
+        const k = String(r.upa || r.codigo_controle || '').trim();
+        if (!k || vistos.has(k)) return;
+        vistos.add(k);
+        const mesPnad = parseInt(r.mes) || 0;
+        const anoPnad = parseInt(r.ano) || hoje.getFullYear();
+        const mesCnefe = mesPnad > 3 ? mesPnad - 3 : mesPnad + 9;
+        const anoCnefe = mesPnad > 3 ? anoPnad : anoPnad - 1;
+        // prazo = último dia do mês anterior à PNAD
+        const prazoFinal = new Date(anoPnad, mesPnad - 1, 0);
+        const manual = _cnefeSetoresCache.find(s => s.setor === k);
+        setores.push({
+          setor: k, pesquisa: 'PNAD-C',
+          agente_id: manual?.agente_id || '', agente_nome: manual?.agente_nome || '',
+          mesCnefe, anoCnefe, prazoFinal,
+          mesPnad, anoPnad,
+          concluido: manual?.concluido || false,
+          origem: 'pnad', docId: manual?.id || null,
+        });
+      });
+    }
+
+    // Origem manual (pesquisas que não são PNAD-C)
+    _cnefeSetoresCache.filter(s => s.pesquisa !== 'PNAD-C').forEach(s => {
+      const pf = s.prazo_final
+        ? (s.prazo_final.seconds ? new Date(s.prazo_final.seconds * 1000) : new Date(s.prazo_final))
+        : null;
+      setores.push({
+        setor: s.setor, pesquisa: s.pesquisa || '',
+        agente_id: s.agente_id || '', agente_nome: s.agente_nome || '',
+        mesCnefe: s.mes_cnefe || 0, anoCnefe: s.ano_cnefe || hoje.getFullYear(),
+        prazoFinal: pf, mesPnad: 0, anoPnad: 0,
+        concluido: s.concluido || false,
+        origem: 'manual', docId: s.id,
+      });
+    });
+
+    const calcStatus = s => {
+      if (s.concluido) return 'concluido';
+      if (s.prazoFinal && s.prazoFinal < hoje) return 'atrasado';
+      if (_cnefeEnderecoCache[s.setor]?.length > 0) return 'em_andamento';
+      return 'a_iniciar';
+    };
+
+    const total = setores.length;
+    const concluidos  = setores.filter(s => s.concluido).length;
+    const atrasados   = setores.filter(s => !s.concluido && s.prazoFinal && s.prazoFinal < hoje).length;
+    const noPrazo     = total - concluidos - atrasados;
+    document.getElementById('cnefe-stat-total').textContent = total;
+    document.getElementById('cnefe-stat-prazo').textContent = noPrazo;
+    document.getElementById('cnefe-stat-atrasados').textContent = atrasados;
+    document.getElementById('cnefe-stat-concluidos').textContent = concluidos;
+
+    if (!setores.length) {
+      el.innerHTML = '<div class="vazio"><div class="icone-vazio">📍</div>Nenhum setor. Adicione manualmente ou carregue a Amostra Mestra na página Setores.</div>';
+      return;
+    }
+
+    const stLabel = { a_iniciar:'A iniciar', em_andamento:'Em andamento', concluido:'Concluído', atrasado:'Atrasado' };
+    const stBadge = { a_iniciar:'badge-cinza', em_andamento:'badge-azul', concluido:'badge-verde', atrasado:'badge-vermelho' };
+
+    el.innerHTML = '<div style="overflow-x:auto"><table style="min-width:780px"><thead><tr>' +
+      '<th>Setor</th><th>Pesquisa</th><th>Agente</th><th>Mês CNEFE</th><th>Mês Pesquisa</th><th>Prazo Final</th><th>Status</th><th>Ações</th>' +
+      '</tr></thead><tbody>' +
+      setores.sort((a,b) => a.setor.localeCompare(b.setor)).map(s => {
+        const st = calcStatus(s);
+        const mcLbl = s.mesCnefe ? `${_CNEFE_MESES[s.mesCnefe-1]}/${s.anoCnefe}` : '—';
+        const mpLbl = s.mesPnad  ? `${_CNEFE_MESES[s.mesPnad-1]}/${s.anoPnad}`   : '—';
+        const pzLbl = s.prazoFinal instanceof Date ? s.prazoFinal.toLocaleDateString('pt-BR') : '—';
+        const agNome = s.agente_nome || (_cnefeAgentesCache?.find(a => a.id === s.agente_id)?.nome) || '—';
+        const agNomeEsc = agNome.replace(/'/g,"&#39;");
+        return `<tr>
+          <td><code style="font-size:0.78rem">${s.setor}</code></td>
+          <td style="font-size:0.82rem">${s.pesquisa}</td>
+          <td style="font-size:0.82rem">${agNome}</td>
+          <td style="font-size:0.82rem">${mcLbl}</td>
+          <td style="font-size:0.82rem">${mpLbl}</td>
+          <td style="font-size:0.82rem">${pzLbl}</td>
+          <td><span class="badge ${stBadge[st]}">${stLabel[st]}</span></td>
+          <td>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+              <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
+                onclick="abrirCnefeListagem('${s.setor}')">📋 Listagem</button>
+              <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
+                onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido})">✏️</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('') +
+      '</tbody></table></div>';
+  } catch(e) {
+    console.error(e);
+    el.innerHTML = '<div class="vazio"><div class="icone-vazio">⚠️</div>Erro ao carregar setores CNEFE.</div>';
+  }
+}
+
+window.editarCnefeSetor = (setor, docId, agId, concluido) => {
+  document.getElementById('cnefe-setor-edit-setor').value = setor;
+  document.getElementById('cnefe-setor-edit-id').value = docId || '';
+  document.getElementById('cnefe-setor-edit-concluido').checked = concluido === true || concluido === 'true';
+  _cnefePopularAgentes('cnefe-setor-edit-agente', agId);
+  abrirModal('modal-cnefe-setor-edit');
+};
+
+window.salvarCnefeSetorEdit = async () => {
+  const setor   = document.getElementById('cnefe-setor-edit-setor').value;
+  const docId   = document.getElementById('cnefe-setor-edit-id').value;
+  const agId    = document.getElementById('cnefe-setor-edit-agente').value;
+  const concluido = document.getElementById('cnefe-setor-edit-concluido').checked;
+  const ag = _cnefeAgentesCache?.find(a => a.id === agId);
+  try {
+    const payload = { setor, pesquisa: 'PNAD-C', agente_id: agId, agente_nome: ag?.nome || '', concluido };
+    if (docId) await setDoc(doc(db, 'cnefe_setores', docId), payload, { merge: true });
+    else       await addDoc(collection(db, 'cnefe_setores'), { ...payload, criadoEm: serverTimestamp() });
+    fecharModal('modal-cnefe-setor-edit');
+    _cnefeSetoresCache = null;
+    mostrarToast('Setor atualizado!', 'sucesso');
+    carregarCnefeSetores();
+  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+};
+
+window.abrirModalCnefeSetorNovo = () => {
+  document.getElementById('cnefe-setor-novo-setor').value = '';
+  document.getElementById('cnefe-setor-novo-pesquisa').value = '';
+  document.getElementById('cnefe-setor-novo-mes').value = '';
+  document.getElementById('cnefe-setor-novo-prazo').value = '';
+  _cnefePopularAgentes('cnefe-setor-novo-agente', '');
+  abrirModal('modal-cnefe-setor-novo');
+};
+
+window.salvarCnefeSetorNovo = async () => {
+  const setor    = document.getElementById('cnefe-setor-novo-setor').value.trim();
+  const pesquisa = document.getElementById('cnefe-setor-novo-pesquisa').value.trim();
+  const agId     = document.getElementById('cnefe-setor-novo-agente').value;
+  const mesAno   = document.getElementById('cnefe-setor-novo-mes').value;
+  const prazo    = document.getElementById('cnefe-setor-novo-prazo').value;
+  if (!setor || !pesquisa) { mostrarToast('Preencha o setor e a pesquisa', 'aviso'); return; }
+  const ag = _cnefeAgentesCache?.find(a => a.id === agId);
+  const [ano, mes] = mesAno ? mesAno.split('-').map(Number) : [0, 0];
+  try {
+    await addDoc(collection(db, 'cnefe_setores'), {
+      setor, pesquisa, agente_id: agId, agente_nome: ag?.nome || '',
+      mes_cnefe: mes, ano_cnefe: ano,
+      prazo_final: prazo || null, concluido: false,
+      criadoEm: serverTimestamp(),
+    });
+    _cnefeSetoresCache = null;
+    fecharModal('modal-cnefe-setor-novo');
+    mostrarToast('Setor adicionado!', 'sucesso');
+    carregarCnefeSetores();
+  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+};
+
+// ── ABA LISTAGEM DE CAMPO ─────────────────────────────────────────────────────
+
+window.abrirCnefeListagem = (setor) => {
+  document.querySelectorAll('.cnefe-tab-btn').forEach((b, i) => i === 1 ? b.classList.add('ativo') : b.classList.remove('ativo'));
+  document.querySelectorAll('.cnefe-tab-panel').forEach(p => p.classList.remove('ativo'));
+  document.getElementById('cnefe-panel-listagem').classList.add('ativo');
+  document.getElementById('cnefe-listagem-setor-atual').textContent = 'Setor: ' + setor;
+  document.getElementById('cnefe-listagem-setor-val').value = setor;
+  carregarCnefeListagem(setor);
+};
+
+async function carregarCnefeListagem(setor) {
+  const el = document.getElementById('cnefe-listagem-tabela');
+  el.innerHTML = '<div class="loader">Carregando...</div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'cnefe_enderecos'), where('setor', '==', setor)));
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _cnefeEnderecoCache[setor] = docs;
+    _renderCnefeTabela(docs);
+  } catch(e) {
+    console.error(e);
+    el.innerHTML = '<div class="vazio"><div class="icone-vazio">⚠️</div>Erro ao carregar listagem.</div>';
+  }
+}
+
+function _renderCnefeTabela(docs) {
+  const el = document.getElementById('cnefe-listagem-tabela');
+  const busca = (document.getElementById('cnefe-busca')?.value || '').toLowerCase();
+  const filtQ = document.getElementById('cnefe-filtro-quadra')?.value || '';
+  const filtF = document.getElementById('cnefe-filtro-face')?.value || '';
+
+  const lista = docs.filter(d => {
+    if (filtQ && String(d.quadra) !== filtQ) return false;
+    if (filtF && String(d.face)   !== filtF) return false;
+    if (busca && !`${d.logradouro||''} ${d.numero||''}`.toLowerCase().includes(busca)) return false;
+    return true;
+  }).sort((a, b) => {
+    const qa = String(a.quadra||'').padStart(5,'0'), qb = String(b.quadra||'').padStart(5,'0');
+    if (qa !== qb) return qa.localeCompare(qb);
+    const fa = String(a.face||'').padStart(5,'0'), fb = String(b.face||'').padStart(5,'0');
+    if (fa !== fb) return fa.localeCompare(fb);
+    return parseInt(a.uv||0) - parseInt(b.uv||0);
+  });
+
+  // Atualiza filtros de quadra/face
+  const quadras = [...new Set(docs.map(d => String(d.quadra)).filter(Boolean))].sort();
+  const faces   = [...new Set(docs.filter(d => !filtQ || String(d.quadra) === filtQ).map(d => String(d.face)).filter(Boolean))].sort();
+  const selQ = document.getElementById('cnefe-filtro-quadra');
+  const selF = document.getElementById('cnefe-filtro-face');
+  if (selQ) { const v = selQ.value; selQ.innerHTML = '<option value="">Todas as quadras</option>' + quadras.map(q => `<option value="${q}"${q===v?' selected':''}>${q}</option>`).join(''); }
+  if (selF) { const v = selF.value; selF.innerHTML = '<option value="">Todas as faces</option>'   + faces.map(f => `<option value="${f}"${f===v?' selected':''}>${f}</option>`).join(''); }
+
+  if (!lista.length) {
+    el.innerHTML = '<div class="vazio"><div class="icone-vazio">🏠</div>Nenhum endereço encontrado.</div>';
+    return;
+  }
+
+  let html = '<div style="overflow-x:auto"><table style="min-width:960px"><thead><tr>' +
+    '<th>Q</th><th>F</th><th>UV</th><th>CE</th><th>Logradouro / Número</th>' +
+    '<th>Ponto Ref.</th><th style="font-size:0.7rem">Espécie</th>' +
+    '<th style="font-size:0.7rem">Estabelecimento</th><th style="font-size:0.7rem">Responsável</th>' +
+    '<th style="font-size:0.7rem">Telefone</th><th>PNAD</th><th>Ações</th>' +
+    '</tr></thead><tbody>';
+
+  let lastQF = '';
+  lista.forEach(d => {
+    const qf = `${d.quadra}|${d.face}`;
+    if (qf !== lastQF) {
+      html += `<tr style="background:var(--azul-claro)"><td colspan="12" style="font-size:0.74rem;font-weight:700;color:var(--azul);padding:0.3rem 0.9rem">Quadra ${d.quadra} · Face ${d.face}</td></tr>`;
+      lastQF = qf;
+    }
+    const pnadCol = d.pnad_atual
+      ? '<span class="badge badge-azul" style="font-size:0.7rem">PNAD ATUAL</span>'
+      : (d.selecionado === 'PNADC' ? '<span title="Selecionado PNAD-C" style="font-size:0.9rem">📌</span>' : '');
+    html += `<tr>
+      <td style="font-size:0.8rem;font-weight:600">${d.quadra||''}</td>
+      <td style="font-size:0.8rem">${d.face||''}</td>
+      <td style="font-size:0.8rem">${d.uv||''}</td>
+      <td style="font-size:0.8rem">${d.codigo_endereco||''}</td>
+      <td style="font-size:0.82rem"><strong>${d.logradouro||''}</strong>${d.numero ? ' nº&nbsp;' + d.numero : ''}</td>
+      <td style="font-size:0.76rem;color:var(--cinza)">${d.ponto_referencia||''}</td>
+      <td style="font-size:0.72rem">${d.especie||''}</td>
+      <td style="font-size:0.72rem">${d.estabelecimento||''}</td>
+      <td style="font-size:0.72rem">${d.responsavel||''}</td>
+      <td style="font-size:0.72rem">${d.telefone||''}</td>
+      <td>${pnadCol}</td>
+      <td><button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
+        onclick="abrirEditCnefeEndereco('${d.id}')">✏️</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+window.filtrarCnefeListagem = () => {
+  const setor = document.getElementById('cnefe-listagem-setor-val').value;
+  _renderCnefeTabela(_cnefeEnderecoCache[setor] || []);
+};
+
+window.importarCnefeCSV = (input) => {
+  const file = input.files[0]; if (!file) return;
+  const setor = document.getElementById('cnefe-listagem-setor-val').value;
+  if (!setor) { mostrarToast('Selecione um setor antes de importar', 'aviso'); input.value = ''; return; }
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const linhas = e.target.result.split(/\r?\n/);
+      // CSV tem 2 linhas antes do cabeçalho real — procura a linha com LOGRADOURO
+      const cabIdx = linhas.findIndex(l => l.toUpperCase().includes('LOGRADOURO'));
+      if (cabIdx < 0) { mostrarToast('Cabeçalho LOGRADOURO não encontrado no CSV', 'erro'); return; }
+      const sep = linhas[cabIdx].includes(';') ? ';' : ',';
+      const cab = linhas[cabIdx].split(sep).map(c => c.trim().replace(/^"|"$/g,'').toUpperCase());
+      const ix = n => cab.indexOf(n);
+
+      const iCU=ix('CODIGO UNICO'), iQ=ix('QUADRA'), iF=ix('FACE'), iUV=ix('UV');
+      const iCE=ix('CODIGO ENDERECO'), iLg=ix('LOGRADOURO'), iNm=ix('NUMERO');
+      const iLc=ix('LOCALIDADE'), iPR=ix('PONTO DE REFERENCIA'), iCep=ix('CEP');
+      const iLat=ix('LATITUDE'), iLng=ix('LONGITUDE'), iEsp=ix('ESPECIE');
+      const iRsp=ix('NOME DO RESPONSAVEL'), iTel=ix('TELEFONE'), iEst=ix('ESTABELECIMENTO');
+      const iSt=ix('STATUS DO ENDERECO'), iDt=ix('DATA'), iSel=ix('SELECIONADO');
+
+      const batch = [];
+      for (let i = cabIdx + 1; i < linhas.length; i++) {
+        const l = linhas[i].trim(); if (!l) continue;
+        const c = l.split(sep).map(x => x.trim().replace(/^"|"$/g,''));
+        const v = ii => ii >= 0 ? (c[ii] || '') : '';
+        batch.push({
+          setor, codigo_unico:v(iCU), quadra:v(iQ), face:v(iF), uv:v(iUV),
+          codigo_endereco:v(iCE), logradouro:v(iLg), numero:v(iNm),
+          localidade:v(iLc), ponto_referencia:v(iPR), cep:v(iCep),
+          latitude:v(iLat), longitude:v(iLng), especie:v(iEsp),
+          responsavel:v(iRsp), telefone:v(iTel), estabelecimento:v(iEst),
+          status_endereco:v(iSt), data:v(iDt), selecionado:v(iSel),
+          pnad_atual: false, observacao: '', atualizadoEm: serverTimestamp(),
+        });
+      }
+      if (!batch.length) { mostrarToast('Nenhum endereço encontrado no CSV', 'erro'); return; }
+
+      mostrarToast('Importando…', '');
+      const snapOld = await getDocs(query(collection(db, 'cnefe_enderecos'), where('setor', '==', setor)));
+      // Deleta em lotes de 400
+      const oldDocs = snapOld.docs;
+      for (let i = 0; i < oldDocs.length; i += 400) {
+        const b = writeBatch(db);
+        oldDocs.slice(i, i + 400).forEach(d => b.delete(d.ref));
+        await b.commit();
+      }
+      // Insere em lotes de 400
+      for (let i = 0; i < batch.length; i += 400) {
+        const b = writeBatch(db);
+        batch.slice(i, i + 400).forEach(r => b.set(doc(collection(db, 'cnefe_enderecos')), r));
+        await b.commit();
+      }
+
+      _cnefeEnderecoCache[setor] = null;
+      mostrarToast(`Importado: ${batch.length} endereços no setor ${setor}`, 'sucesso');
+      carregarCnefeListagem(setor);
+    } catch(err) { console.error(err); mostrarToast('Erro: ' + err.message, 'erro'); }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+window.abrirEditCnefeEndereco = (id) => {
+  const setor = document.getElementById('cnefe-listagem-setor-val').value;
+  const d = (_cnefeEnderecoCache[setor] || []).find(x => x.id === id);
+  if (!d) return;
+  document.getElementById('cnefe-end-edit-id').value = id;
+  document.getElementById('cnefe-end-edit-pnad').checked = !!d.pnad_atual;
+  document.getElementById('cnefe-end-edit-obs').value = d.observacao || '';
+  document.getElementById('cnefe-end-edit-desc').textContent = `${d.logradouro||''}${d.numero ? ' nº ' + d.numero : ''}`;
+  abrirModal('modal-cnefe-endereco');
+};
+
+window.salvarCnefeEndereco = async () => {
+  const id        = document.getElementById('cnefe-end-edit-id').value;
+  const pnad_atual = document.getElementById('cnefe-end-edit-pnad').checked;
+  const observacao = document.getElementById('cnefe-end-edit-obs').value;
+  try {
+    await setDoc(doc(db, 'cnefe_enderecos', id), { pnad_atual, observacao, atualizadoEm: serverTimestamp() }, { merge: true });
+    const setor = document.getElementById('cnefe-listagem-setor-val').value;
+    const docs  = _cnefeEnderecoCache[setor] || [];
+    const idx   = docs.findIndex(d => d.id === id);
+    if (idx >= 0) { docs[idx].pnad_atual = pnad_atual; docs[idx].observacao = observacao; }
+    fecharModal('modal-cnefe-endereco');
+    mostrarToast('Endereço atualizado!', 'sucesso');
+    _renderCnefeTabela(docs);
+  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+};
+
+window.imprimirCnefeListagem = () => {
+  const setor = document.getElementById('cnefe-listagem-setor-val').value;
+  const docs  = (_cnefeEnderecoCache[setor] || []).slice().sort((a, b) => {
+    const qa=String(a.quadra||'').padStart(5,'0'), qb=String(b.quadra||'').padStart(5,'0');
+    if (qa!==qb) return qa.localeCompare(qb);
+    const fa=String(a.face||'').padStart(5,'0'), fb=String(b.face||'').padStart(5,'0');
+    if (fa!==fb) return fa.localeCompare(fb);
+    return parseInt(a.uv||0)-parseInt(b.uv||0);
+  });
+  let lastQF='', rows='';
+  docs.forEach(d => {
+    const qf=`${d.quadra}|${d.face}`;
+    if (qf!==lastQF) { rows+=`<tr style="background:#e8f0fb"><td colspan="9" style="font-size:0.72rem;font-weight:700;color:#1a3a5c;padding:3px 8px">Quadra ${d.quadra} · Face ${d.face}</td></tr>`; lastQF=qf; }
+    rows+=`<tr><td>${d.quadra||''}</td><td>${d.face||''}</td><td>${d.uv||''}</td><td>${d.codigo_endereco||''}</td>
+      <td><strong>${d.logradouro||''}</strong>${d.numero?' nº'+d.numero:''}</td>
+      <td style="font-size:0.72rem">${d.ponto_referencia||''}</td>
+      <td style="font-size:0.7rem">${d.especie||''}</td>
+      <td style="font-size:0.7rem">${d.estabelecimento||''}</td>
+      <td style="font-size:0.72rem">${d.responsavel||''}${d.telefone?' ('+d.telefone+')':''}</td></tr>`;
+  });
+  const win=window.open('','_blank');
+  win.document.write(`<html><head><title>Listagem CNEFE — Setor ${setor}</title>
+  <style>body{font-family:'Segoe UI',sans-serif;font-size:0.82rem;margin:1cm}
+  table{width:100%;border-collapse:collapse}th{background:#e8f0fb;padding:4px 8px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  td{padding:4px 8px;border-bottom:1px solid #e2e8f0}@media print{@page{margin:1cm}}</style></head><body>
+  <h3 style="margin-bottom:4px">Listagem CNEFE — Setor ${setor}</h3>
+  <p style="font-size:0.75rem;color:#64748b;margin-bottom:1rem">${new Date().toLocaleDateString('pt-BR')} · ${docs.length} endereços</p>
+  <table><thead><tr><th>Q</th><th>F</th><th>UV</th><th>CE</th><th>Logradouro / Número</th><th>Ponto Ref.</th><th>Espécie</th><th>Estabelecimento</th><th>Responsável / Tel.</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`);
+  win.document.close(); win.print();
+};
+
+// ── ABA QUALIDADE ─────────────────────────────────────────────────────────────
+
+async function carregarCnefeQualidade() {
+  const el = document.getElementById('cnefe-qualidade-tabela');
+  if (!el) return;
+  el.innerHTML = '<div class="loader">Carregando...</div>';
+  try {
+    if (!_cnefeSetoresCache) {
+      const snap = await getDocs(collection(db, 'cnefe_setores'));
+      _cnefeSetoresCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    if (!_cnefeAgentesCache) {
+      const snap = await getDocs(collection(db, 'cnefe_agentes'));
+      _cnefeAgentesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // Coleta todos os setores CNEFE
+    const setoresMap = new Map();
+    if (_amCache) {
+      const seen = new Set();
+      _amCache.filter(r => r.numero_entrevista === 1).forEach(r => {
+        const k = String(r.upa || r.codigo_controle || '').trim();
+        if (k && !seen.has(k)) { seen.add(k); setoresMap.set(k, { setor:k, agente:'—' }); }
+      });
+    }
+    _cnefeSetoresCache.forEach(s => {
+      if (!setoresMap.has(s.setor)) setoresMap.set(s.setor, { setor:s.setor, agente:'—' });
+      if (s.agente_nome) setoresMap.get(s.setor).agente = s.agente_nome;
+    });
+
+    const STATUS_DIVERG = new Set(['vago','recusa']);
+    const linhas = [];
+    const qualPorAgente = {};
+
+    for (const [setor, info] of setoresMap) {
+      const doms = todosdomicilios.filter(d =>
+        d.upa === setor || (d.controle && d.controle.slice(0,-1) === setor)
+      );
+      const total   = doms.length;
+      const diverg  = doms.filter(d => STATUS_DIVERG.has(d.status_atual || 'nao_visitado'));
+      const pct     = total > 0 ? Math.round(diverg.length / total * 100) : 0;
+
+      if (!qualPorAgente[info.agente]) qualPorAgente[info.agente] = { pcts:[], divTotal:0, total:0 };
+      qualPorAgente[info.agente].pcts.push(pct);
+      qualPorAgente[info.agente].divTotal += diverg.length;
+      qualPorAgente[info.agente].total    += total;
+
+      if (diverg.length > 0) {
+        diverg.forEach(d => linhas.push({ setor, agente:info.agente, dom:d.domicilio_num||d.id, etapa:d.visita_etapa||'—', status:d.status_atual||'nao_visitado', diverge:true }));
+      } else {
+        linhas.push({ setor, agente:info.agente, dom:'', etapa:'—', status:'Sem divergências', diverge:false });
+      }
+    }
+
+    const stLabel = { vago:'Vago/Inapto', recusa:'Recusa' };
+
+    let html = '<div style="overflow-x:auto"><table style="min-width:680px"><thead><tr>' +
+      '<th>Setor</th><th>Agente CNEFE</th><th>Dom.</th><th>Etapa</th><th>Status PNAD</th><th>Divergência</th>' +
+      '</tr></thead><tbody>' +
+      linhas.map(r => `<tr style="${r.diverge?'background:var(--vermelho-claro)':''}">
+        <td><code style="font-size:0.78rem">${r.setor}</code></td>
+        <td style="font-size:0.82rem">${r.agente}</td>
+        <td style="font-size:0.8rem">${r.dom}</td>
+        <td style="text-align:center;font-size:0.82rem">${r.etapa}</td>
+        <td style="font-size:0.82rem">${r.status}</td>
+        <td>${r.diverge ? `<span style="color:var(--vermelho);font-weight:700">⚠️ ${stLabel[r.status]||r.status}</span>` : '<span style="color:var(--verde)">✅</span>'}</td>
+      </tr>`).join('') +
+      '</tbody></table></div>';
+
+    // Indicador por agente
+    const agentes = Object.entries(qualPorAgente).filter(([ag]) => ag !== '—');
+    if (agentes.length > 0) {
+      html += '<div class="card-tabela-header" style="margin-top:1.5rem"><h3>Qualidade por agente</h3></div>';
+      html += '<div style="overflow-x:auto"><table style="min-width:400px"><thead><tr><th>Agente</th><th>Setores</th><th>Divergências</th><th>% Divergência</th></tr></thead><tbody>' +
+        agentes.map(([ag, q]) => {
+          const mediaPct = Math.round(q.pcts.reduce((s,p)=>s+p,0)/q.pcts.length);
+          const cor = mediaPct > 20 ? 'var(--vermelho)' : mediaPct > 10 ? 'var(--amarelo)' : 'var(--verde)';
+          return `<tr><td style="font-weight:600">${ag}</td><td style="text-align:center">${q.pcts.length}</td>
+            <td style="text-align:center">${q.divTotal}/${q.total}</td>
+            <td style="text-align:center;font-weight:700;color:${cor}">${mediaPct}%</td></tr>`;
+        }).join('') +
+        '</tbody></table></div>';
+    }
+
+    el.innerHTML = html || '<div class="vazio"><div class="icone-vazio">✅</div>Sem divergências encontradas.</div>';
+  } catch(e) {
+    console.error(e);
+    el.innerHTML = '<div class="vazio"><div class="icone-vazio">⚠️</div>Erro ao carregar qualidade.</div>';
+  }
+}
+
+// ── AGENTES CNEFE ─────────────────────────────────────────────────────────────
+
+async function carregarCnefeAgentes() {
+  const el = document.getElementById('tabela-cnefe-agentes');
+  if (!el) return;
+  try {
+    const snap = await getDocs(collection(db, 'cnefe_agentes'));
+    _cnefeAgentesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!_cnefeAgentesCache.length) {
+      el.innerHTML = '<div class="vazio" style="padding:1.5rem"><div class="icone-vazio">📍</div>Nenhum agente cadastrado.</div>';
+      return;
+    }
+    el.innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th>Nome</th><th>Matrícula</th><th style="text-align:right">Ações</th></tr></thead><tbody>' +
+      _cnefeAgentesCache.map(a => {
+        const nomeEsc = (a.nome||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const matEsc  = (a.matricula||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        return `<tr>
+          <td style="font-weight:600">${a.nome||''}</td>
+          <td style="font-size:0.82rem;color:var(--cinza)">${a.matricula||'—'}</td>
+          <td style="text-align:right"><button class="btn-acao secundario" style="font-size:0.78rem;padding:0.25rem 0.65rem"
+            onclick="abrirModalCnefeAgente('${a.id}','${nomeEsc}','${matEsc}')">✏️ Editar</button></td>
+        </tr>`;
+      }).join('') +
+      '</tbody></table></div>';
+  } catch(e) {
+    el.innerHTML = '<div class="vazio"><div class="icone-vazio">⚠️</div>Erro ao carregar agentes.</div>';
+  }
+}
+
+function _cnefePopularAgentes(selectId, selectedId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Sem agente</option>' +
+    (_cnefeAgentesCache || []).map(a =>
+      `<option value="${a.id}"${a.id === selectedId ? ' selected' : ''}>${a.nome||''}</option>`
+    ).join('');
+}
+
+window.abrirModalCnefeAgente = (id='', nome='', matricula='') => {
+  document.getElementById('cnefe-agente-id').value = id;
+  document.getElementById('cnefe-agente-nome').value = nome;
+  document.getElementById('cnefe-agente-matricula').value = matricula;
+  document.getElementById('cnefe-agente-modal-titulo').textContent = id ? 'Editar agente' : 'Novo agente CNEFE';
+  abrirModal('modal-cnefe-agente');
+};
+
+window.salvarCnefeAgente = async () => {
+  const id        = document.getElementById('cnefe-agente-id').value;
+  const nome      = document.getElementById('cnefe-agente-nome').value.trim();
+  const matricula = document.getElementById('cnefe-agente-matricula').value.trim();
+  if (!nome) { mostrarToast('Informe o nome do agente', 'aviso'); return; }
+  try {
+    if (id) await setDoc(doc(db, 'cnefe_agentes', id), { nome, matricula }, { merge: true });
+    else    await addDoc(collection(db, 'cnefe_agentes'), { nome, matricula, criadoEm: serverTimestamp() });
+    _cnefeAgentesCache = null;
+    fecharModal('modal-cnefe-agente');
+    mostrarToast('Agente salvo!', 'sucesso');
+    carregarCnefeAgentes();
+  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
 };
 </script>
 </body>
