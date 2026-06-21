@@ -247,6 +247,60 @@
     </div>
   </div>
 
+  <!-- ══ SEPARADOR ══ -->
+  <div style="display:flex;align-items:center;gap:0.75rem;margin:2rem 0 1rem">
+    <div style="flex:1;height:1px;background:#e2e8f0"></div>
+    <div style="font-size:0.8rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">📅 Amostra Mestra — Rotação de Setores</div>
+    <div style="flex:1;height:1px;background:#e2e8f0"></div>
+  </div>
+
+  <div class="card" id="card-am-upload">
+    <div class="card-header">
+      <h2>Importar Amostra Mestra</h2>
+      <span style="font-size:0.78rem;color:#64748b">Coleção: <code>amostra_mestra</code> · Chave: UPA_Ano_Trimestre</span>
+    </div>
+    <div class="card-body">
+      <div class="aviso">📌 Este importador é independente do fluxo de domicílios acima. Carregue o CSV consolidado com os 4 trimestres e clique em Processar.</div>
+      <div style="max-width:400px">
+        <div style="font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:6px">
+          CSV da Amostra Mestra <span class="tag-obrigatorio">OBRIGATÓRIO</span>
+        </div>
+        <div class="drop-zone" onclick="document.getElementById('f-am').click()">
+          <div class="icone">📅</div>
+          <strong>Clique ou arraste</strong>
+          <div class="nome">AmostraMestra_Rotacao.csv (separador: ;)</div>
+        </div>
+        <input type="file" id="f-am" accept=".csv" onchange="carregarAmostraMestra(this)">
+        <div class="status-arquivo pendente" id="st-am-arquivo">⏳ Aguardando arquivo...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="card-am-previa" style="display:none">
+    <div class="card-header">
+      <h2>Prévia — Amostra Mestra</h2>
+      <button class="btn btn-secundario" style="font-size:0.78rem" onclick="document.getElementById('am-tabela').style.display=document.getElementById('am-tabela').style.display==='none'?'':'none'">Mostrar/ocultar tabela</button>
+    </div>
+    <div class="card-body">
+      <div class="resumo-grid" id="am-resumo"></div>
+      <div style="margin:1rem 0 0.5rem;font-size:0.8rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Calendário de setores</div>
+      <div id="am-calendario"></div>
+      <div id="am-tabela" style="margin-top:1rem"></div>
+      <div style="margin-top:1rem">
+        <button class="btn btn-primario" id="btn-am-importar" onclick="importarAM()">🚀 Importar Amostra Mestra para o Firestore</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="card-am-prog" style="display:none">
+    <div class="card-header"><h2>Importando Amostra Mestra...</h2></div>
+    <div class="card-body">
+      <div id="am-prog-txt" style="font-size:0.85rem;color:#64748b;margin-bottom:4px">Preparando...</div>
+      <div class="progress-bar"><div class="progress-fill" id="am-fill"></div></div>
+      <div class="log" id="am-log"></div>
+    </div>
+  </div>
+
   <div class="card" id="card-progresso" style="display:none">
     <div class="card-header"><h2>Passo 4 — Importando...</h2></div>
     <div class="card-body">
@@ -778,6 +832,194 @@ function exportarJSON() {
   a.href = URL.createObjectURL(blob);
   a.download = `pnad_${document.getElementById('cfg-trimestre').value}.json`;
   a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// AMOSTRA MESTRA — Rotação de Setores
+// ══════════════════════════════════════════════════════
+let _amRegistros = [];
+let _amFalhados  = [];
+
+function carregarAmostraMestra(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const st = document.getElementById('st-am-arquivo');
+  st.className = 'status-arquivo pendente'; st.textContent = '⏳ Lendo...';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      _amRegistros = _parseAM(e.target.result);
+      st.className = 'status-arquivo ok';
+      st.textContent = `✅ ${_amRegistros.length} registros carregados`;
+      _renderPreviewAM();
+      document.getElementById('card-am-previa').style.display = '';
+    } catch(err) {
+      st.className = 'status-arquivo pendente'; st.textContent = '❌ Erro: ' + err.message;
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function _parseAM(text) {
+  text = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const linhas = text.trim().split('\n');
+  if (linhas.length < 2) throw new Error('Arquivo vazio ou sem dados');
+  const cab = linhas[0].split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+  // índices das colunas numéricas (base-0)
+  const NUM = new Set([4,5,6,7,8,9,10,12,14,15,18,19,20,21]);
+  return linhas.slice(1).filter(l => l.trim()).map((linha, idx) => {
+    const cols = linha.split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+    const v = i => {
+      const val = cols[i] ?? '';
+      if (val === '' || val === '-') return null;
+      if (NUM.has(i)) { const n = parseInt(val); return isNaN(n) ? null : n; }
+      return val;
+    };
+    return {
+      uf: v(0), upa: v(1), codigo_controle: v(2), upa_antiga: v(3),
+      ano: v(4), trimestre: v(5), mes: v(6), semana: v(7),
+      numero_entrevista: v(8), recorte_amostra: v(9),
+      codigo_agencia: v(10), nome_agencia: v(11),
+      codigo_municipio: v(12), nome_municipio: v(13),
+      distrito: v(14), subdistrito: v(15),
+      situacao_tipo: v(16), tipo_entrada: v(17),
+      ano_entrada: v(18), trimestre_entrada: v(19),
+      ano_saida: v(20), trimestre_saida: v(21),
+    };
+  });
+}
+
+function _renderPreviewAM() {
+  const total    = _amRegistros.length;
+  const upas     = new Set(_amRegistros.map(r => r.upa)).size;
+  const entrando = _amRegistros.filter(r => r.tipo_entrada && r.tipo_entrada !== '').length;
+  const saindo   = _amRegistros.filter(r => {
+    const ano = r.ano, tri = r.trimestre;
+    return r.ano_saida === ano && r.trimestre_saida === tri;
+  }).length;
+
+  document.getElementById('am-resumo').innerHTML = `
+    <div class="resumo-card"><div class="num">${total}</div><div class="rot">Registros</div></div>
+    <div class="resumo-card"><div class="num">${upas}</div><div class="rot">UPAs únicas</div></div>
+    <div class="resumo-card verde"><div class="num">${entrando}</div><div class="rot">Entrando</div></div>
+    <div class="resumo-card vermelho"><div class="num">${saindo}</div><div class="rot">Saindo neste tri.</div></div>
+  `;
+
+  // Calendário por Trimestre → Semana
+  const grupos = {};
+  _amRegistros.forEach(r => {
+    const chave = `${r.ano}T${r.trimestre}`;
+    if (!grupos[chave]) grupos[chave] = {};
+    const sem = `Semana ${r.semana}`;
+    if (!grupos[chave][sem]) grupos[chave][sem] = [];
+    grupos[chave][sem].push(r);
+  });
+
+  let calHtml = '';
+  for (const [tri, semanas] of Object.entries(grupos).sort()) {
+    calHtml += `<div style="margin-bottom:1rem">
+      <div style="font-weight:700;font-size:0.88rem;color:#1a3a5c;margin-bottom:0.5rem;padding:0.4rem 0.75rem;background:#eff6ff;border-radius:6px;border-left:4px solid #2563a8">📅 ${tri}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.5rem">`;
+    for (const [sem, regs] of Object.entries(semanas).sort()) {
+      const etapas = [...new Set(regs.map(r => r.numero_entrevista).filter(Boolean))].sort().join(', ');
+      calHtml += `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.6rem 0.85rem">
+        <div style="font-weight:700;font-size:0.82rem;color:#1e293b">${sem}</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:2px">${regs.length} UPA${regs.length!==1?'s':''} · Etapa${etapas.includes(',')?'s':''} ${etapas||'—'}</div>
+      </div>`;
+    }
+    calHtml += '</div></div>';
+  }
+  document.getElementById('am-calendario').innerHTML = calHtml || '<div style="color:#64748b">Nenhum dado</div>';
+
+  // Tabela detalhada
+  let tbHtml = '<div style="overflow-x:auto;max-height:360px;overflow-y:auto"><table><thead><tr>' +
+    '<th>UPA</th><th>Município</th><th>Ano/Tri.</th><th>Mês</th><th>Semana</th>' +
+    '<th>Etapa</th><th>Situação</th><th>Entrada</th><th>Saída</th></tr></thead><tbody>';
+  _amRegistros.forEach(r => {
+    const entrada = r.ano_entrada ? `${r.ano_entrada}T${r.trimestre_entrada}` : '—';
+    const saida   = r.ano_saida   ? `${r.ano_saida}T${r.trimestre_saida}`     : '—';
+    const etBadge = r.numero_entrevista ? `<span class="badge badge-${r.numero_entrevista}">${r.numero_entrevista}ª</span>` : '—';
+    tbHtml += `<tr>
+      <td style="font-weight:700;color:#1a3a5c">${r.upa||'—'}</td>
+      <td>${r.nome_municipio||'—'}</td>
+      <td style="white-space:nowrap">${r.ano||''}T${r.trimestre||''}</td>
+      <td>${r.mes||'—'}</td>
+      <td>${r.semana||'—'}</td>
+      <td>${etBadge}</td>
+      <td style="font-size:0.75rem">${r.situacao_tipo||'—'}</td>
+      <td style="font-size:0.75rem;white-space:nowrap">${entrada}</td>
+      <td style="font-size:0.75rem;white-space:nowrap">${saida}</td>
+    </tr>`;
+  });
+  tbHtml += '</tbody></table></div>';
+  document.getElementById('am-tabela').innerHTML = tbHtml;
+}
+
+async function importarAM() {
+  const token = window.firebaseAuthToken;
+  if (!token) { alert('Faça login no Painel Principal primeiro.'); return; }
+  if (_amRegistros.length === 0) { alert('Nenhum registro carregado.'); return; }
+
+  const projectId = 'pnad-c-campos';
+  const card = document.getElementById('card-am-prog');
+  card.style.display = '';
+  document.getElementById('btn-am-importar').disabled = true;
+
+  const log  = document.getElementById('am-log');
+  const fill = document.getElementById('am-fill');
+  const txt  = document.getElementById('am-prog-txt');
+  log.innerHTML = ''; _amFalhados = [];
+
+  const addLog = (msg, tipo='') => {
+    const s = document.createElement('span'); s.className = tipo;
+    s.textContent = msg + '\n'; log.appendChild(s); log.scrollTop = log.scrollHeight;
+  };
+
+  const toV = v => v === null ? { nullValue: null } : (typeof v === 'number' ? { integerValue: v } : { stringValue: String(v) });
+
+  addLog(`Iniciando importação de ${_amRegistros.length} registros para amostra_mestra...`, 'info');
+  let ok = 0, erros = 0;
+
+  for (let i = 0; i < _amRegistros.length; i++) {
+    const r = _amRegistros[i];
+    const docId = `${r.upa}_${r.ano}_${r.trimestre}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/amostra_mestra/${docId}`;
+
+    const fields = {};
+    const mask = [];
+    for (const [k, val] of Object.entries(r)) {
+      fields[k] = toV(val);
+      mask.push(k);
+    }
+    const maskQuery = mask.map(f => `updateMask.fieldPaths=${encodeURIComponent(f)}`).join('&');
+
+    try {
+      const resp = await fetch(`${url}?${maskQuery}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ fields })
+      });
+      if (resp.ok) {
+        ok++;
+        if (i % 30 === 0) addLog(`✓ ${ok} importados...`, 'ok');
+      } else {
+        erros++; _amFalhados.push(r);
+        const err = await resp.json();
+        addLog(`✗ ${docId}: ${err.error?.message}`, 'erro');
+      }
+    } catch(e) {
+      erros++; _amFalhados.push(r);
+      addLog(`✗ Falha de rede: ${docId}`, 'erro');
+    }
+
+    fill.style.width = `${Math.round((i+1)/_amRegistros.length*100)}%`;
+    txt.textContent  = `${i+1} de ${_amRegistros.length} — ${Math.round((i+1)/_amRegistros.length*100)}%`;
+    await new Promise(r => setTimeout(r, 30));
+  }
+
+  addLog(`\n✅ Concluído! ${ok} importados, ${erros} erros.`, erros === 0 ? 'ok' : 'warn');
+  txt.textContent = `Concluído — ${ok} importados, ${erros} erros`;
+  document.getElementById('btn-am-importar').disabled = false;
 }
 </script>
 </body>
