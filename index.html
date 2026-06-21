@@ -9003,93 +9003,164 @@ async function carregarCnefeQualidade() {
       const snap = await getDocs(collection(db, 'cnefe_setores'));
       _cnefeSetoresCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
+    if (!_amCache) {
+      const snap = await getDocs(collection(db, 'amostra_mestra'));
+      _amCache = snap.docs.map(d => d.data());
+    }
+
+    // ── Cruzamento com amostra_mestra ───────────────────────────────────────────
+    // Mapas derivados da amostra_mestra:
+    //   amCtrl2Upa : codigo_controle → upa  (setor → sua UPA)
+    //   amUpa2Ctrl : upa → [codigo_controle] (UPA → lista de setores)
+    const amCtrl2Upa = new Map();
+    const amUpa2Ctrl = new Map();
+    if (_amCache) {
+      _amCache.forEach(r => {
+        const ctrl = String(r.codigo_controle || '').trim();
+        const upa  = String(r.upa || '').trim();
+        if (ctrl && upa) {
+          amCtrl2Upa.set(ctrl, upa);
+          if (!amUpa2Ctrl.has(upa)) amUpa2Ctrl.set(upa, new Set());
+          amUpa2Ctrl.get(upa).add(ctrl);
+        }
+      });
+    }
 
     // Usa _cnefeSetoresList se disponível (já processado), senão usa apenas o cache
     const fonteSetores = _cnefeSetoresList.length ? _cnefeSetoresList
-      : _cnefeSetoresCache.map(s => ({ setor: s.setor, upa_id: s.upa_id||'', agente_nome: s.agente_nome||'', agente_id: s.agente_id||'' }));
+      : _cnefeSetoresCache.map(s => ({
+          setor: s.setor, upa_id: s.upa_id || '', pesquisa: s.pesquisa || 'PNAD-C',
+          agente_nome: s.agente_nome || '', agente_id: s.agente_id || '',
+          docId: s.id, concluido: s.concluido || false,
+        }));
 
-    // Apenas setores PNAD-C com UPA definida
-    const comUpa    = fonteSetores.filter(s => /pnad/i.test(s.pesquisa||'PNAD-C') && s.upa_id);
-    const semUpa    = fonteSetores.filter(s => /pnad/i.test(s.pesquisa||'PNAD-C') && !s.upa_id);
+    // Para cada setor PNAD-C, determina UPA efetiva:
+    //   1. upa_id manual (salvo no Firestore) — prioridade
+    //   2. Derivada da amostra_mestra via codigo_controle
+    //   3. Se o setor em si é uma UPA na amostra_mestra → usa o próprio código
+    const derivados = []; // setores sem upa_id manual mas com UPA derivada
 
-    // Status válidos na PNAD — qualquer outro é erro CNEFE
+    const pnadSetores = fonteSetores.filter(s => /pnad/i.test(s.pesquisa || 'PNAD-C'));
+    pnadSetores.forEach(s => {
+      if (!s._upaEfetiva) {
+        const derivada = amCtrl2Upa.get(s.setor)
+          || (amUpa2Ctrl.has(s.setor) ? s.setor : '');
+        s._upaEfetiva = s.upa_id || derivada;
+        if (!s.upa_id && derivada) derivados.push({ s, derivada });
+      }
+    });
+
     const STATUS_OK = new Set(['realizada', 'ausente', 'recusa']);
     const ST_LABEL  = {
       nao_visitado: 'Não visitado', agendado: 'Agendado',
       carta_solicitada: 'Carta solicitada', supervisao: 'Supervisão',
     };
 
-    // Agrupa setores por UPA
-    const porUpa = new Map();
-    comUpa.forEach(s => {
-      if (!porUpa.has(s.upa_id)) porUpa.set(s.upa_id, []);
-      porUpa.get(s.upa_id).push(s);
-    });
+    const comUpa = pnadSetores.filter(s => s._upaEfetiva);
+    const semUpa = pnadSetores.filter(s => !s._upaEfetiva);
 
-    // Acumula qualidade por agente
-    const qualAgente = {};
-
-    let html = '';
-
-    if (porUpa.size === 0 && semUpa.length === 0) {
+    if (comUpa.length === 0 && semUpa.length === 0) {
       el.innerHTML = '<div class="vazio"><div class="icone-vazio">📍</div>Nenhum setor PNAD-C encontrado. Carregue os setores primeiro.</div>';
       return;
+    }
+
+    // Agrupa por UPA efetiva
+    const porUpa = new Map();
+    comUpa.forEach(s => {
+      if (!porUpa.has(s._upaEfetiva)) porUpa.set(s._upaEfetiva, []);
+      porUpa.get(s._upaEfetiva).push(s);
+    });
+
+    const qualAgente = {};
+    let html = '';
+
+    // Botão para salvar associações derivadas em lote
+    if (derivados.length > 0) {
+      html += `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <span style="font-size:0.83rem;color:#92400e">
+          <strong>${derivados.length} setor${derivados.length!==1?'es':''}</strong> com UPA derivada da Amostra Mestra (não salvo ainda).
+        </span>
+        <button class="btn-acao" style="font-size:0.8rem;padding:0.35rem 0.9rem"
+          onclick="salvarUpasDerivadasCnefe()">💾 Salvar associações</button>
+      </div>`;
     }
 
     // ── Tabela por UPA ─────────────────────────────────────────────────────────
     if (porUpa.size > 0) {
       html += `<div style="overflow-x:auto"><table style="min-width:700px">
         <thead><tr>
-          <th>UPA / Setor</th><th>Agente</th><th style="text-align:center">Dom. PNAD</th>
-          <th style="text-align:center">Erros CNEFE</th><th style="text-align:center">% Acerto</th><th>Domicílios com erro</th>
+          <th>UPA / Setores</th><th>Agente</th>
+          <th style="text-align:center">Dom. PNAD</th>
+          <th style="text-align:center">Erros CNEFE</th>
+          <th style="text-align:center">% Acerto</th>
+          <th>Domicílios com erro</th>
         </tr></thead><tbody>`;
 
       for (const [upaId, setores] of [...porUpa].sort((a,b) => a[0].localeCompare(b[0]))) {
-        // Domicílios da UPA na PNAD (visita_etapa = 1 = primeira etapa = selecionados pelo CNEFE)
         const domsUpa = todosdomicilios.filter(d => d.upa === upaId && parseInt(d.visita_etapa) === 1);
         const erros   = domsUpa.filter(d => !STATUS_OK.has(d.status_atual || 'nao_visitado'));
         const total   = domsUpa.length;
         const pctAcerto = total > 0 ? Math.round((total - erros.length) / total * 100) : 100;
         const corPct    = pctAcerto >= 90 ? 'var(--verde)' : pctAcerto >= 70 ? 'var(--amarelo)' : 'var(--vermelho)';
 
+        // Todos os setores (codigo_controle) desta UPA segundo a amostra_mestra
+        const todosSetoresAm = amUpa2Ctrl.has(upaId)
+          ? [...amUpa2Ctrl.get(upaId)].sort() : [];
+
         const agentesUpa = [...new Set(setores.map(s => (s.agente_nome||'').split(' ')[0]).filter(Boolean))].join(', ') || '—';
 
         // Acumula por agente
         setores.forEach(s => {
-          const ag = (s.agente_nome || '—');
+          const ag = s.agente_nome || '—';
           if (!qualAgente[ag]) qualAgente[ag] = { erros: 0, total: 0, upas: new Set() };
           qualAgente[ag].upas.add(upaId);
-          qualAgente[ag].total += total / setores.length; // proporcional
+          qualAgente[ag].total += total / setores.length;
           qualAgente[ag].erros += erros.length / setores.length;
         });
 
-        // Linha da UPA
         const errosList = erros.map(d =>
-          `<span style="display:inline-block;margin:1px 3px;font-size:0.72rem;background:var(--vermelho-claro);border:1px solid var(--vermelho);border-radius:4px;padding:1px 5px" title="${d.status_atual||'nao_visitado'}">
+          `<span style="display:inline-block;margin:1px 3px;font-size:0.72rem;background:var(--vermelho-claro);border:1px solid var(--vermelho);border-radius:4px;padding:1px 5px">
             Ctrl ${d.controle||'?'} / Dom ${d.domicilio_num||'?'} — ${ST_LABEL[d.status_atual]||d.status_atual||'Não visitado'}
           </span>`
         ).join('');
 
+        // Setores da amostra_mestra para esta UPA
+        const amSetoresHtml = todosSetoresAm.length
+          ? todosSetoresAm.map(ctrl => {
+              const cnefeSector = setores.find(s => s.setor === ctrl);
+              const cor = cnefeSector ? 'var(--verde)' : 'var(--texto-secundario)';
+              const title = cnefeSector ? 'Associado ao CNEFE' : 'Setor da AM não associado ao CNEFE';
+              return `<code style="font-size:0.72rem;color:${cor}" title="${title}">${ctrl}</code>`;
+            }).join(' · ')
+          : `<code style="font-size:0.72rem;color:var(--texto-secundario)">${upaId}</code>`;
+
         html += `<tr style="background:var(--azul-claro)">
           <td colspan="6" style="font-weight:700;font-size:0.82rem;padding:0.4rem 0.8rem;color:var(--azul)">
-            📍 UPA ${upaId} — ${setores.length} setor${setores.length!==1?'es':''}: ${setores.map(s=>`<code style="font-size:0.75rem">${s.setor}</code>`).join(', ')}
+            📍 UPA ${upaId}
+            <span style="font-weight:400;font-size:0.75rem;margin-left:0.75rem">Setores: ${amSetoresHtml}</span>
           </td></tr>`;
 
         html += `<tr>
           <td style="padding-left:1.5rem;font-size:0.82rem">UPA ${upaId}</td>
           <td style="font-size:0.82rem">${agentesUpa}</td>
-          <td style="text-align:center;font-weight:600">${total}</td>
+          <td style="text-align:center;font-weight:600">${total || '<span style="color:var(--amarelo)" title="Sem domicílios carregados">?</span>'}</td>
           <td style="text-align:center;font-weight:700;color:${erros.length>0?'var(--vermelho)':'var(--verde)'}">
-            ${erros.length}
+            ${total ? erros.length : '—'}
           </td>
-          <td style="text-align:center;font-weight:700;color:${corPct}">${pctAcerto}%</td>
-          <td style="font-size:0.8rem">${errosList || '<span style="color:var(--verde)">✅ Sem erros</span>'}</td>
+          <td style="text-align:center;font-weight:700;color:${total?corPct:'var(--texto-secundario)'}">
+            ${total ? pctAcerto + '%' : '—'}
+          </td>
+          <td style="font-size:0.8rem">${total ? (errosList || '<span style="color:var(--verde)">✅ Sem erros</span>') : '<span style="color:var(--texto-secundario);font-size:0.78rem">Domicílios não carregados</span>'}</td>
         </tr>`;
 
-        // Linhas por setor (breakdown)
+        // Sub-linhas: setores CNEFE associados a esta UPA
         setores.forEach(s => {
-          html += `<tr style="background:rgba(0,0,0,0.02)">
-            <td style="padding-left:2.5rem;font-size:0.78rem"><code>${s.setor}</code></td>
+          const origem = s.upa_id ? '✔ manual' : '🔗 amostra mestra';
+          html += `<tr style="background:rgba(0,0,0,0.015)">
+            <td style="padding-left:2.5rem;font-size:0.78rem">
+              <code>${s.setor}</code>
+              <span style="font-size:0.7rem;color:var(--texto-secundario);margin-left:0.4rem">${origem}</span>
+            </td>
             <td style="font-size:0.78rem">${(s.agente_nome||'—').split(' ')[0]}</td>
             <td colspan="4" style="font-size:0.75rem;color:var(--texto-secundario)">setor integrante da UPA acima</td>
           </tr>`;
@@ -9099,13 +9170,13 @@ async function carregarCnefeQualidade() {
       html += '</tbody></table></div>';
     }
 
-    // ── Setores sem UPA associada ───────────────────────────────────────────────
+    // ── Setores sem UPA ─────────────────────────────────────────────────────────
     if (semUpa.length > 0) {
       html += `<div class="card-tabela-header" style="margin-top:1.5rem">
-        <h3>⚠️ Setores PNAD-C sem UPA associada (${semUpa.length})</h3>
+        <h3>⚠️ Setores PNAD-C sem UPA identificada (${semUpa.length})</h3>
       </div>
       <p style="font-size:0.82rem;color:var(--texto-secundario);margin:0 0 0.75rem">
-        Edite cada setor (✏️) e informe o código da UPA para incluir no cruzamento de qualidade.
+        Estes setores não foram encontrados na Amostra Mestra e não têm UPA definida manualmente.
       </p>
       <div style="overflow-x:auto"><table style="min-width:400px">
         <thead><tr><th>Setor</th><th>Agente</th><th>Ação</th></tr></thead><tbody>` +
@@ -9113,12 +9184,12 @@ async function carregarCnefeQualidade() {
         <td><code style="font-size:0.78rem">${s.setor}</code></td>
         <td style="font-size:0.82rem">${(s.agente_nome||'—').split(' ')[0]}</td>
         <td><button class="btn-acao secundario" style="font-size:0.75rem;padding:0.2rem 0.55rem"
-          onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido},'${s.upa_id||''}')">✏️ Definir UPA</button></td>
+          onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido},'')">✏️ Definir UPA</button></td>
       </tr>`).join('') +
       '</tbody></table></div>';
     }
 
-    // ── Resumo por agente ───────────────────────────────────────────────────────
+    // ── Resumo por agente ────────────────────────────────────────────────────────
     const agentesArr = Object.entries(qualAgente).filter(([ag]) => ag !== '—');
     if (agentesArr.length > 0) {
       html += `<div class="card-tabela-header" style="margin-top:1.5rem"><h3>Qualidade por agente</h3></div>
@@ -9143,6 +9214,33 @@ async function carregarCnefeQualidade() {
     el.innerHTML = '<div class="vazio"><div class="icone-vazio">⚠️</div>Erro ao carregar qualidade.</div>';
   }
 }
+
+// Salva em lote as UPAs derivadas da amostra_mestra para setores que ainda não têm upa_id manual
+window.salvarUpasDerivadasCnefe = async () => {
+  try {
+    const amCtrl2Upa = new Map();
+    if (_amCache) {
+      _amCache.forEach(r => {
+        const ctrl = String(r.codigo_controle || '').trim();
+        const upa  = String(r.upa || '').trim();
+        if (ctrl && upa) amCtrl2Upa.set(ctrl, upa);
+      });
+    }
+    let salvos = 0;
+    for (const s of _cnefeSetoresList) {
+      if (s.upa_id || !s.docId) continue; // já tem manual ou não tem doc no Firestore
+      const derivada = amCtrl2Upa.get(s.setor) || (s.setor); // usa o próprio se não encontrar
+      const derivadaReal = amCtrl2Upa.get(s.setor); // só salva se realmente encontrou na AM
+      if (!derivadaReal) continue;
+      await setDoc(doc(db, 'cnefe_setores', s.docId), { upa_id: derivadaReal }, { merge: true });
+      s.upa_id = derivadaReal;
+      salvos++;
+    }
+    _cnefeSetoresCache = null;
+    mostrarToast(`${salvos} associação${salvos!==1?'ões':''} salva${salvos!==1?'s':''}!`, 'sucesso');
+    carregarCnefeQualidade();
+  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+};
 
 // ── AGENTES CNEFE ─────────────────────────────────────────────────────────────
 
