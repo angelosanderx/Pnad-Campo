@@ -4279,12 +4279,10 @@ window.renderAmostraMestra = () => {
         const upaCell = extras.length === 0
           ? `<span style="font-family:monospace;font-size:0.8rem;font-weight:700;color:var(--azul)">${upa}</span>`
           : `<span style="font-family:monospace;font-size:0.8rem;font-weight:700;color:var(--azul)">${upa}/${extras.map(r => `<b>${ctrl4(r.codigo_controle)}</b>`).join('/')}</span>`;
-        const etapas = setores.map(r => {
-          const et = r.numero_entrevista;
-          return et
-            ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:700;${_COR_ETAPA[et]||''};margin:1px">${et}ª</span>`
-            : '—';
-        }).join(' ');
+        const etapasUnicas = [...new Set(setores.map(r => r.numero_entrevista).filter(Boolean))].sort();
+        const etapas = etapasUnicas.length === 0 ? '—' : etapasUnicas.map(et =>
+          `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:700;${_COR_ETAPA[et]||''};margin:1px">${et}ª</span>`
+        ).join(' ');
         html += `<tr style="border-top:2px solid var(--borda)">
           <td style="vertical-align:middle">${upaCell}</td>
           <td style="font-size:0.82rem;vertical-align:middle">${setores[0]?.nome_municipio||'—'}</td>
