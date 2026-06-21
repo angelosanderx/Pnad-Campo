@@ -9121,7 +9121,7 @@ async function carregarCnefeQualidade() {
           const upasDoMes = upasOrdenadas.filter(([, d]) =>
             (d.mesCnefe ? `${d.anoCnefe}_${String(d.mesCnefe).padStart(2,'0')}` : 'sem') === mesKey
           ).length;
-          html += `<tr style="background:var(--azul);color:#fff">
+          html += `<tr style="background:var(--azul-medio);color:#fff">
             <td colspan="7" style="font-weight:700;font-size:0.83rem;padding:0.45rem 0.9rem;letter-spacing:0.3px">
               📅 ${mesLabel} — ${upasDoMes} UPA${upasDoMes!==1?'s':''}
             </td></tr>`;
