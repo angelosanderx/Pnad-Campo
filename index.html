@@ -1474,6 +1474,7 @@
         <button class="cnefe-tab-btn ativo" onclick="cnefeMudarAba('setores',this)">Setores</button>
         <button class="cnefe-tab-btn" onclick="cnefeMudarAba('listagem',this)">Listagem de Campo</button>
         <button class="cnefe-tab-btn" onclick="cnefeMudarAba('qualidade',this)">Qualidade</button>
+        <button class="cnefe-tab-btn" onclick="cnefeMudarAba('mapas',this)">🗺️ Mapas</button>
       </div>
 
       <!-- ABA SETORES -->
@@ -1544,6 +1545,47 @@
         <div class="card-tabela">
           <div class="card-tabela-header"><h3>Cruzamento CNEFE × PNAD</h3></div>
           <div id="cnefe-qualidade-tabela"><div class="loader">Carregando...</div></div>
+        </div>
+      </div>
+
+      <!-- ABA MAPAS -->
+      <div class="cnefe-tab-panel" id="cnefe-panel-mapas">
+        <div class="card-tabela" style="margin-bottom:0.75rem">
+          <div class="card-tabela-header" style="flex-wrap:wrap;gap:0.5rem">
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+              <select id="cnefe-mapa-setor-sel" onchange="selecionarCnefeMapaSetor(this.value)"
+                style="font-size:0.82rem;padding:0.3rem 0.65rem;border:1px solid var(--borda);border-radius:6px;background:var(--fundo);color:var(--texto);min-width:180px">
+                <option value="">— Selecione o setor —</option>
+              </select>
+              <label class="btn-acao secundario" style="cursor:pointer;margin:0" id="cnefe-mapa-kml-label">
+                📂 Carregar KML
+                <input type="file" accept=".kml" style="display:none" id="cnefe-mapa-kml-input" onchange="carregarKmlCnefe(this)">
+              </label>
+              <label class="btn-acao secundario" style="cursor:pointer;margin:0;display:none" id="cnefe-mapa-kml-atualizar">
+                🔄 Atualizar KML
+                <input type="file" accept=".kml" style="display:none" onchange="carregarKmlCnefe(this)">
+              </label>
+            </div>
+            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;font-size:0.83rem">
+              <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;user-select:none">
+                <input type="checkbox" id="cnefe-layer-contorno" checked onchange="toggleCnefeLayer('contorno')"> Contorno
+              </label>
+              <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;user-select:none">
+                <input type="checkbox" id="cnefe-layer-faces" checked onchange="toggleCnefeLayer('faces')"> Faces
+              </label>
+              <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;user-select:none">
+                <input type="checkbox" id="cnefe-layer-pontos" checked onchange="toggleCnefeLayer('pontos')"> Pontos
+              </label>
+              <button class="btn-acao secundario" style="font-size:0.78rem;padding:0.25rem 0.7rem"
+                onclick="cnefeTudoJunto()">Tudo junto</button>
+            </div>
+          </div>
+          <div id="cnefe-mapa-info" style="font-size:0.78rem;color:var(--cinza);padding:0.3rem 0.9rem 0.5rem;display:none"></div>
+        </div>
+        <div id="cnefe-mapa-container" style="height:520px;border-radius:10px;overflow:hidden;border:1px solid var(--borda)">
+          <div class="vazio" style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column">
+            <div class="icone-vazio">🗺️</div>Selecione um setor para ver o mapa
+          </div>
         </div>
       </div>
     </div>
@@ -8251,6 +8293,9 @@ window.processarCentralSIGC = async () => {
 // ── MÓDULO CNEFE ──────────────────────────────────────────────────────────────
 
 let _cnefeAgentesCache = null;
+let _cnefeMapInstance  = null;
+let _cnefeMapLayers    = { contorno: null, faces: null, pontos: null };
+const _cnefeKmlCache   = {};
 let _cnefeSetoresCache = null;
 let _cnefeSetoresList  = [];   // lista processada para render sem rebuscar
 const _cnefeEnderecoCache = {};
@@ -8264,6 +8309,7 @@ window.cnefeMudarAba = (aba, btn) => {
   if (aba === 'setores')  carregarCnefeSetores();
   if (aba === 'listagem') { if (!document.getElementById('cnefe-listagem-setor-val').value) return; carregarCnefeListagem(document.getElementById('cnefe-listagem-setor-val').value); }
   if (aba === 'qualidade') carregarCnefeQualidade();
+  if (aba === 'mapas')    carregarCnefeMapas();
 };
 
 window.carregarCnefe = async () => {
@@ -9072,6 +9118,254 @@ window.salvarCnefeAgente = async () => {
     mostrarToast('Agente salvo!', 'sucesso');
     carregarCnefeAgentes();
   } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+};
+
+// ── MÓDULO CNEFE — ABA MAPAS ─────────────────────────────────────────────────
+
+function _parseCoords(text) {
+  if (!text) return [];
+  return text.trim().split(/\s+/).map(c => {
+    const p = c.split(',');
+    const lng = parseFloat(p[0]), lat = parseFloat(p[1]);
+    return isNaN(lat) || isNaN(lng) ? null : [lat, lng];
+  }).filter(Boolean);
+}
+
+function _parsearKML(xmlText) {
+  const xml  = new DOMParser().parseFromString(xmlText, 'text/xml');
+  const pms  = [...xml.querySelectorAll('Placemark')];
+  let contorno = null;
+  const faces  = [];
+
+  pms.forEach(pm => {
+    const id   = pm.getAttribute('id') || '';
+    const name = pm.querySelector('name')?.textContent?.trim() || '';
+    const desc = pm.querySelector('description')?.textContent || '';
+
+    if (id.toUpperCase().startsWith('CONTORNO') || name.toUpperCase() === 'CONTORNO') {
+      const coords = _parseCoords(pm.querySelector('coordinates')?.textContent);
+      if (coords.length) contorno = coords;
+      return;
+    }
+    const ls = pm.querySelector('LineString');
+    if (ls) {
+      const coords = _parseCoords(ls.querySelector('coordinates')?.textContent);
+      if (!coords.length) return;
+      let quadra = '', face = '', logradouro = '', cep = '';
+      const m = name.match(/QUADRA[:\s]+(\S+)\s*[-–]\s*FACE[:\s]+(\S+)/i);
+      if (m) {
+        quadra = m[1]; face = m[2];
+        const lg  = desc.match(/LOGRADOURO[:\s]+([^\n<]+)/i);
+        const cep_ = desc.match(/CEP[:\s]+(\d+)/i);
+        logradouro = lg?.[1]?.trim()  || '';
+        cep        = cep_?.[1]?.trim() || '';
+      }
+      faces.push({ id, quadra, face, logradouro, cep, coords });
+    }
+  });
+
+  return { contorno, faces };
+}
+
+function _centroide(coords) {
+  if (!coords?.length) return null;
+  return [
+    coords.reduce((s, c) => s + c[0], 0) / coords.length,
+    coords.reduce((s, c) => s + c[1], 0) / coords.length,
+  ];
+}
+
+async function carregarCnefeMapas() {
+  // Popula setor selector com _cnefeSetoresList (pode já estar carregado)
+  const sel = document.getElementById('cnefe-mapa-setor-sel');
+  if (!sel) return;
+  if (_cnefeSetoresList.length) {
+    const atual = sel.value;
+    sel.innerHTML = '<option value="">— Selecione o setor —</option>' +
+      [...new Set(_cnefeSetoresList.map(s => s.setor))].sort().map(s =>
+        `<option value="${s}"${s === atual ? ' selected' : ''}>${s}</option>`
+      ).join('');
+  }
+}
+
+window.selecionarCnefeMapaSetor = async (setor) => {
+  const info  = document.getElementById('cnefe-mapa-info');
+  const label = document.getElementById('cnefe-mapa-kml-label');
+  const atl   = document.getElementById('cnefe-mapa-kml-atualizar');
+  if (!setor) {
+    document.getElementById('cnefe-mapa-container').innerHTML =
+      '<div class="vazio" style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column"><div class="icone-vazio">🗺️</div>Selecione um setor para ver o mapa</div>';
+    if (info) info.style.display = 'none';
+    return;
+  }
+
+  // Verifica cache local
+  if (_cnefeKmlCache[setor]) {
+    _renderCnefeMapaLayers(setor, _cnefeKmlCache[setor]);
+    label.style.display = 'none'; atl.style.display = '';
+    return;
+  }
+
+  // Busca no Firestore
+  document.getElementById('cnefe-mapa-container').innerHTML =
+    '<div style="height:100%;display:flex;align-items:center;justify-content:center"><div class="loader"></div></div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'cnefe_kml'), where('setor', '==', setor)));
+    if (!snap.empty) {
+      const data = snap.docs[0].data();
+      _cnefeKmlCache[setor] = data;
+      _renderCnefeMapaLayers(setor, data);
+      label.style.display = 'none'; atl.style.display = '';
+      if (info) {
+        info.textContent = `KML: ${data.faces?.length || 0} faces · salvo em ${data.atualizadoEm?.toDate?.()?.toLocaleDateString('pt-BR') || '—'}`;
+        info.style.display = '';
+      }
+    } else {
+      document.getElementById('cnefe-mapa-container').innerHTML =
+        '<div class="vazio" style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column"><div class="icone-vazio">📂</div>Nenhum KML encontrado para este setor.<br>Carregue o arquivo .kml</div>';
+      label.style.display = ''; atl.style.display = 'none';
+    }
+  } catch(e) {
+    console.error(e);
+    document.getElementById('cnefe-mapa-container').innerHTML =
+      '<div class="vazio" style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column"><div class="icone-vazio">⚠️</div>Erro ao buscar KML</div>';
+  }
+};
+
+window.carregarKmlCnefe = async (input) => {
+  const file   = input.files[0]; if (!file) return;
+  const setor  = document.getElementById('cnefe-mapa-setor-sel')?.value;
+  if (!setor) { mostrarToast('Selecione um setor antes de carregar o KML', 'aviso'); input.value = ''; return; }
+  input.value = '';
+  mostrarToast('Processando KML…', '');
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const { contorno, faces } = _parsearKML(e.target.result);
+      const total = (contorno ? 1 : 0) + faces.length;
+      if (!total) { mostrarToast('Nenhum elemento encontrado no KML', 'aviso'); return; }
+
+      // Salva no Firestore (documento por setor)
+      const q    = await getDocs(query(collection(db, 'cnefe_kml'), where('setor', '==', setor)));
+      const data = { setor, contorno: contorno || null, faces, atualizadoEm: serverTimestamp() };
+      if (!q.empty) await setDoc(q.docs[0].ref, data);
+      else          await addDoc(collection(db, 'cnefe_kml'), data);
+
+      _cnefeKmlCache[setor] = data;
+      _renderCnefeMapaLayers(setor, data);
+
+      const label = document.getElementById('cnefe-mapa-kml-label');
+      const atl   = document.getElementById('cnefe-mapa-kml-atualizar');
+      label.style.display = 'none'; atl.style.display = '';
+
+      const info = document.getElementById('cnefe-mapa-info');
+      if (info) { info.textContent = `KML: ${faces.length} faces · ${contorno ? 'contorno OK' : 'sem contorno'}`; info.style.display = ''; }
+
+      mostrarToast(`KML salvo: ${contorno?1:0} contorno, ${faces.length} faces`, 'sucesso');
+    } catch(err) { console.error(err); mostrarToast('Erro: ' + err.message, 'erro'); }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+async function _renderCnefeMapaLayers(setor, kmlData) {
+  const container = document.getElementById('cnefe-mapa-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const L = await obterLeaflet();
+
+  if (_cnefeMapInstance) { try { _cnefeMapInstance.remove(); } catch(_) {} _cnefeMapInstance = null; }
+  _cnefeMapLayers = { contorno: null, faces: null, pontos: null };
+
+  _cnefeMapInstance = L.map(container);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(_cnefeMapInstance);
+
+  // Contorno
+  if (kmlData.contorno?.length) {
+    _cnefeMapLayers.contorno = L.polygon(kmlData.contorno, {
+      color: '#dc2626', weight: 3, fillOpacity: 0.04,
+    });
+  }
+
+  // Faces
+  const faceMap = new Map();
+  const faceLines = (kmlData.faces || []).map(f => {
+    if (f.quadra && f.face) faceMap.set(`${f.quadra}_${f.face}`, f);
+    const line = L.polyline(f.coords, { color: '#ca8a04', weight: 2 });
+    if (f.quadra) {
+      line.bindPopup(
+        `<b>Quadra:</b> ${f.quadra} &nbsp; <b>Face:</b> ${f.face}<br>` +
+        `<b>Logradouro:</b> ${f.logradouro || '—'}<br><b>CEP:</b> ${f.cep || '—'}`
+      );
+    }
+    return line;
+  });
+  _cnefeMapLayers.faces = L.layerGroup(faceLines);
+
+  // Pontos — cruzamento com CSV do setor
+  const docs = _cnefeEnderecoCache[setor] || [];
+  const markers = [];
+  docs.forEach(d => {
+    let latlng = null;
+    // Tenta posicionar no centroide da face correspondente
+    if (d.quadra && d.face) {
+      const f = faceMap.get(`${d.quadra}_${d.face}`);
+      latlng = _centroide(f?.coords);
+    }
+    if (!latlng) {
+      // Fallback: usa coordenadas próprias do endereço se existirem
+      const lat = parseFloat(d.latitude), lng = parseFloat(d.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) latlng = [lat, lng];
+    }
+    if (!latlng) return;
+
+    const color = d.pnad_atual ? '#f97316' : '#2563eb';
+    const m = L.circleMarker(latlng, { radius: 5, color, fillColor: color, fillOpacity: 0.85, weight: 1.5 });
+    m.bindPopup(
+      `<b>UV:</b> ${d.uv || '—'} &nbsp; <b>CE:</b> ${d.codigo_endereco || '—'}<br>` +
+      `${d.logradouro || ''}${d.numero ? ' nº ' + d.numero : ''}<br>` +
+      `<b>Responsável:</b> ${d.responsavel || '—'}<br>` +
+      `<b>Espécie:</b> ${d.especie || '—'}` +
+      (d.pnad_atual ? '<br><span style="color:#f97316;font-weight:700">🔶 Amostra PNAD atual</span>' : '')
+    );
+    markers.push(m);
+  });
+  _cnefeMapLayers.pontos = L.layerGroup(markers);
+
+  // Aplica visibilidade conforme checkboxes
+  const addIfChecked = (id, layer) => {
+    if (layer && document.getElementById(id)?.checked) layer.addTo(_cnefeMapInstance);
+  };
+  addIfChecked('cnefe-layer-contorno', _cnefeMapLayers.contorno);
+  addIfChecked('cnefe-layer-faces',    _cnefeMapLayers.faces);
+  addIfChecked('cnefe-layer-pontos',   _cnefeMapLayers.pontos);
+
+  // Centraliza no contorno
+  if (kmlData.contorno?.length) {
+    _cnefeMapInstance.fitBounds(L.polygon(kmlData.contorno).getBounds(), { padding: [20, 20] });
+  } else if (faceLines.length) {
+    _cnefeMapInstance.fitBounds(L.featureGroup(faceLines).getBounds(), { padding: [20, 20] });
+  }
+}
+
+window.toggleCnefeLayer = (layer) => {
+  const l = _cnefeMapLayers[layer];
+  const cb = document.getElementById('cnefe-layer-' + layer);
+  if (!l || !_cnefeMapInstance) return;
+  if (cb?.checked) l.addTo(_cnefeMapInstance);
+  else             _cnefeMapInstance.removeLayer(l);
+};
+
+window.cnefeTudoJunto = () => {
+  ['contorno','faces','pontos'].forEach(n => {
+    const cb = document.getElementById('cnefe-layer-' + n);
+    if (cb) cb.checked = true;
+    const l = _cnefeMapLayers[n];
+    if (l && _cnefeMapInstance) l.addTo(_cnefeMapInstance);
+  });
 };
 </script>
 </body>
