@@ -1500,7 +1500,7 @@
           <div class="card-tabela-header">
             <h3>Setores CNEFE</h3>
             <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
-              <select id="cnefe-filtro-mes" onchange="carregarCnefeSetores()" style="font-size:0.82rem;padding:0.3rem 0.65rem;border:1px solid var(--borda);border-radius:6px;background:var(--fundo);color:var(--texto)">
+              <select id="cnefe-filtro-mes" onchange="renderCnefeSetores()" style="font-size:0.82rem;padding:0.3rem 0.65rem;border:1px solid var(--borda);border-radius:6px;background:var(--fundo);color:var(--texto)">
                 <option value="">Todos os meses</option>
               </select>
               <button class="btn-acao" onclick="abrirModalCnefeSetorNovo()">+ Adicionar setor</button>
@@ -8248,6 +8248,7 @@ window.processarCentralSIGC = async () => {
 
 let _cnefeAgentesCache = null;
 let _cnefeSetoresCache = null;
+let _cnefeSetoresList  = [];   // lista processada para render sem rebuscar
 const _cnefeEnderecoCache = {};
 const _CNEFE_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -8288,9 +8289,8 @@ async function carregarCnefeSetores() {
     _cnefeSetoresCache = snapS.docs.map(d => ({ id: d.id, ...d.data() }));
 
     const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const setores = [];
+    _cnefeSetoresList = [];
 
-    // Origem automática: amostra_mestra, 1ª entrevista
     if (_amCache) {
       const vistos = new Set();
       _amCache.filter(r => r.numero_entrevista === 1).forEach(r => {
@@ -8301,26 +8301,23 @@ async function carregarCnefeSetores() {
         const anoPnad = parseInt(r.ano) || hoje.getFullYear();
         const mesCnefe = mesPnad > 3 ? mesPnad - 3 : mesPnad + 9;
         const anoCnefe = mesPnad > 3 ? anoPnad : anoPnad - 1;
-        // prazo = último dia do mês anterior à PNAD
         const prazoFinal = new Date(anoPnad, mesPnad - 1, 0);
         const manual = _cnefeSetoresCache.find(s => s.setor === k);
-        setores.push({
+        _cnefeSetoresList.push({
           setor: k, pesquisa: 'PNAD-C',
           agente_id: manual?.agente_id || '', agente_nome: manual?.agente_nome || '',
-          mesCnefe, anoCnefe, prazoFinal,
-          mesPnad, anoPnad,
+          mesCnefe, anoCnefe, prazoFinal, mesPnad, anoPnad,
           concluido: manual?.concluido || false,
           origem: 'pnad', docId: manual?.id || null,
         });
       });
     }
 
-    // Origem manual (pesquisas que não são PNAD-C)
     _cnefeSetoresCache.filter(s => s.pesquisa !== 'PNAD-C').forEach(s => {
       const pf = s.prazo_final
         ? (s.prazo_final.seconds ? new Date(s.prazo_final.seconds * 1000) : new Date(s.prazo_final))
         : null;
-      setores.push({
+      _cnefeSetoresList.push({
         setor: s.setor, pesquisa: s.pesquisa || '',
         agente_id: s.agente_id || '', agente_nome: s.agente_nome || '',
         mesCnefe: s.mes_cnefe || 0, anoCnefe: s.ano_cnefe || hoje.getFullYear(),
@@ -8330,27 +8327,10 @@ async function carregarCnefeSetores() {
       });
     });
 
-    const calcStatus = s => {
-      if (s.concluido) return 'concluido';
-      if (s.prazoFinal && s.prazoFinal < hoje) return 'atrasado';
-      if (_cnefeEnderecoCache[s.setor]?.length > 0) return 'em_andamento';
-      return 'a_iniciar';
-    };
-
-    const total = setores.length;
-    const concluidos  = setores.filter(s => s.concluido).length;
-    const atrasados   = setores.filter(s => !s.concluido && s.prazoFinal && s.prazoFinal < hoje).length;
-    const noPrazo     = total - concluidos - atrasados;
-    document.getElementById('cnefe-stat-total').textContent = total;
-    document.getElementById('cnefe-stat-prazo').textContent = noPrazo;
-    document.getElementById('cnefe-stat-atrasados').textContent = atrasados;
-    document.getElementById('cnefe-stat-concluidos').textContent = concluidos;
-
-    // Popular filtro de mês (preserva seleção atual)
+    // Popula dropdown de meses uma única vez (sem tocar no valor selecionado depois)
     const selMes = document.getElementById('cnefe-filtro-mes');
-    const mesFiltroAtual = selMes?.value || '';
     const mesesUnicos = [...new Map(
-      setores
+      _cnefeSetoresList
         .filter(s => s.mesCnefe)
         .map(s => [`${s.anoCnefe}_${String(s.mesCnefe).padStart(2,'0')}`, s])
         .sort((a, b) => a[0].localeCompare(b[0]))
@@ -8358,80 +8338,99 @@ async function carregarCnefeSetores() {
     if (selMes) {
       selMes.innerHTML = '<option value="">Todos os meses</option>' +
         mesesUnicos.map(m =>
-          `<option value="${m.key}"${m.key === mesFiltroAtual ? ' selected' : ''}>${_CNEFE_MESES[m.mes-1]} ${m.ano}</option>`
+          `<option value="${m.key}">${_CNEFE_MESES[m.mes-1]} ${m.ano}</option>`
         ).join('');
     }
 
-    // Filtra por mês se selecionado
-    const setoresFiltrados = mesFiltroAtual
-      ? setores.filter(s => `${s.anoCnefe}_${String(s.mesCnefe).padStart(2,'0')}` === mesFiltroAtual)
-      : setores;
-
-    if (!setoresFiltrados.length) {
-      el.innerHTML = '<div class="vazio"><div class="icone-vazio">📍</div>Nenhum setor. Adicione manualmente ou carregue a Amostra Mestra na página Setores.</div>';
-      return;
-    }
-
-    // Agrupa por mês CNEFE ordenado, setores em ordem crescente dentro de cada mês
-    const grupos = new Map();
-    setoresFiltrados
-      .slice()
-      .sort((a, b) => {
-        const ka = `${a.anoCnefe}_${String(a.mesCnefe).padStart(2,'0')}`;
-        const kb = `${b.anoCnefe}_${String(b.mesCnefe).padStart(2,'0')}`;
-        if (ka !== kb) return ka.localeCompare(kb);
-        return a.setor.localeCompare(b.setor);
-      })
-      .forEach(s => {
-        const chave = s.mesCnefe ? `${_CNEFE_MESES[s.mesCnefe-1]} ${s.anoCnefe}` : 'Sem mês';
-        if (!grupos.has(chave)) grupos.set(chave, []);
-        grupos.get(chave).push(s);
-      });
-
-    const stLabel = { a_iniciar:'A iniciar', em_andamento:'Em andamento', concluido:'Concluído', atrasado:'Atrasado' };
-    const stBadge = { a_iniciar:'badge-cinza', em_andamento:'badge-azul', concluido:'badge-verde', atrasado:'badge-vermelho' };
-
-    let tbody = '';
-    for (const [mes, lista] of grupos) {
-      tbody += `<tr style="background:var(--azul-claro)">
-        <td colspan="8" style="font-size:0.75rem;font-weight:700;color:var(--azul);padding:0.35rem 0.9rem;letter-spacing:0.3px">
-          📅 ${mes} — ${lista.length} setor${lista.length !== 1 ? 'es' : ''}
-        </td>
-      </tr>`;
-      lista.forEach(s => {
-        const st = calcStatus(s);
-        const mcLbl = s.mesCnefe ? `${_CNEFE_MESES[s.mesCnefe-1]}/${s.anoCnefe}` : '—';
-        const mpLbl = s.mesPnad  ? `${_CNEFE_MESES[s.mesPnad-1]}/${s.anoPnad}`   : '—';
-        const pzLbl = s.prazoFinal instanceof Date ? s.prazoFinal.toLocaleDateString('pt-BR') : '—';
-        const agNome = s.agente_nome || (_cnefeAgentesCache?.find(a => a.id === s.agente_id)?.nome) || '—';
-        tbody += `<tr>
-          <td><code style="font-size:0.78rem">${s.setor}</code></td>
-          <td style="font-size:0.82rem">${s.pesquisa}</td>
-          <td style="font-size:0.82rem">${agNome}</td>
-          <td style="font-size:0.82rem">${mcLbl}</td>
-          <td style="font-size:0.82rem">${mpLbl}</td>
-          <td style="font-size:0.82rem">${pzLbl}</td>
-          <td><span class="badge ${stBadge[st]}">${stLabel[st]}</span></td>
-          <td>
-            <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-              <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
-                onclick="abrirCnefeListagem('${s.setor}')">📋 Listagem</button>
-              <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
-                onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido})">✏️</button>
-            </div>
-          </td>
-        </tr>`;
-      });
-    }
-
-    el.innerHTML = '<div style="overflow-x:auto"><table style="min-width:780px"><thead><tr>' +
-      '<th>Setor</th><th>Pesquisa</th><th>Agente</th><th>Mês CNEFE</th><th>Mês Pesquisa</th><th>Prazo Final</th><th>Status</th><th>Ações</th>' +
-      '</tr></thead><tbody>' + tbody + '</tbody></table></div>';
+    renderCnefeSetores();
   } catch(e) {
     console.error(e);
-    el.innerHTML = '<div class="vazio"><div class="icone-vazio">⚠️</div>Erro ao carregar setores CNEFE.</div>';
+    document.getElementById('cnefe-setores-tabela').innerHTML =
+      '<div class="vazio"><div class="icone-vazio">⚠️</div>Erro ao carregar setores CNEFE.</div>';
   }
 }
+
+window.renderCnefeSetores = () => {
+  const el = document.getElementById('cnefe-setores-tabela');
+  if (!el || !_cnefeSetoresList.length) return;
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const mesFiltro = document.getElementById('cnefe-filtro-mes')?.value || '';
+
+  const calcStatus = s => {
+    if (s.concluido) return 'concluido';
+    if (s.prazoFinal && s.prazoFinal < hoje) return 'atrasado';
+    if (_cnefeEnderecoCache[s.setor]?.length > 0) return 'em_andamento';
+    return 'a_iniciar';
+  };
+
+  const total      = _cnefeSetoresList.length;
+  const concluidos = _cnefeSetoresList.filter(s => s.concluido).length;
+  const atrasados  = _cnefeSetoresList.filter(s => !s.concluido && s.prazoFinal && s.prazoFinal < hoje).length;
+  document.getElementById('cnefe-stat-total').textContent = total;
+  document.getElementById('cnefe-stat-prazo').textContent = total - concluidos - atrasados;
+  document.getElementById('cnefe-stat-atrasados').textContent = atrasados;
+  document.getElementById('cnefe-stat-concluidos').textContent = concluidos;
+
+  const lista = mesFiltro
+    ? _cnefeSetoresList.filter(s => `${s.anoCnefe}_${String(s.mesCnefe).padStart(2,'0')}` === mesFiltro)
+    : _cnefeSetoresList;
+
+  if (!lista.length) {
+    el.innerHTML = '<div class="vazio"><div class="icone-vazio">📍</div>Nenhum setor para o mês selecionado.</div>';
+    return;
+  }
+
+  const grupos = new Map();
+  lista.slice().sort((a, b) => {
+    const ka = `${a.anoCnefe}_${String(a.mesCnefe).padStart(2,'0')}`;
+    const kb = `${b.anoCnefe}_${String(b.mesCnefe).padStart(2,'0')}`;
+    return ka !== kb ? ka.localeCompare(kb) : a.setor.localeCompare(b.setor);
+  }).forEach(s => {
+    const chave = s.mesCnefe ? `${_CNEFE_MESES[s.mesCnefe-1]} ${s.anoCnefe}` : 'Sem mês';
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave).push(s);
+  });
+
+  const stLabel = { a_iniciar:'A iniciar', em_andamento:'Em andamento', concluido:'Concluído', atrasado:'Atrasado' };
+  const stBadge = { a_iniciar:'badge-cinza', em_andamento:'badge-azul', concluido:'badge-verde', atrasado:'badge-vermelho' };
+
+  let tbody = '';
+  for (const [mes, grp] of grupos) {
+    tbody += `<tr style="background:var(--azul-claro)">
+      <td colspan="8" style="font-size:0.75rem;font-weight:700;color:var(--azul);padding:0.35rem 0.9rem;letter-spacing:0.3px">
+        📅 ${mes} — ${grp.length} setor${grp.length !== 1 ? 'es' : ''}
+      </td></tr>`;
+    grp.forEach(s => {
+      const st    = calcStatus(s);
+      const mcLbl = s.mesCnefe ? `${_CNEFE_MESES[s.mesCnefe-1]}/${s.anoCnefe}` : '—';
+      const mpLbl = s.mesPnad  ? `${_CNEFE_MESES[s.mesPnad-1]}/${s.anoPnad}`   : '—';
+      const pzLbl = s.prazoFinal instanceof Date ? s.prazoFinal.toLocaleDateString('pt-BR') : '—';
+      const agNome = s.agente_nome || (_cnefeAgentesCache?.find(a => a.id === s.agente_id)?.nome) || '—';
+      tbody += `<tr>
+        <td><code style="font-size:0.78rem">${s.setor}</code></td>
+        <td style="font-size:0.82rem">${s.pesquisa}</td>
+        <td style="font-size:0.82rem">${agNome}</td>
+        <td style="font-size:0.82rem">${mcLbl}</td>
+        <td style="font-size:0.82rem">${mpLbl}</td>
+        <td style="font-size:0.82rem">${pzLbl}</td>
+        <td><span class="badge ${stBadge[st]}">${stLabel[st]}</span></td>
+        <td>
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+            <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
+              onclick="abrirCnefeListagem('${s.setor}')">📋 Listagem</button>
+            <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
+              onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido})">✏️</button>
+          </div>
+        </td>
+      </tr>`;
+    });
+  }
+
+  el.innerHTML = '<div style="overflow-x:auto"><table style="min-width:780px"><thead><tr>' +
+    '<th>Setor</th><th>Pesquisa</th><th>Agente</th><th>Mês CNEFE</th><th>Mês Pesquisa</th><th>Prazo Final</th><th>Status</th><th>Ações</th>' +
+    '</tr></thead><tbody>' + tbody + '</tbody></table></div>';
+};
 
 window.editarCnefeSetor = (setor, docId, agId, concluido) => {
   document.getElementById('cnefe-setor-edit-setor').value = setor;
