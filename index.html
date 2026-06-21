@@ -2446,9 +2446,8 @@ async function _carregarIndicadoresMoradores() {
     const lote = todosdomicilios.slice(i, i + LOTE);
     await Promise.all(lote.map(async (d) => {
       if (d._tem_moradores !== undefined) {
-        // já carregado — garante que a célula está atualizada se a tabela foi re-renderizada
         const el = document.getElementById('ind-morad-' + d.id);
-        if (el && el.innerHTML.includes('⏳')) el.innerHTML = _badgeMoradores(d._tem_moradores);
+        if (el) el.innerHTML = _badgeMoradores(d._tem_moradores);
         return;
       }
       try {
@@ -2469,8 +2468,11 @@ async function _carregarIndicadoresMoradores() {
 async function carregarDomicilios() {
   try {
     const snap = await getDocs(collection(db, 'domicilios'));
-    todosdomicilios = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(d => d.endereco && pertencePeriodo(d));
+    todosdomicilios = snap.docs.map(d => {
+      const data = { id: d.id, ...d.data() };
+      if (data.qtd_moradores_pnad > 0) data._tem_moradores = true;
+      return data;
+    }).filter(d => d.endereco && pertencePeriodo(d));
     preencherFiltrosUpa();
     preencherFiltroEntrevistador();
     filtrarDomicilios();
