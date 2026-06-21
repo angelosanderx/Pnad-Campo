@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -5819,9 +5819,9 @@ function offsetEspiral(pins) {
 
 function corEntrevistador(nome) {
   if (!nome) return '#94A3B8';
-  const upper = nome.toUpperCase();
+  const semAcento = nome.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   for (const [key, cor] of Object.entries(CORES_ENTREVISTADORES)) {
-    if (upper.includes(key)) return cor;
+    if (semAcento.includes(key)) return cor;
   }
   return '#94A3B8';
 }
