@@ -9146,8 +9146,7 @@ async function carregarCnefeQualidade() {
             </td></tr>`;
         }
 
-        // Todos os domicílios da UPA — verificamos a entrevista 1 do historico_especies
-        // independentemente da etapa atual (cobre setores de qualquer mês CNEFE)
+        // Todos os domicílios da UPA — erros CNEFE só contam na visita_etapa 1
         const domsUpa = todosdomicilios.filter(d => d.upa === upaId);
 
         // Setores (codigo_controle) desta UPA segundo a amostra_mestra
@@ -9204,60 +9203,60 @@ async function carregarCnefeQualidade() {
           const domsSetor = (domsPorSetor.get(ctrl) || [])
             .sort((a, b) => parseInt(a.domicilio_num || 0) - parseInt(b.domicilio_num || 0));
 
-          // Separa por disponibilidade de espécies na entrevista 1
-          const comEsp1  = domsSetor.filter(d => getEsp1(d));
-          const semEsp1  = domsSetor.filter(d => !getEsp1(d));
-          const errosSetor = comEsp1.filter(d => isErroCnefe(getEsp1(d)));
-          const okSetor    = comEsp1.filter(d => !isErroCnefe(getEsp1(d)));
-
+          // Erros CNEFE: apenas domicílios em visita_etapa === 1 com espécie ruim na entrevista 1
+          const domsEtapa1  = domsSetor.filter(d => parseInt(d.visita_etapa) === 1);
+          const errosSetor  = domsEtapa1.filter(d => isErroCnefe(getEsp1(d)));
           const totalSetor  = domsSetor.length;
-          const totalComDados = comEsp1.length;
-          // % acerto calculado apenas sobre domicílios com dados de espécie
-          const pctAcerto = totalComDados > 0
-            ? Math.round(okSetor.length / totalComDados * 100) : null;
+          const totalEtapa1 = domsEtapa1.length;
+
+          // % acerto calculado sobre domicílios em etapa 1 com dados de espécie
+          const etapa1ComEsp = domsEtapa1.filter(d => getEsp1(d));
+          const pctAcerto = etapa1ComEsp.length > 0
+            ? Math.round((etapa1ComEsp.length - errosSetor.length) / etapa1ComEsp.length * 100)
+            : null;
           const corPct = pctAcerto === null ? 'var(--texto-secundario)'
             : pctAcerto >= 90 ? 'var(--verde)' : pctAcerto >= 70 ? 'var(--amarelo)' : 'var(--vermelho)';
 
-          // Acumula por agente (apenas sobre domicílios com dados)
+          // Acumula por agente
           const ag = setores[0]?.agente_nome || '—';
           if (!qualAgente[ag]) qualAgente[ag] = { erros: 0, total: 0, upas: new Set() };
           qualAgente[ag].upas.add(upaId);
-          qualAgente[ag].total += totalComDados;
+          qualAgente[ag].total += etapa1ComEsp.length;
           qualAgente[ag].erros += errosSetor.length;
 
-          const errosList = errosSetor.map(d => {
-            const esp1 = getEsp1(d);
-            return `<span style="display:inline-block;margin:1px 3px;font-size:0.72rem;background:var(--vermelho-claro);border:1px solid var(--vermelho);border-radius:4px;padding:1px 5px"
-              title="${esp1?.resultado||''}">
-              Dom ${d.domicilio_num||'?'} — ${resumoEsp(esp1?.resultado)}
-            </span>`;
+          // Lista todos os domicílios, não apenas os errados
+          const domsList = domsSetor.map(d => {
+            const etapa   = parseInt(d.visita_etapa) || 1;
+            const esp1    = getEsp1(d);
+            const erro    = etapa === 1 && isErroCnefe(esp1);
+            const semDado = etapa === 1 && !esp1;
+            const bg   = erro    ? 'background:var(--vermelho-claro);border-color:var(--vermelho);color:var(--vermelho)'
+                       : semDado ? 'background:#fffbeb;border-color:#fcd34d;color:#92400e'
+                       : etapa === 1 ? 'background:var(--verde-claro,#f0fdf4);border-color:var(--verde);color:var(--verde)'
+                       : 'background:var(--fundo);border-color:var(--borda);color:var(--texto-secundario)';
+            const label = erro    ? `Dom ${d.domicilio_num||'?'} — ${resumoEsp(esp1?.resultado)}`
+                        : semDado ? `Dom ${d.domicilio_num||'?'} (sem dados)`
+                        : etapa === 1 ? `Dom ${d.domicilio_num||'?'} ✓`
+                        : `Dom ${d.domicilio_num||'?'} (E${etapa})`;
+            const title = esp1?.resultado || (etapa > 1 ? `Etapa ${etapa} — não conta para CNEFE` : '');
+            return `<span style="display:inline-block;margin:1px 2px;font-size:0.7rem;border:1px solid;border-radius:4px;padding:1px 5px;${bg}"
+              title="${title}">${label}</span>`;
           }).join('');
 
-          const semDadosTag = semEsp1.length
-            ? `<span style="font-size:0.7rem;color:var(--texto-secundario);margin-left:0.4rem">(${semEsp1.length} sem espécies)</span>`
-            : '';
-
-          const colErros = totalComDados
-            ? `<span style="font-weight:700;color:${errosSetor.length>0?'var(--vermelho)':'var(--verde)'}">${errosSetor.length}</span>${semEsp1.length?` <span style="font-size:0.7rem;color:var(--amarelo)" title="${semEsp1.length} sem dados de espécie">+${semEsp1.length}?</span>`:''}`
-            : '—';
+          const colErros = totalEtapa1
+            ? `<span style="font-weight:700;color:${errosSetor.length>0?'var(--vermelho)':'var(--verde)'}">${errosSetor.length}</span>`
+            : '<span style="color:var(--texto-secundario)">—</span>';
 
           html += `<tr>
             <td style="padding-left:1.5rem;font-size:0.82rem">Setor <code style="font-size:0.78rem">${ctrl}</code></td>
             <td style="font-size:0.82rem">${agentePrincipal}</td>
             <td style="text-align:center">${mesBadge}</td>
-            <td style="text-align:center;font-weight:600">
-              ${totalSetor || '<span style="color:var(--amarelo)">?</span>'}
-              ${semDadosTag}
-            </td>
+            <td style="text-align:center;font-weight:600">${totalSetor || '<span style="color:var(--amarelo)">?</span>'}</td>
             <td style="text-align:center">${colErros}</td>
             <td style="text-align:center;font-weight:700;color:${corPct}">
               ${pctAcerto !== null ? pctAcerto + '%' : '<span style="color:var(--texto-secundario)">—</span>'}
             </td>
-            <td style="font-size:0.8rem">
-              ${totalComDados
-                ? (errosList || '<span style="color:var(--verde)">✅ Sem erros</span>')
-                : '<span style="color:var(--texto-secundario);font-size:0.78rem">Importar Acompanhar Espécies</span>'}
-            </td>
+            <td style="font-size:0.8rem">${totalSetor ? domsList : '<span style="color:var(--texto-secundario);font-size:0.78rem">—</span>'}</td>
           </tr>`;
         }
       }
