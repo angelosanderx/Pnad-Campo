@@ -82,6 +82,17 @@
       <span style="font-size:0.78rem;color:#64748b">2 obrigatórios · 3 opcionais</span>
     </div>
     <div class="card-body">
+      <div style="margin-bottom:1rem;padding:0.75rem 1rem;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-weight:700;font-size:0.85rem;color:#0c4a6e">📂 Selecionar todos de uma vez</div>
+          <div style="font-size:0.75rem;color:#475569;margin-top:2px">O sistema identifica cada arquivo pelo nome automaticamente</div>
+        </div>
+        <label style="cursor:pointer;background:#2563a8;color:#fff;padding:0.5rem 1.25rem;border-radius:7px;font-size:0.85rem;font-weight:600;white-space:nowrap">
+          Escolher arquivos
+          <input type="file" accept=".csv" multiple style="display:none" onchange="selecionarTodos(this)">
+        </label>
+        <div id="st-todos" style="font-size:0.78rem;color:#64748b"></div>
+      </div>
       <div class="grid-5">
 
         <div>
@@ -419,6 +430,36 @@ function chaveSemLetra(controleComLetra, dom) {
 });
 
 function carregarArquivo(id, input) { processarFile(id, input.files[0]); }
+
+function detectarTipoArquivo(nome) {
+  const n = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (n.includes('movimento'))   return 'movimento';
+  if (n.includes('tentativa'))   return 'tentativas';
+  if (n.includes('especie') || n.includes('especies') || n.includes('acompanhar')) return 'especies';
+  if (n.includes('telefone'))    return 'telefones';
+  if (n.includes('endereco') || n.includes('enderecos')) return 'endereco';
+  return null;
+}
+
+function selecionarTodos(input) {
+  const arquivos = [...input.files];
+  input.value = '';
+  const reconhecidos = [], naoReconhecidos = [];
+  arquivos.forEach(f => {
+    const tipo = detectarTipoArquivo(f.name);
+    if (tipo) reconhecidos.push({ tipo, file: f });
+    else naoReconhecidos.push(f.name);
+  });
+  reconhecidos.forEach(({ tipo, file }) => processarFile(tipo, file));
+  const stTodos = document.getElementById('st-todos');
+  if (naoReconhecidos.length > 0) {
+    stTodos.innerHTML = `⚠️ Não reconhecidos: ${naoReconhecidos.join(', ')}`;
+    stTodos.style.color = '#b45309';
+  } else if (reconhecidos.length > 0) {
+    stTodos.innerHTML = `✅ ${reconhecidos.length} arquivo(s) identificado(s)`;
+    stTodos.style.color = '#1a7a4a';
+  }
+}
 
 function processarFile(id, file) {
   if (!file) return;
