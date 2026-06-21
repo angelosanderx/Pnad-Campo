@@ -4156,6 +4156,21 @@ window.limparFiltrosSetores = () => {
 let _amCache = null;
 
 const _NOMES_MES = {7:'Julho',8:'Agosto',9:'Setembro',10:'Outubro',11:'Novembro',12:'Dezembro'};
+
+const _SEMANAS_CAL = {
+  7:  { 1:{cod:'C1M7', de:'05/07',ate:'11/07'}, 2:{cod:'C2M7', de:'12/07',ate:'18/07'}, 3:{cod:'C3M7', de:'19/07',ate:'25/07'}, 4:{cod:'C4M7', de:'26/07',ate:'01/08'} },
+  8:  { 1:{cod:'C1M8', de:'09/08',ate:'15/08'}, 2:{cod:'C2M8', de:'16/08',ate:'22/08'}, 3:{cod:'C3M8', de:'23/08',ate:'29/08'}, 4:{cod:'C4M8', de:'30/08',ate:'05/09'} },
+  9:  { 1:{cod:'C1M9', de:'06/09',ate:'12/09'}, 2:{cod:'C2M9', de:'13/09',ate:'19/09'}, 3:{cod:'C3M9', de:'20/09',ate:'26/09'}, 4:{cod:'C4M9', de:'27/09',ate:'03/10'} },
+  10: { 1:{cod:'C1M10',de:'11/10',ate:'17/10'}, 2:{cod:'C2M10',de:'18/10',ate:'24/10'}, 3:{cod:'C3M10',de:'25/10',ate:'31/10'}, 4:{cod:'C4M10',de:'01/11',ate:'07/11'} },
+  11: { 1:{cod:'C1M11',de:'08/11',ate:'14/11'}, 2:{cod:'C2M11',de:'15/11',ate:'21/11'}, 3:{cod:'C3M11',de:'22/11',ate:'28/11'}, 4:{cod:'C4M11',de:'29/11',ate:'05/12'} },
+  12: { 1:{cod:'C1M12',de:'06/12',ate:'12/12'}, 2:{cod:'C2M12',de:'13/12',ate:'19/12'}, 3:{cod:'C3M12',de:'20/12',ate:'26/12'}, 4:{cod:'C4M12',de:'27/12',ate:'02/01'} },
+};
+
+const _PT_MES = {
+  8:  '⏸️ Parada Técnica: 02 a 08/ago (ignorada)',
+  10: '⏸️ Parada Técnica: 04 a 10/out (ignorada)',
+};
+
 const _COR_ETAPA = {
   1:'background:#f5f3ff;color:#6d28d9;border:1px solid #c4b5fd',
   2:'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe',
@@ -4211,15 +4226,21 @@ window.renderAmostraMestra = () => {
 
   let html = '<div style="overflow-x:auto">';
   for (const mes of Object.keys(grupos).map(Number).sort((a,b)=>a-b)) {
+    const ptAviso = _PT_MES[mes] ? `<div style="background:#fffbeb;color:#92400e;border-left:4px solid #fcd34d;padding:0.4rem 1.1rem;font-size:0.8rem;font-weight:600">${_PT_MES[mes]}</div>` : '';
     html += `<div style="background:var(--azul);color:#fff;padding:0.55rem 1.1rem;font-weight:700;font-size:0.9rem;margin-top:1rem">
       📆 ${_NOMES_MES[mes] || 'Mês '+mes}
-    </div>`;
+    </div>${ptAviso}`;
     for (const sem of Object.keys(grupos[mes]).map(Number).sort((a,b)=>a-b)) {
       const regs = grupos[mes][sem].slice().sort((a,b) =>
         (a.upa||'').localeCompare(b.upa||'') || (a.codigo_controle||'').localeCompare(b.codigo_controle||'')
       );
-      html += `<div style="background:var(--azul-claro);padding:0.4rem 1.1rem;font-weight:700;font-size:0.82rem;color:var(--azul);border-bottom:2px solid var(--azul-medio)">
-        Semana ${sem} — <span style="font-weight:400">${regs.length} UPA${regs.length!==1?'s':''}</span>
+      const inf = _SEMANAS_CAL[mes]?.[sem];
+      const dataBadge = inf
+        ? `<span style="font-weight:400;font-size:0.78rem;margin-left:0.5rem;opacity:0.85">${inf.cod} · ${inf.de} a ${inf.ate}</span>`
+        : '';
+      html += `<div style="background:var(--azul-claro);padding:0.4rem 1.1rem;font-weight:700;font-size:0.82rem;color:var(--azul);border-bottom:2px solid var(--azul-medio);display:flex;justify-content:space-between;align-items:center">
+        <span>Semana ${sem}${dataBadge}</span>
+        <span style="font-weight:400;font-size:0.78rem;color:var(--cinza)">${regs.length} UPA${regs.length!==1?'s':''}</span>
       </div>
       <table style="min-width:700px;width:100%;table-layout:fixed">
         <thead><tr>
