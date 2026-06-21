@@ -8403,7 +8403,7 @@ async function carregarCnefeSetores() {
       }
     }
 
-    _cnefeSetoresCache.filter(s => s.pesquisa !== 'PNAD-C').forEach(s => {
+    _cnefeSetoresCache.filter(s => !/pnad/i.test(s.pesquisa)).forEach(s => {
       const pf = s.prazo_final
         ? (s.prazo_final.seconds ? new Date(s.prazo_final.seconds * 1000) : new Date(s.prazo_final))
         : null;
@@ -8650,7 +8650,7 @@ window.importarIndicadoresGerenciais = (input) => {
           atualizados++;
         } else {
           const novo = {
-            setor: d.setor, pesquisa: d.pesquisa, periodo: d.periodo,
+            setor: d.setor, pesquisa: isPnad ? 'PNAD-C' : d.pesquisa, periodo: d.periodo,
             ...ibgeFields,
             mes_cnefe: mesCnefe, ano_cnefe: anoCnefe,
             prazo_final: prazoFinal,
