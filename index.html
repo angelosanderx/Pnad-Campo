@@ -3040,13 +3040,14 @@ window.gerarDiarioCampo = async (idsOverride, tableId) => {
 
   mostrarToast('Carregando dados…', '');
 
-  // Contagem de moradores por domicílio
-  const morCount = {};
+  // Moradores completos por domicílio
+  const moradoresPorDom = {};
   await Promise.all(lista.map(async (d) => {
     try {
       const snap = await getDocs(collection(db, 'domicilios', d.id, 'moradores'));
-      morCount[d.id] = snap.size;
-    } catch(e) { morCount[d.id] = 0; }
+      moradoresPorDom[d.id] = snap.docs.map(m => m.data())
+        .sort((a,b) => (a.codigo||'').localeCompare(b.codigo||''));
+    } catch(e) { moradoresPorDom[d.id] = []; }
   }));
 
   // Ordena igual à view principal: Semana → UPA → Setor → Dom
@@ -3078,12 +3079,15 @@ window.gerarDiarioCampo = async (idsOverride, tableId) => {
   const MINUSC = new Set(['de','da','do','das','dos','e','em','a','o','ao','à','na','no','nas','nos','por','pelo','pela']);
   const tc = s => s ? s.trim().toLowerCase().split(/\s+/).map((w,i)=>(i===0||!MINUSC.has(w))?w[0].toUpperCase()+w.slice(1):w).join(' ') : '';
 
-  // Monta lista de itens com separadores de setor
+  // Monta lista de itens com separadores de setor (inclui etapa do primeiro dom do setor)
   const items = [];
   let lastSetor = null;
   lista.forEach(d => {
     const setor = d.controle ? d.controle.slice(0,-1) : (d.upa||'');
-    if (setor !== lastSetor) { items.push({type:'setor', code:setor}); lastSetor = setor; }
+    if (setor !== lastSetor) {
+      items.push({type:'setor', code:setor, etapa: d.visita_etapa||''});
+      lastSetor = setor;
+    }
     items.push({type:'dom', d});
   });
 
@@ -3094,35 +3098,39 @@ window.gerarDiarioCampo = async (idsOverride, tableId) => {
     return [arr.slice(0,i), arr.slice(i)];
   };
 
-  const renderSetor = code =>
-    `<div class="setor-sep">──── ${code} ────</div>`;
+  const renderSetor = (code, etapa) =>
+    `<div class="setor-sep">──── ${code}${etapa ? ' — Etapa '+etapa+'ª' : ''} ────</div>`;
 
   const renderDom = d => {
-    const mc = morCount[d.id] || 0;
+    const mors = moradoresPorDom[d.id] || [];
     const esp = (d.historico_especies||[]).slice().sort((a,b)=>parseInt(a.entrevista)-parseInt(b.entrevista));
     const etaAtual = parseInt(d.visita_etapa||0);
     const etaAnt = etaAtual > 1 ? esp.find(h=>parseInt(h.entrevista)===etaAtual-1) : null;
-    const ant = etaAnt ? (etaAnt.resultado||'—') : '—';
-    const resp = tc(d.morador_cnefe||d.morador||'');
+    const antRes = etaAnt ? (etaAnt.resultado||'—') : '—';
+    const antPer = etaAnt?.mes_ano || '';
+    const ant = antRes !== '—' ? (antPer ? `${antRes} (${antPer})` : antRes) : '1ª visita';
+    const cnefe = tc(d.morador_cnefe||d.morador||'');
     const tel = d.telefone || '—';
     const endRaw = (d.endereco||'').trim();
     const compRaw = (d.complemento||'').trim();
     const mE = endRaw.match(/^(.*?)\s+(\d+)\s*$/);
     let endFmt = endRaw ? (mE ? tc(mE[1])+', '+(mE[2]==='0'?'s/n':mE[2]) : tc(endRaw)) : '—';
     if (compRaw) endFmt += ', '+tc(compRaw);
-    const status = STATUS_ABREV[d.status_atual] || (d.status_atual||'NÃO VISITADO').toUpperCase();
     const num = d.domicilio_num || d.numero_sequencial || '—';
+    const morLista = mors.length > 0
+      ? mors.map(m => `${tc(m.nome||'?')}${m.idade!=null?' ('+m.idade+'a)':''}`).join(' · ')
+      : '—';
     return `<div class="dom-entry">
       <div class="dom-info">
         <div class="dom-hd">
           <span class="dom-num">Dom. ${num}</span>
-          <span class="dom-st">${status}</span>
-          <span class="dom-chks">☐ Realizada &nbsp; ☐ <span class="bl bl-res"></span> &nbsp; ☐ <span class="bl bl-res"></span></span>
+          <span class="dom-ant">${ant}</span>
+          <span class="dom-chks">☐ Realizada &nbsp; ☐ <span class="bl bl-res"></span></span>
         </div>
         <div class="dom-end">${endFmt}</div>
-        <div class="dom-meta">${resp?'Resp: '+resp+' · ':''}${mc} mor. · Ant: ${ant}</div>
-        <div class="dom-tel">Tel: ${tel}</div>
-        <div class="dom-obs">Obs.: <span class="bl bl-campo"></span></div>
+        <div class="dom-meta">CNEFE: ${cnefe||'—'} · Tel: ${tel}</div>
+        <div class="dom-mors">Moradores PNAD: ${morLista}</div>
+        <div class="dom-obs">Obs.: <span class="bl bl-obs"></span></div>
       </div>
     </div>`;
   };
@@ -3161,9 +3169,9 @@ window.gerarDiarioCampo = async (idsOverride, tableId) => {
     // Garante que col2 comece com separador de setor
     if (c2.length > 0 && c2[0].type !== 'setor') {
       const fd = c2.find(it => it.type==='dom');
-      if (fd) { const s = fd.d.controle ? fd.d.controle.slice(0,-1) : (fd.d.upa||''); c2 = [{type:'setor',code:s},...c2]; }
+      if (fd) { const s = fd.d.controle ? fd.d.controle.slice(0,-1) : (fd.d.upa||''); c2 = [{type:'setor',code:s,etapa:fd.d.visita_etapa||''},...c2]; }
     }
-    const renderCol = col => col.map(it => it.type==='setor' ? renderSetor(it.code) : renderDom(it.d)).join('');
+    const renderCol = col => col.map(it => it.type==='setor' ? renderSetor(it.code, it.etapa) : renderDom(it.d)).join('');
     paginas += `<div class="pagina">${cabecalho}<div class="corpo"><div class="coluna">${renderCol(c1)}</div><div class="coluna">${renderCol(c2)}</div></div>${rodape}</div>`;
   }
 
@@ -3182,24 +3190,25 @@ window.gerarDiarioCampo = async (idsOverride, tableId) => {
   .hd-tbl td { padding:0.5mm 4mm 0.5mm 0; }
   .corpo { display:flex; gap:3mm; flex:1; min-height:0; overflow:hidden; }
   .coluna { flex:1; border:1px solid #000; display:flex; flex-direction:column; overflow:hidden; }
-  .setor-sep { text-align:center; font-size:5.5pt; font-weight:700; letter-spacing:0.5px; padding:1px 0; border-top:1px solid #666; border-bottom:1px solid #666; flex-shrink:0; }
+  .setor-sep { text-align:center; font-size:7.5pt; font-weight:700; letter-spacing:0.4px; padding:1.5px 0; border-top:1px solid #555; border-bottom:1px solid #555; flex-shrink:0; }
   .dom-entry { display:flex; border-bottom:1px solid #bbb; flex:1; min-height:0; overflow:hidden; }
   .dom-entry:last-child { border-bottom:none; }
   .dom-info { padding:1mm 2mm; display:flex; flex-direction:column; justify-content:space-around; overflow:hidden; width:100%; }
-  .dom-hd { display:flex; align-items:baseline; gap:3px; }
+  .dom-hd { display:flex; align-items:baseline; gap:4px; }
   .dom-num { font-weight:800; font-size:9.5pt; flex-shrink:0; }
-  .dom-st { font-size:7pt; font-weight:700; letter-spacing:0.2px; flex-shrink:0; }
+  .dom-ant { font-size:7pt; color:#333; flex-shrink:0; }
   .dom-chks { margin-left:auto; font-size:7pt; white-space:nowrap; flex-shrink:0; }
   .dom-end { font-size:8pt; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dom-meta { font-size:7pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .dom-tel, .dom-obs { font-size:7.5pt; }
+  .dom-mors { font-size:7pt; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dom-obs { font-size:7.5pt; display:flex; align-items:baseline; gap:3px; }
   .bl { display:inline-block; border-bottom:1px solid #444; vertical-align:bottom; }
   .bl-xs    { min-width:14px; }
   .bl-sm    { min-width:24px; }
   .bl-md    { min-width:48px; }
   .bl-lg    { min-width:80px; }
   .bl-res   { min-width:45px; }
-  .bl-campo { min-width:120px; }
+  .bl-obs   { flex:1; }
   .bl-dt    { min-width:55px; }
   .bl-sup   { min-width:90px; }
   .bl-tel   { min-width:65px; }
