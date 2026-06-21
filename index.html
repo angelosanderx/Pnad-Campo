@@ -4270,7 +4270,11 @@ window.renderAmostraMestra = () => {
           const etBadge = etapa
             ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:700;${_COR_ETAPA[etapa]||''}">${etapa}ª</span>`
             : '—';
-          const sit = r.situacao_tipo ? (String(r.situacao_tipo)[0]==='1' ? 'Urbano' : 'Rural') : '—';
+          const _sitRaw = String(r.situacao_tipo ?? '');
+          const sit = !_sitRaw ? '—'
+            : /^1|urban/i.test(_sitRaw) ? 'Urbano'
+            : /^2|rural/i.test(_sitRaw) ? 'Rural'
+            : _sitRaw;
           const entrada = r.ano_entrada ? `${r.ano_entrada}T${r.trimestre_entrada}` : '—';
           const saida   = r.ano_saida   ? `${r.ano_saida}T${r.trimestre_saida}`     : '—';
           const saidaStyle = (r.ano_saida === r.ano && r.trimestre_saida === r.trimestre)
