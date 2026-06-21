@@ -8692,20 +8692,20 @@ window.imprimirCnefeListagem = () => {
 
   let lastQF='', rows='';
   docs.forEach((d, i) => {
-    const qf=`${d.quadra}|${d.face}`;
+    const qf = `${d.quadra}|${d.face}`;
     const qfChanged = qf !== lastQF;
-    const borderTop = qfChanged && lastQF !== '' ? ';border-top:2px solid #94a3b8' : '';
     lastQF = qf;
-    // Abreviação da espécie: só o código antes do " - "
     const espAbrev = (d.especie || '').split(/\s[-–]\s/)[0].trim();
-    rows += `<tr>
-      <td style="white-space:nowrap;font-weight:${qfChanged?'700':'400'};color:${qfChanged?'#1a3a5c':'inherit'}${borderTop}">${d.quadra||''}/${d.face||''}</td>
-      <td>${d.uv||''}</td>
-      <td>${d.codigo_endereco||''}</td>
+    const btop = qfChanged && rows ? ' bt' : '';
+    const bold = qfChanged ? ' bk' : '';
+    rows += `<tr class="${btop}">
+      <td class="nw${bold}">${d.quadra||''}/${d.face||''}</td>
+      <td class="nw">${d.uv||''}</td>
+      <td class="nw">${d.codigo_endereco||''}</td>
       <td>${d.logradouro||''}${d.numero?' nº'+d.numero:''}</td>
       <td>${d.ponto_referencia||''}</td>
-      <td style="font-size:6pt">${espAbrev}</td>
-      <td>${d.estabelecimento||''}</td>
+      <td class="nw esp">${espAbrev}</td>
+      <td class="est">${d.estabelecimento||''}</td>
       <td>${d.responsavel||''}${d.telefone?' ('+d.telefone+')':''}</td>
     </tr>`;
   });
@@ -8714,38 +8714,31 @@ window.imprimirCnefeListagem = () => {
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>CNEFE — Setor ${setor}</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { size: A4 landscape; margin: 0.7cm 0.8cm; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 7pt; color: #1e293b; }
-    h3 { font-size: 9pt; margin-bottom: 1px; }
-    .sub { font-size: 6.5pt; color: #64748b; margin-bottom: 4px; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    col.c-qf  { width: 5%; }
-    col.c-uv  { width: 3%; }
-    col.c-ce  { width: 6%; }
-    col.c-end { width: 30%; }
-    col.c-pr  { width: 13%; }
-    col.c-esp { width: 5%; }
-    col.c-est { width: 20%; }
-    col.c-res { width: 18%; }
-    thead { display: table-header-group; }
-    th { background: #dbeafe; padding: 2px 3px; text-align: left; font-size: 6pt;
-         font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
-         border-bottom: 2px solid #93c5fd; }
-    td { padding: 1px 3px; border-bottom: 1px solid #e2e8f0;
-         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    tr:nth-child(even) td { background: #f8fafc; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    @page { size:A4 landscape; margin:0.7cm 0.8cm; }
+    body { font-family:'Segoe UI',Arial,sans-serif; font-size:7pt; color:#1e293b; }
+    h3  { font-size:9pt; margin-bottom:1px; }
+    .sub{ font-size:6.5pt; color:#64748b; margin-bottom:4px; }
+    table { width:100%; border-collapse:collapse; table-layout:auto; }
+    thead { display:table-header-group; }
+    th { background:#dbeafe; padding:2px 4px; text-align:left; font-size:6pt;
+         font-weight:700; text-transform:uppercase; letter-spacing:.3px;
+         border-bottom:2px solid #93c5fd; white-space:nowrap; }
+    td { padding:1px 4px; border-bottom:1px solid #e2e8f0; }
+    tr:nth-child(even) td { background:#f8fafc; }
+    .nw { white-space:nowrap; }
+    .bk { font-weight:700; color:#1a3a5c; }
+    .bt td { border-top:2px solid #94a3b8; }
+    .esp { font-size:6pt; }
+    .est { font-size:6pt; }
   </style></head><body>
   <h3>Listagem CNEFE — Setor ${setor}</h3>
   <div class="sub">${new Date().toLocaleDateString('pt-BR')} · ${docs.length} endereços</div>
   <table>
-    <colgroup>
-      <col class="c-qf"><col class="c-uv"><col class="c-ce">
-      <col class="c-end"><col class="c-pr"><col class="c-esp"><col class="c-est"><col class="c-res">
-    </colgroup>
     <thead><tr>
       <th>Q/F</th><th>UV</th><th>Cód. End.</th>
-      <th>Logradouro / Número</th><th>Ponto de Referência</th><th>Esp.</th><th>Estabelecimento</th><th>Responsável / Tel.</th>
+      <th>Logradouro / Número</th><th>Ponto de Referência</th>
+      <th>Esp.</th><th>Estabelecimento</th><th>Responsável / Tel.</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
