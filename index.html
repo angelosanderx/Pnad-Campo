@@ -4112,17 +4112,19 @@ async function _renderControleNR() {
   const _pendSet = new Set(STATUS_PENDENTES);
   // carta_solicitada e supervisao são marcações internas — não entram na contagem
   const _statusInterno = new Set(['carta_solicitada', 'supervisao']);
+  const _statusConhecido = new Set(['realizada', ..._pendSet, ..._STATUS_VAGO_OCC]);
 
   const porEntr = {};
   for (const d of docsFiltrados) {
     const nome = d.entrevistador_nome?.trim() || '(sem entrevistador)';
     const st = d.status_atual || 'nao_visitado';
     if (_statusInterno.has(st)) continue;
-    if (!porEntr[nome]) porEntr[nome] = { total: 0, realizadas: 0, pendentes: 0, vagoOcc: 0 };
+    if (!porEntr[nome]) porEntr[nome] = { total: 0, realizadas: 0, pendentes: 0, vagoOcc: 0, outros: 0 };
     porEntr[nome].total++;
     if (st === 'realizada')            porEntr[nome].realizadas++;
     else if (_pendSet.has(st))         porEntr[nome].pendentes++;
     else if (_STATUS_VAGO_OCC.has(st)) porEntr[nome].vagoOcc++;
+    else                               porEntr[nome].outros++;
   }
 
   const entrevistadores = Object.keys(porEntr).sort((a, b) => a.localeCompare(b));
@@ -4132,19 +4134,23 @@ async function _renderControleNR() {
     return;
   }
 
-  let sTotal = 0, sRealiz = 0, sPend = 0, sVagoOcc = 0;
+  let sTotal = 0, sRealiz = 0, sPend = 0, sVagoOcc = 0, sOutros = 0;
 
   const linhas = entrevistadores.map(nome => {
-    const { total, realizadas, pendentes, vagoOcc } = porEntr[nome];
-    sTotal += total; sRealiz += realizadas; sPend += pendentes; sVagoOcc += vagoOcc;
+    const { total, realizadas, pendentes, vagoOcc, outros } = porEntr[nome];
+    sTotal += total; sRealiz += realizadas; sPend += pendentes;
+    sVagoOcc += vagoOcc; sOutros += outros;
     return `<tr>
       <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8">${esc(nome)}</td>
       <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center">${total}</td>
       <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center;color:#2C7A4B;font-weight:500">${realizadas}</td>
       <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center;color:${pendentes>0?'#A02020':'#444'};font-weight:500">${pendentes}</td>
       <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center">${vagoOcc}</td>
+      <td class="ctrnr-col-outros" style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center">${outros||''}</td>
     </tr>`;
   }).join('');
+
+  const mostrarOutros = sOutros > 0;
 
   container.innerHTML = `
     <div style="border:0.5px solid #D3D1C7;border-radius:8px;overflow:hidden">
@@ -4156,6 +4162,7 @@ async function _renderControleNR() {
             <th style="padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Realizadas</th>
             <th style="padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Pendentes</th>
             <th style="padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Vago / Uso Ocasional</th>
+            <th class="ctrnr-col-outros" style="padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Outros</th>
           </tr>
         </thead>
         <tbody>${linhas}</tbody>
@@ -4166,10 +4173,15 @@ async function _renderControleNR() {
             <td style="padding:6px 10px;text-align:center;color:#2C7A4B">${sRealiz}</td>
             <td style="padding:6px 10px;text-align:center;color:${sPend>0?'#A02020':'#444'}">${sPend}</td>
             <td style="padding:6px 10px;text-align:center">${sVagoOcc}</td>
+            <td class="ctrnr-col-outros" style="padding:6px 10px;text-align:center">${sOutros||''}</td>
           </tr>
         </tfoot>
       </table>
     </div>`;
+
+  if (!mostrarOutros) {
+    container.querySelectorAll('.ctrnr-col-outros').forEach(el => el.style.display = 'none');
+  }
 }
 
 window.imprimirControleNR = () => {
