@@ -1509,6 +1509,19 @@
           <hr class="divisor-secao" style="margin:1.5rem 0">
 
           <p style="font-size:0.85rem;color:var(--cinza-escuro);margin-bottom:0.75rem">
+            <strong>Fixar nomes de entrevistadores como permanentes.</strong> Para todos os domicílios que têm
+            <code>entrevistador_nome</code> definido mas ainda não têm <code>entrevistador_nome_manual</code>,
+            copia o nome atual para <code>entrevistador_nome_manual</code> — tornando-o permanente e imune a
+            futuras importações. Execute uma única vez após definir todos os nomes.
+          </p>
+          <button class="btn-acao" onclick="fixarNomesEntrevistadores()">
+            📌 Fixar nomes de entrevistadores
+          </button>
+          <div id="fixar-nomes-status" style="margin-top:0.85rem;font-size:0.85rem"></div>
+
+          <hr class="divisor-secao" style="margin:1.5rem 0">
+
+          <p style="font-size:0.85rem;color:var(--cinza-escuro);margin-bottom:0.75rem">
             <strong>Limpar todas as solicitações.</strong> Remove o campo <code>solicitacoes</code>
             e <code>tipo_solicitacao</code> de <em>todos</em> os domicílios. Domicílios cujo status
             seja <code>supervisao</code> ou <code>carta_solicitada</code> voltam para
@@ -4459,11 +4472,7 @@ function _badgeEntrevistador(nome, nomeManual = null) {
   if (!nome) return '<span style="color:var(--cinza);font-style:italic;font-size:0.78rem">—</span>';
   const c = corEntrevistador(nome);
   const primeiro = toTitleCase(nome.split(' ')[0]);
-  const conflito = nomeManual && nomeManual !== nome;
-  const ast = conflito
-    ? `<span style="color:var(--laranja);font-size:0.7rem;margin-left:2px;cursor:help;vertical-align:super;line-height:1" title="Importação alterou o nome (anterior: ${nomeManual})">✱</span>`
-    : '';
-  return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${primeiro}</span>${ast}`;
+  return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${primeiro}</span>`;
 }
 
 function _montarLinhaDOM(d, ns = '') {
@@ -4836,10 +4845,7 @@ window.abrirFicha = (id) => {
   document.getElementById('ficha-endereco').textContent = dom.endereco || '—';
   document.getElementById('ficha-complemento').textContent = dom.complemento || '—';
   document.getElementById('ficha-morador-cnefe').textContent = dom.morador_cnefe || dom.morador || '—';
-  const _fichaConflito = dom.entrevistador_nome_manual && dom.entrevistador_nome_manual !== dom.entrevistador_nome;
-  document.getElementById('ficha-entrevistador').innerHTML = dom.entrevistador_nome
-    ? (dom.entrevistador_nome + (_fichaConflito ? ` <span style="color:var(--laranja);cursor:help;font-size:0.8rem" title="Importação alterou o nome (anterior: ${dom.entrevistador_nome_manual})">✱</span>` : ''))
-    : 'Não atribuído';
+  document.getElementById('ficha-entrevistador').textContent = dom.entrevistador_nome || 'Não atribuído';
 
   // ── HISTÓRICO UNIFICADO: etapas + entrevistador + telefone + observação ──
   const divUnif = document.getElementById('historico-unificado-ficha');
@@ -7194,6 +7200,48 @@ window.sincronizarStatusHistorico = async () => {
 };
 
 // ── MANUTENÇÃO: limpar todas as solicitações ──
+window.fixarNomesEntrevistadores = async () => {
+  if (perfilLogado.perfil !== 'administrador') {
+    mostrarToast('Apenas administradores podem executar esta ação', 'erro'); return;
+  }
+  const statusDiv = document.getElementById('fixar-nomes-status');
+  statusDiv.innerHTML = '<div class="loader">Lendo domicílios...</div>';
+  try {
+    const snap = await getDocs(collection(db, 'domicilios'));
+    const paraFixar = snap.docs.filter(d => {
+      const data = d.data();
+      return data.entrevistador_nome && !data.entrevistador_nome_manual;
+    });
+    if (paraFixar.length === 0) {
+      statusDiv.innerHTML = '<span style="color:var(--verde)">✅ Todos os nomes já estão fixados. Nada a fazer.</span>';
+      return;
+    }
+    statusDiv.innerHTML = `<div class="loader">Fixando ${paraFixar.length} domicílios...</div>`;
+    let ok = 0, erros = 0;
+    const CHUNK = 20;
+    for (let i = 0; i < paraFixar.length; i += CHUNK) {
+      const lote = writeBatch(db);
+      paraFixar.slice(i, i + CHUNK).forEach(d => {
+        lote.update(d.ref, { entrevistador_nome_manual: d.data().entrevistador_nome });
+        ok++;
+      });
+      try { await lote.commit(); }
+      catch(e) { erros += Math.min(CHUNK, paraFixar.length - i); ok -= Math.min(CHUNK, paraFixar.length - i); }
+      statusDiv.innerHTML = `<div class="loader">Fixando... ${Math.min(i + CHUNK, paraFixar.length)} de ${paraFixar.length}</div>`;
+    }
+    // Atualiza cache local
+    paraFixar.forEach(d => {
+      const dom = todosdomicilios.find(x => x.id === d.id);
+      if (dom) dom.entrevistador_nome_manual = d.data().entrevistador_nome;
+    });
+    statusDiv.innerHTML = erros === 0
+      ? `<span style="color:var(--verde)">✅ ${ok} domicílio(s) fixados com sucesso.</span>`
+      : `<span style="color:var(--laranja)">⚠️ ${ok} fixados, ${erros} com erro.</span>`;
+  } catch(e) {
+    statusDiv.innerHTML = `<span style="color:var(--vermelho)">❌ Erro: ${e.message}</span>`;
+  }
+};
+
 window.limparTodasSolicitacoes = async () => {
   if (perfilLogado.perfil !== 'administrador') {
     mostrarToast('Apenas administradores podem executar esta limpeza', 'erro'); return;
@@ -7260,7 +7308,7 @@ window.removerDuplicadosSemPeriodo = async () => {
     'latitude_kml', 'longitude_kml', 'logradouro_kml', 'numero_kml', 'complemento_kml',
     'entrevista_numero', 'entrevista_tipo', 'entrevista_data', 'telefone',
     'supervisor_sigc', 'entrevistador_sigc', 'ultima_posicao', 'observacao_sigc',
-    'historico_especies', 'historico_telefones', 'entrevistador_id', 'entrevistador_nome'
+    'historico_especies', 'historico_telefones', 'entrevistador_id', 'entrevistador_nome', 'entrevistador_nome_manual'
   ];
 
   statusDiv.innerHTML = '<div class="loader">Lendo domicílios...</div>';

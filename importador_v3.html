@@ -906,9 +906,9 @@ async function importarFirestore() {
     const maskFields = [...baseFieldNames];
     const tentativasCarregadas = Object.keys(dados.tentativas).length > 0;
     if (tentativasCarregadas) {
-      fields.entrevistador_nome = toStr(d.entrevistador_nome);
-      fields.tentativas_count   = toInt(d.tentativas_count);
-      maskFields.push('entrevistador_nome', 'tentativas_count');
+      // entrevistador_nome excluído: nome definido manualmente no sistema tem precedência
+      fields.tentativas_count = toInt(d.tentativas_count);
+      maskFields.push('tentativas_count');
     }
     const _especiesMesclado = _mesclarEspecies(d.historico_especies, _existingHistorico[docId] || []);
     if (_especiesMesclado.length > 0) { fields.historico_especies = toArr(_especiesMesclado); maskFields.push('historico_especies'); }
