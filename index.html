@@ -1127,7 +1127,7 @@
                 <input type="checkbox" id="pend-agrupar" onchange="filtrarPendencias()"> Agrupar por entrevistador
               </label>
               <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.83rem;cursor:pointer;white-space:nowrap">
-                <input type="checkbox" id="pend-filtro-sem-tel" onchange="filtrarPendencias()"> <span style="color:var(--vermelho);font-weight:600">⚠️ Sem tentativa por telefone</span>
+                <input type="checkbox" id="pend-filtro-sem-tel" onchange="filtrarPendencias()"> <span style="color:var(--vermelho);font-weight:600">📵 s/tel.</span>
               </label>
               <button class="btn-acao secundario" onclick="limparFiltrosPendencias()" style="font-size:0.82rem;white-space:nowrap">Limpar filtros</button>
             </div>
@@ -3935,7 +3935,7 @@ function _montarTentativasSubrow(d) {
   }
 
   const aviso = !temTel
-    ? `<span style="display:inline-flex;align-items:center;gap:3px;background:var(--vermelho-claro);border:1px solid var(--vermelho);border-radius:12px;padding:2px 9px;font-size:0.7rem;font-weight:700;color:var(--vermelho)">⚠️ Sem tentativa por telefone</span>`
+    ? `<span style="display:inline-flex;align-items:center;background:var(--vermelho-claro);border:1px solid var(--vermelho);border-radius:12px;padding:1px 7px;font-size:0.72rem;font-weight:700;color:var(--vermelho)" title="Sem tentativa por telefone">📵 s/tel.</span>`
     : '';
 
   return `<tr style="background:#f8fafc;border-bottom:2px solid var(--borda)">
