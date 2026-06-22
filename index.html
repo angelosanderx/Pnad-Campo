@@ -3947,10 +3947,11 @@ async function _renderControlePendencias() {
     : docsPeriodo.filter(d => String(d.semana) === semana);
 
   const STATUS_PEND_CONTROLE = new Set(STATUS_PENDENTES);
+  const _normNomePend = n => (n || '').trim().replace(/^\*+/, '') || '(sem entrevistador)';
 
   const porEntr = {};
   for (const d of docsFiltrados) {
-    const nome = d.entrevistador_nome?.trim() || '(sem entrevistador)';
+    const nome = _normNomePend(d.entrevistador_nome);
     if (!porEntr[nome]) porEntr[nome] = { total: 0, pendentes: 0 };
     const st = d.status_atual || 'nao_visitado';
     porEntr[nome].total++;
@@ -4114,9 +4115,11 @@ async function _renderControleNR() {
   const _statusInterno = new Set(['carta_solicitada', 'supervisao']);
   const _statusConhecido = new Set(['realizada', ..._pendSet, ..._STATUS_VAGO_OCC]);
 
+  const _normNome = n => (n || '').trim().replace(/^\*+/, '') || '(sem entrevistador)';
+
   const porEntr = {};
   for (const d of docsFiltrados) {
-    const nome = d.entrevistador_nome?.trim() || '(sem entrevistador)';
+    const nome = _normNome(d.entrevistador_nome);
     const st = d.status_atual || 'nao_visitado';
     if (_statusInterno.has(st)) continue;
     if (!porEntr[nome]) porEntr[nome] = { total: 0, realizadas: 0, pendentes: 0, vagoOcc: 0, outros: 0 };
