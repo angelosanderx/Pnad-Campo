@@ -851,7 +851,35 @@
     align-items: center;
     justify-content: space-between;
   }
-  
+
+  #roteiro-mapa.roteiro-mapa-full {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100vw !important;
+    height: 100dvh !important;
+    height: 100vh !important;
+    z-index: 9000;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+  #roteiro-mapa.roteiro-mapa-full #leaflet-roteiro {
+    height: 100% !important;
+  }
+  #roteiro-mapa-close {
+    position: fixed;
+    top: 12px; right: 12px;
+    z-index: 9001;
+    background: rgba(255,255,255,0.93);
+    border: 1px solid #D3D1C7;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  }
+  #roteiro-mapa-close:hover { background: #fff; }
+
   .divisor-secao {
     border: 0;
     border-top: 1px solid var(--borda);
@@ -1766,6 +1794,7 @@
                 📂 Endereço Completo
                 <input type="file" accept=".csv" style="display:none" onchange="importarEnderecoCompleto(this)">
               </label>
+              <button id="btn-expandir-mapa" class="btn-acao secundario" style="font-size:0.82rem" onclick="toggleMapaFullscreen()">⛶ Expandir</button>
               <button class="btn-acao secundario" style="font-size:0.82rem" onclick="imprimirRoteiro()">🖨️ Imprimir</button>
             </div>
           </div>
@@ -8161,7 +8190,7 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
     return;
   }
 
-  mapaDiv.innerHTML = '<div id="leaflet-roteiro" style="width:100%;height:320px"></div>';
+  mapaDiv.innerHTML = '<div id="leaflet-roteiro" style="width:100%;height:100%;min-height:320px"></div>';
 
   // Monta lista de vizinhos: KML memória + domicílios do Firestore com coordenadas
   const vizinhosKML = kmlSetor.filter(k => k.dom !== String(domNum));
@@ -8289,6 +8318,44 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
       '</div>';
   });
 }
+
+window.toggleMapaFullscreen = () => {
+  const mapa = document.getElementById('roteiro-mapa');
+  const btn  = document.getElementById('btn-expandir-mapa');
+  if (!mapa) return;
+
+  const isFullscreen = mapa.classList.toggle('roteiro-mapa-full');
+
+  if (btn) { btn.textContent = isFullscreen ? '✕ Fechar' : '⛶ Expandir'; }
+
+  // Botão de fechar flutuante dentro do mapa em fullscreen
+  let closeBtn = document.getElementById('roteiro-mapa-close');
+  if (isFullscreen) {
+    if (!closeBtn) {
+      closeBtn = document.createElement('button');
+      closeBtn.id = 'roteiro-mapa-close';
+      closeBtn.textContent = '✕ Fechar mapa';
+      closeBtn.onclick = window.toggleMapaFullscreen;
+      document.body.appendChild(closeBtn);
+    }
+    closeBtn.style.display = 'block';
+  } else {
+    if (closeBtn) closeBtn.style.display = 'none';
+  }
+
+  // Redimensiona o Leaflet após a transição de layout
+  setTimeout(() => {
+    if (_mapaRoteiroInstance) _mapaRoteiroInstance.invalidateSize();
+  }, 60);
+};
+
+// Fechar fullscreen com ESC
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const mapa = document.getElementById('roteiro-mapa');
+    if (mapa?.classList.contains('roteiro-mapa-full')) window.toggleMapaFullscreen();
+  }
+});
 
 window.imprimirRoteiro = () => {
   const conteudo = document.getElementById('secao-roteiro').innerHTML;
