@@ -8320,15 +8320,35 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
 }
 
 window.toggleMapaFullscreen = () => {
-  const mapa = document.getElementById('roteiro-mapa');
-  const btn  = document.getElementById('btn-expandir-mapa');
+  const mapa    = document.getElementById('roteiro-mapa');
+  const btn     = document.getElementById('btn-expandir-mapa');
+  const toolbar = document.getElementById('roteiro-sel-toolbar');
   if (!mapa) return;
 
   const isFullscreen = mapa.classList.toggle('roteiro-mapa-full');
 
-  if (btn) { btn.textContent = isFullscreen ? '✕ Fechar' : '⛶ Expandir'; }
+  if (btn) btn.textContent = isFullscreen ? '✕ Fechar' : '⛶ Expandir';
 
-  // Botão de fechar flutuante dentro do mapa em fullscreen
+  // Toolbar de seleção: flutua na parte inferior quando em fullscreen
+  if (toolbar) {
+    if (isFullscreen) {
+      Object.assign(toolbar.style, {
+        position: 'fixed', bottom: '20px', left: '50%',
+        transform: 'translateX(-50%)', zIndex: '9001',
+        background: 'rgba(255,255,255,0.96)', padding: '8px 16px',
+        borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
+        marginBottom: '0', border: '1px solid #D3D1C7'
+      });
+    } else {
+      Object.assign(toolbar.style, {
+        position: '', bottom: '', left: '', transform: '',
+        zIndex: '', background: '', padding: '', borderRadius: '',
+        boxShadow: '', marginBottom: '0.5rem', border: ''
+      });
+    }
+  }
+
+  // Botão de fechar flutuante (canto superior direito)
   let closeBtn = document.getElementById('roteiro-mapa-close');
   if (isFullscreen) {
     if (!closeBtn) {
