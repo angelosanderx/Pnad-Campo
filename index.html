@@ -1064,10 +1064,12 @@
               <button onclick="gerarDiarioCampo(null,'pag-pendencias-tabela');this.closest('.dropdown-listagens').classList.remove('aberto')">📋 Listagem simples</button>
               <button onclick="gerarRoteiroCarta(null,'pag-pendencias-tabela');this.closest('.dropdown-listagens').classList.remove('aberto')">✉️ Primeira entrevista</button>
               <button onclick="gerarResumoPendencias(null,'pag-pendencias-tabela');this.closest('.dropdown-listagens').classList.remove('aberto')">📱 Resumo pendências</button>
+              <button onclick="abrirControlePendencias();this.closest('.dropdown-listagens').classList.remove('aberto')">📊 Controle de pendências</button>
             </div>
           </div>
         </div>
       </div>
+      <div id="pend-ultima-atualizacao" style="font-size:11px;color:#888780;font-style:italic;margin-bottom:0.5rem"></div>
 
       <!-- Filtros -->
       <div class="card-tabela" style="margin-bottom:0.75rem;overflow:visible">
@@ -1173,6 +1175,7 @@
 
     <div class="pagina" id="pag-domicilios">
       <div class="titulo-pagina">🏠 Domicílios</div>
+      <div id="dom-ultima-atualizacao" style="font-size:11px;color:#888780;font-style:italic;margin-bottom:0.5rem"></div>
       <div class="card-tabela" style="margin-bottom:0.75rem;overflow:visible">
         <div style="padding:0.85rem 1.25rem;display:flex;flex-wrap:wrap;gap:0.6rem;align-items:center">
           <select id="filtro-upa" onchange="filtrarPorUpa()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:200px">
@@ -2362,6 +2365,33 @@
   </div>
 </div>
 
+<!-- Modal: Controle de Pendências -->
+<div class="modal-overlay" id="modal-controle-pend" onclick="if(event.target===this)fecharModal('modal-controle-pend')">
+  <div class="modal" style="max-width:640px;width:100%">
+    <div class="modal-header" style="padding:1rem 1.25rem">
+      <div>
+        <h3 id="ctrpend-titulo" style="font-size:0.95rem;font-weight:700;color:var(--azul)">Controle de Pendências</h3>
+        <div style="font-size:0.75rem;color:var(--cinza);margin-top:2px">PNAD Contínua · Campos dos Goytacazes</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.6rem">
+        <button onclick="imprimirControlePendencias()" style="background:none;border:1.5px solid var(--borda);border-radius:6px;padding:0.3rem 0.75rem;font-size:0.8rem;font-family:var(--fonte);cursor:pointer;color:var(--cinza-escuro)">🖨️ Imprimir</button>
+        <button class="btn-fechar" onclick="fecharModal('modal-controle-pend')">×</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:1rem 1.25rem">
+      <!-- Filtro semana -->
+      <div style="display:flex;gap:0.3rem;margin-bottom:1rem;flex-wrap:wrap">
+        <button class="filtro-chip ctrpend-sem ativo" data-sem="todas" onclick="selecionarSemanaCtrPend(this)">Todas</button>
+        <button class="filtro-chip ctrpend-sem" data-sem="1" onclick="selecionarSemanaCtrPend(this)">Sem. 1</button>
+        <button class="filtro-chip ctrpend-sem" data-sem="2" onclick="selecionarSemanaCtrPend(this)">Sem. 2</button>
+        <button class="filtro-chip ctrpend-sem" data-sem="3" onclick="selecionarSemanaCtrPend(this)">Sem. 3</button>
+        <button class="filtro-chip ctrpend-sem" data-sem="4" onclick="selecionarSemanaCtrPend(this)">Sem. 4</button>
+      </div>
+      <div id="ctrpend-tabela"><div class="loader">Carregando...</div></div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script type="module">
@@ -2575,6 +2605,7 @@ async function iniciarApp() {
   carregarAvisos();
   carregarTentativas();
   iniciarChat();
+  carregarUltimaAtualizacao();
 }
 
 // ── NAVEGAÇÃO ──
@@ -3852,6 +3883,191 @@ window.gerarResumoPendencias = async (idsOverride, tableId) => {
 </html>`);
   win.document.close();
 };
+
+// ── CONTROLE DE PENDÊNCIAS ──────────────────────────────────────────────────
+
+let _ctrPendSemana = 'todas';
+
+window.abrirControlePendencias = async () => {
+  _ctrPendSemana = 'todas';
+  document.querySelectorAll('.ctrpend-sem').forEach(b => {
+    b.classList.toggle('ativo', b.dataset.sem === 'todas');
+  });
+  abrirModal('modal-controle-pend');
+  await _renderControlePendencias();
+};
+
+window.selecionarSemanaCtrPend = async (btn) => {
+  document.querySelectorAll('.ctrpend-sem').forEach(b => b.classList.remove('ativo'));
+  btn.classList.add('ativo');
+  _ctrPendSemana = btn.dataset.sem;
+  await _renderControlePendencias();
+};
+
+async function _renderControlePendencias() {
+  const container = document.getElementById('ctrpend-tabela');
+  container.innerHTML = '<div class="loader">Carregando...</div>';
+
+  const semana = _ctrPendSemana;
+  const docsPeriodo = todosdomicilios.filter(pertencePeriodo);
+  const trimestre = docsPeriodo.find(d => d.trimestre)?.trimestre || '';
+  const semLabel = semana === 'todas' ? 'Todas as semanas' : `Semana ${semana}`;
+  document.getElementById('ctrpend-titulo').textContent =
+    `Controle de Pendências — ${semLabel}`;
+
+  const docsFiltrados = semana === 'todas'
+    ? docsPeriodo
+    : docsPeriodo.filter(d => String(d.semana) === semana);
+
+  const porEntr = {};
+  for (const d of docsFiltrados) {
+    const nome = d.entrevistador_nome?.trim() || '(sem entrevistador)';
+    if (!porEntr[nome]) porEntr[nome] = { realizadas: 0, pendentes: 0 };
+    const st = d.status_atual || 'nao_visitado';
+    if (st === 'realizada') porEntr[nome].realizadas++;
+    else if (STATUS_PENDENTES.includes(st)) porEntr[nome].pendentes++;
+  }
+
+  const entrevistadores = Object.keys(porEntr).sort((a, b) => a.localeCompare(b));
+
+  if (entrevistadores.length === 0) {
+    container.innerHTML = '<p style="color:var(--cinza);font-size:0.85rem;padding:0.5rem 0">Nenhum dado encontrado para o período/semana selecionado.</p>';
+    return;
+  }
+
+  const semKey = semana === 'todas' ? 'todas' : semana;
+  const obsMap = {};
+  try {
+    await Promise.all(entrevistadores.map(async nome => {
+      const docId = `${trimestre}_${semKey}_${nome}`;
+      const snap = await getDoc(doc(db, 'pendencias_obs', docId));
+      if (snap.exists()) obsMap[nome] = snap.data().texto || '';
+    }));
+  } catch(e) { /* ignora erros de leitura */ }
+
+  const corPct = (pend, tot) => {
+    if (tot === 0 || pend === 0) return '#2C7A4B';
+    const p = pend / tot * 100;
+    return p <= 15 ? '#8A5100' : '#A02020';
+  };
+
+  let totalRealiz = 0, totalPend = 0;
+  const linhas = entrevistadores.map(nome => {
+    const { realizadas, pendentes } = porEntr[nome];
+    totalRealiz += realizadas;
+    totalPend += pendentes;
+    const tot = realizadas + pendentes;
+    const pct = tot > 0 ? (pendentes / tot * 100).toFixed(2).replace('.', ',') : '0,00';
+    const cor = corPct(pendentes, tot);
+    const docId = `${trimestre}_${semKey}_${nome}`;
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8">${esc(nome)}</td>
+      <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center">${realizadas}</td>
+      <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center">${pendentes}</td>
+      <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center;color:${cor};font-weight:500">${pct}%</td>
+      <td style="padding:6px 10px;border-bottom:0.5px solid #EEEDE8">
+        <input class="ctrpend-obs-input"
+          data-nome="${esc(nome)}" data-docid="${esc(docId)}"
+          style="border:none;background:transparent;font-size:11px;font-style:italic;font-family:var(--fonte);width:100%;outline:none"
+          placeholder="—" value="${(obsMap[nome]||'').replace(/"/g,'&quot;')}"
+          onblur="salvarObsCtrPend(this)">
+      </td>
+    </tr>`;
+  }).join('');
+
+  const totalTot = totalRealiz + totalPend;
+  const totalPct = totalTot > 0 ? (totalPend / totalTot * 100).toFixed(2).replace('.', ',') : '0,00';
+
+  container.innerHTML = `
+    <div style="border:0.5px solid #D3D1C7;border-radius:8px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:#EEEDE8">
+            <th style="padding:6px 10px;text-align:left;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Entrevistador</th>
+            <th style="padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Total entrevistas</th>
+            <th style="padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Dom. pendentes</th>
+            <th style="padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">% Pendências</th>
+            <th style="padding:6px 10px;text-align:left;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7">Observações</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+        <tfoot>
+          <tr style="background:#EEEDE8;border-top:0.5px solid #D3D1C7;font-weight:600">
+            <td style="padding:6px 10px">Total</td>
+            <td style="padding:6px 10px;text-align:center">${totalRealiz}</td>
+            <td style="padding:6px 10px;text-align:center">${totalPend}</td>
+            <td style="padding:6px 10px;text-align:center;color:${corPct(totalPend,totalTot)};font-weight:600">${totalPct}%</td>
+            <td style="padding:6px 10px"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+}
+
+window.salvarObsCtrPend = async (input) => {
+  const nome = input.dataset.nome;
+  const docId = input.dataset.docid;
+  const texto = input.value.trim();
+  try {
+    await setDoc(doc(db, 'pendencias_obs', docId),
+      { texto, nome, atualizado: serverTimestamp() }, { merge: true });
+  } catch(e) { console.warn('Erro ao salvar observação:', e); }
+};
+
+window.imprimirControlePendencias = () => {
+  const titulo = document.getElementById('ctrpend-titulo').textContent;
+  const clone = document.getElementById('ctrpend-tabela').cloneNode(true);
+  clone.querySelectorAll('.ctrpend-obs-input').forEach(inp => {
+    const span = document.createElement('span');
+    span.style.fontStyle = 'italic';
+    span.textContent = inp.value || '';
+    inp.replaceWith(span);
+  });
+  const win = window.open('', '_blank', 'width=700,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>${titulo}</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:1.5rem;color:#222}
+  h2{font-size:13px;margin:0 0 2px}
+  .sub{font-size:10px;color:#666;margin-bottom:1rem}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{background:#EEEDE8;padding:6px 10px;font-weight:600;color:#444441;border:0.5px solid #D3D1C7;text-align:center}
+  th:first-child,th:last-child{text-align:left}
+  td{padding:6px 10px;border:0.5px solid #EEEDE8;text-align:center}
+  td:first-child,td:last-child{text-align:left}
+  tfoot td{background:#EEEDE8;font-weight:600;border-top:0.5px solid #D3D1C7}
+  @media print{@page{margin:1.2cm}}
+</style></head><body>
+<h2>${esc(titulo)}</h2>
+<div class="sub">PNAD Contínua · Campos dos Goytacazes</div>
+${clone.innerHTML}
+<script>window.onload=()=>{window.print();window.close()}<\/script>
+</body></html>`);
+  win.document.close();
+};
+
+// ── DATA DA ÚLTIMA IMPORTAÇÃO ────────────────────────────────────────────────
+
+async function carregarUltimaAtualizacao() {
+  try {
+    const snap = await getDoc(doc(db, 'meta_importacao', 'ultima_atualizacao'));
+    const ids = ['pend-ultima-atualizacao', 'dom-ultima-atualizacao'];
+    if (snap.exists()) {
+      const ts = snap.data().timestamp?.toDate?.();
+      if (ts) {
+        const dd = String(ts.getDate()).padStart(2,'0');
+        const mm = String(ts.getMonth()+1).padStart(2,'0');
+        const yyyy = ts.getFullYear();
+        const hh = String(ts.getHours()).padStart(2,'0');
+        const mi = String(ts.getMinutes()).padStart(2,'0');
+        const txt = `Dados atualizados em ${dd}/${mm}/${yyyy} às ${hh}:${mi}`;
+        ids.forEach(id => { const el=document.getElementById(id); if(el) el.textContent=txt; });
+      }
+    } else {
+      ids.forEach(id => { const el=document.getElementById(id); if(el) el.textContent='Dados ainda não importados'; });
+    }
+  } catch(e) { /* ignora */ }
+}
 
 window.gerarRoteiroCarta = async (idsOverride, tableId) => {
   const scope = tableId ? (document.getElementById(tableId) || document) : document;

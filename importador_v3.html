@@ -341,20 +341,26 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
 
-  // Variável global para ser lida pelo script original
+  // Variáveis globais para serem lidas pelo script original
   window.firebaseAuthToken = null;
+  window.firebaseUserEmail = null;
+  window.firebaseUserUid = null;
 
   onAuthStateChanged(auth, async (user) => {
     const stAuth = document.getElementById('st-auth');
     if (!stAuth) return;
     if (user) {
       window.firebaseAuthToken = await user.getIdToken();
+      window.firebaseUserEmail = user.email;
+      window.firebaseUserUid = user.uid;
       stAuth.innerHTML = `✅ Autenticado via Painel (${user.email})`;
       stAuth.style.color = '#1a7a4a';
       stAuth.style.borderColor = '#1a7a4a';
       stAuth.style.background = '#e6f4ed';
     } else {
       window.firebaseAuthToken = null;
+      window.firebaseUserEmail = null;
+      window.firebaseUserUid = null;
       stAuth.innerHTML = `❌ Faça login no <a href="index.html" style="color:#b91c1c;text-decoration:underline;font-weight:bold">Painel Principal</a> primeiro.`;
       stAuth.style.color = '#b91c1c';
       stAuth.style.borderColor = '#f87171';
@@ -948,6 +954,7 @@ async function importarFirestore() {
   if (erros === 0) {
     addLog('Todos os registros foram salvos com sucesso!', 'ok');
     document.getElementById('btn-importar').disabled = false;
+    _gravarMetaImportacao(token, projectId);
   } else {
     addLog(`\n⚠️  REGISTROS COM FALHA (${_falhados.length}):`, 'warn');
     _falhados.forEach(f => {
@@ -969,6 +976,21 @@ async function importarFirestore() {
     }
     // btn-importar permanece desabilitado para evitar reimportar registros com sucesso
   }
+}
+
+async function _gravarMetaImportacao(token, projectId) {
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/meta_importacao/ultima_atualizacao`;
+    const fields = {
+      timestamp: { timestampValue: new Date().toISOString() },
+      usuario: { stringValue: window.firebaseUserEmail || window.firebaseUserUid || 'desconhecido' },
+    };
+    await fetch(`${url}?updateMask.fieldPaths=timestamp&updateMask.fieldPaths=usuario`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ fields }),
+    });
+  } catch(e) { /* ignora — não é crítico */ }
 }
 
 function exportarJSON() {
@@ -1165,6 +1187,7 @@ async function importarAM() {
   addLog(`\n✅ Concluído! ${ok} importados, ${erros} erros.`, erros === 0 ? 'ok' : 'warn');
   txt.textContent = `Concluído — ${ok} importados, ${erros} erros`;
   document.getElementById('btn-am-importar').disabled = false;
+  if (erros === 0) _gravarMetaImportacao(token, projectId);
 }
 </script>
 </body>
