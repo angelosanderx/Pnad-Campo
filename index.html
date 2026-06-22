@@ -1329,6 +1329,7 @@
           <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
             <select id="am-filtro-mes" onchange="renderAmostraMestra()" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
               <option value="">Todos os meses</option>
+              <option value="6">Junho</option>
               <option value="7">Julho</option>
               <option value="8">Agosto</option>
               <option value="9">Setembro</option>
@@ -5576,7 +5577,7 @@ window.cronToggleSemana = (sem) => {
 function _buildCronSetores(mes, semana) {
   if (!_amCache) { _cronSetores = []; return; }
   const seen = new Map();
-  _amCache.filter(r => r.mes === mes && r.semana === semana).forEach(r => {
+  _amCache.filter(r => Number(r.mes) === mes && Number(r.semana) === semana).forEach(r => {
     const k = `${r.upa||''}|${r.codigo_controle||''}`;
     if (!seen.has(k)) seen.set(k, r);
   });
@@ -5876,8 +5877,8 @@ function _cronRenderPainelMes(mes) {
 
   const ctrl4 = c => String(c||'').slice(-4);
   const porSemanaFinal = {};
-  _amCache.filter(r => r.mes === mes && r.semana).forEach(r => {
-    const s = r.semana;
+  _amCache.filter(r => Number(r.mes) === mes && r.semana).forEach(r => {
+    const s = Number(r.semana);
     if (!porSemanaFinal[s]) porSemanaFinal[s] = new Map();
     const k = `${r.upa||''}|${r.codigo_controle||''}`;
     if (!porSemanaFinal[s].has(k)) porSemanaFinal[s].set(k, r);
