@@ -3743,7 +3743,7 @@ window.gerarResumoPendencias = async (idsOverride, tableId) => {
 
   const renderGrupo = g => `
     <div class="grupo-entr">
-      <div class="grupo-hd">${tc(g.nome)} <span class="grupo-qt">${g.doms.length} domicílio${g.doms.length!==1?'s':''}</span></div>
+      <div class="grupo-hd">${tc(g.nome)} <span class="grupo-qt">${g.doms.length} dom.</span></div>
       ${g.doms.map(renderDom).join('')}
     </div>`;
 
@@ -3767,7 +3767,7 @@ window.gerarResumoPendencias = async (idsOverride, tableId) => {
   .cabecalho-doc .sub { font-size:8pt; color:#555; }
   .grupo-entr { margin-bottom:10px; page-break-inside:avoid; }
   .grupo-hd { background:#1a3a5c; color:#fff; padding:3px 7px; font-size:9pt; font-weight:700; display:flex; justify-content:space-between; align-items:center; }
-  .grupo-qt { font-size:7.5pt; font-weight:400; opacity:0.85; }
+  .grupo-qt { font-size:13pt; font-weight:900; background:#dc2626; color:#fff; border-radius:5px; padding:0 7px; margin-left:6px; line-height:1.3; }
   .dom-bloco { border:1px solid #ccc; border-top:none; padding:4px 7px; page-break-inside:avoid; }
   .dom-bloco + .dom-bloco { border-top:1px solid #e5e5e5; }
   .dom-cabec { display:flex; align-items:baseline; gap:5px; font-size:8.5pt; font-weight:700; flex-wrap:wrap; }
