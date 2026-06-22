@@ -618,6 +618,22 @@ function processarDados() {
       if (checarVago(resultadoAtual) || checarVago(ultimaEspecie)) status = 'vago';
     }
 
+    // TipoEntrevista é autoritativo: sobrepõe qualquer status derivado de ÚltimaPosição ou espécies.
+    // Sempre que o upload do último movimento for feito, o que estiver nessa coluna é o que vale.
+    const tipoEnt = (row['TipoEntrevista'] || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (tipoEnt) {
+      if (tipoEnt.includes('vago') || tipoEnt.includes('inapt') ||
+          tipoEnt.includes('demol') || tipoEnt.includes('destrui') ||
+          tipoEnt.includes('inexist') || tipoEnt.includes('nao resid') ||
+          tipoEnt.includes('comerci')) status = 'vago';
+      else if (tipoEnt.includes('ocasional') || tipoEnt.includes('sazon')) status = 'uso_ocasional';
+      else if (tipoEnt.includes('fechado')) status = 'fechado';
+      else if (tipoEnt.includes('realiz') || tipoEnt.includes('codif')) status = 'realizada';
+      else if (tipoEnt.includes('recusa')) status = 'recusa';
+      else if (tipoEnt.includes('parcial') || tipoEnt.includes('ausente')) status = 'ausente';
+      else if (tipoEnt.includes('reentrevista') || tipoEnt.includes('reagendad')) status = 'agendado';
+    }
+
     // Monta histórico de telefones
     const historicoTelefones = [];
     if (telefone) {
