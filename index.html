@@ -9198,16 +9198,6 @@ async function carregarCnefeQualidade() {
     const qualAgente = {};
     let html = '';
 
-    // Botão para salvar associações derivadas em lote
-    if (derivados.length > 0) {
-      html += `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
-        <span style="font-size:0.83rem;color:#92400e">
-          <strong>${derivados.length} setor${derivados.length!==1?'es':''}</strong> com UPA derivada da Amostra Mestra (não salvo ainda).
-        </span>
-        <button class="btn-acao" style="font-size:0.8rem;padding:0.35rem 0.9rem"
-          onclick="salvarUpasDerivadasCnefe()">💾 Salvar associações</button>
-      </div>`;
-    }
 
     // ── Tabela por UPA — ordenada por mês CNEFE → UPA ─────────────────────────
     if (porUpa.size > 0) {
