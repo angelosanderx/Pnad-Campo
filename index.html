@@ -2777,7 +2777,7 @@ function _domFiltradosSemUpaSetor() {
     if (semana && d.semana !== semana) return false;
     if (etapa  && String(d.visita_etapa || '') !== etapa) return false;
     if (entrevistador === '__sem__' && d.entrevistador_nome) return false;
-    if (entrevistador && entrevistador !== '__sem__' && d.entrevistador_nome !== entrevistador) return false;
+    if (entrevistador && entrevistador !== '__sem__' && (d.entrevistador_nome||'').toLowerCase() !== entrevistador.toLowerCase()) return false;
     if (status && (d.status_atual || 'nao_visitado') !== status) return false;
     if (solicitacao) {
       const temNaLista = (d.solicitacoes || []).some(s => s.tipo === solicitacao);
@@ -2829,8 +2829,14 @@ function _atualizarDropdownsUpaSetor() {
 function preencherFiltroEntrevistador() {
   const sel = document.getElementById('filtro-entrevistador');
   if (!sel) return;
-  const val = sel.value;
-  const nomes = [...new Set(todosdomicilios.map(d => d.entrevistador_nome).filter(Boolean))].sort();
+  const val = toTitleCase(sel.value);
+  const nomesMap = new Map();
+  todosdomicilios.forEach(d => {
+    if (!d.entrevistador_nome) return;
+    const key = d.entrevistador_nome.trim().toLowerCase();
+    if (!nomesMap.has(key)) nomesMap.set(key, toTitleCase(d.entrevistador_nome));
+  });
+  const nomes = [...nomesMap.values()].sort();
   const semAtribuicao = todosdomicilios.some(d => !d.entrevistador_nome);
   sel.innerHTML = '<option value="">Todos os entrevistadores</option>';
   if (semAtribuicao) sel.innerHTML += '<option value="__sem__">Não atribuído</option>';
@@ -2882,7 +2888,7 @@ window.filtrarDomicilios = () => {
     if (semana && d.semana !== semana) return false;
     if (etapa && String(d.visita_etapa || '') !== etapa) return false;
     if (entrevistador === '__sem__' && d.entrevistador_nome) return false;
-    if (entrevistador && entrevistador !== '__sem__' && d.entrevistador_nome !== entrevistador) return false;
+    if (entrevistador && entrevistador !== '__sem__' && (d.entrevistador_nome||'').toLowerCase() !== entrevistador.toLowerCase()) return false;
     const status = document.getElementById('filtro-status').value;
     if (status && (d.status_atual || 'nao_visitado') !== status) return false;
     if (solicitacao) {
@@ -4061,7 +4067,7 @@ window.filtrarPendencias = () => {
     // Etapa
     if (_pendFiltros.etapas.size > 0 && !_pendFiltros.etapas.has(String(d.visita_etapa || ''))) return false;
     // Entrevistador
-    if (_pendFiltros.entrevistadores.size > 0 && !_pendFiltros.entrevistadores.has(d.entrevistador_nome || '')) return false;
+    if (_pendFiltros.entrevistadores.size > 0 && ![..._pendFiltros.entrevistadores].some(e => e.toLowerCase() === (d.entrevistador_nome||'').toLowerCase())) return false;
     // Setor
     if (setor) { const sd = d.controle ? d.controle.slice(0,-1) : (d.upa || ''); if (sd !== setor && d.upa !== setor) return false; }
     // Intervalo de data da tentativa
@@ -4144,7 +4150,13 @@ function renderizarPaginaPendencias() {
   // Popula lista de entrevistadores (apenas na primeira vez)
   const ddEntr = document.getElementById('pend-entr-dropdown');
   if (ddEntr && ddEntr.children.length === 0) {
-    const entrs = [...new Set(todosdomicilios.map(d => d.entrevistador_nome).filter(Boolean))].sort();
+    const nomesMapPend = new Map();
+    todosdomicilios.forEach(d => {
+      if (!d.entrevistador_nome) return;
+      const key = d.entrevistador_nome.trim().toLowerCase();
+      if (!nomesMapPend.has(key)) nomesMapPend.set(key, toTitleCase(d.entrevistador_nome));
+    });
+    const entrs = [...nomesMapPend.values()].sort();
     ddEntr.innerHTML = entrs.map(nome =>
       `<label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''">
         <input type="checkbox" value="${nome}" onchange="atualizarFiltroEntrPend()"> ${nome}
@@ -4526,7 +4538,7 @@ async function preencherSelectAtribuicao() {
     const u = d.data();
     const opt = document.createElement('option');
     opt.value = d.id;
-    opt.textContent = u.nome;
+    opt.textContent = toTitleCase(u.nome);
     sel.appendChild(opt);
   });
 }
@@ -6677,7 +6689,13 @@ async function carregarTentativas() {
     });
 
     // Preenche filtro de entrevistadores
-    const entrevistadores = [...new Set(todasTentativas.map(t => t.entrevistador_nome).filter(Boolean))].sort();
+    const nomesMapTent = new Map();
+    todasTentativas.forEach(t => {
+      if (!t.entrevistador_nome) return;
+      const key = t.entrevistador_nome.trim().toLowerCase();
+      if (!nomesMapTent.has(key)) nomesMapTent.set(key, toTitleCase(t.entrevistador_nome));
+    });
+    const entrevistadores = [...nomesMapTent.values()].sort();
     const sel = document.getElementById('tent-filtro-entrevistador');
     if (sel) {
       sel.innerHTML = '<option value="">Todos os entrevistadores</option>';
@@ -6840,7 +6858,7 @@ async function preencherSelectEntrevistadores(idSelect) {
     const u = d.data();
     const opt = document.createElement('option');
     opt.value = d.id;
-    opt.textContent = u.nome;
+    opt.textContent = toTitleCase(u.nome);
     sel.appendChild(opt);
   });
 }
@@ -6852,6 +6870,10 @@ async function preencherSelectEntrevistadores(idSelect) {
 // quando TODAS as palavras do nome cadastrado aparecem, em qualquer ordem,
 // dentro do nome importado — isso evita falso positivo de bater só 1 palavra
 // (ex: "José" não deve casar com qualquer um que tenha "José" no nome).
+function toTitleCase(s) {
+  return (s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
+
 function normalizarNomeGlobal(s) {
   return (s || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
