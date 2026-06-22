@@ -746,7 +746,7 @@
   .cron-card-top { display:flex;align-items:center;gap:0.4rem;padding:0.28rem 0.7rem;background:#F4F3F0;border-bottom:1px solid #edf2f7;flex-wrap:wrap;border-radius:4px 4px 0 0; }
   .cron-card-body { padding:0.3rem 0.7rem 0.32rem; }
   .cron-loc-input::placeholder { opacity:0.4;font-style:italic; }
-  .cron-chip { display:inline-block;padding:1px 7px;border-radius:10px;background:#eff6ff;color:var(--azul);font-size:0.71rem;font-weight:600;margin:1px 2px; }
+  .cron-chip { display:inline-block;padding:1px 7px;border-radius:10px;background:#eff6ff;color:var(--azul);font-size:0.71rem;font-weight:700;margin:1px 2px; }
   .cron-chips { display:inline; }
   /* Cronograma — painel lateral accordion */
   .cron-acc-hd { cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center;padding:0.28rem 0.65rem;background:var(--azul-claro);font-size:0.68rem;font-weight:700;color:var(--azul);border-top:1px solid var(--azul-medio); }
@@ -5716,7 +5716,7 @@ function _cronRenderTabela() {
         const ok = entrevSel.includes(u.nome) ? 'checked' : '';
         const ne = u.nome.replace(/'/g,"\\'").replace(/"/g,'&quot;');
         const c  = corEntrevistador(u.nome);
-        return `<label><input type="checkbox" ${ok} onchange="cronToggleEntrevEq(${i},${j},'${ne}',this.checked)" onclick="event.stopPropagation()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="color:${c}">${_primeiroNome(u.nome)}</span></label>`;
+        return `<label><input type="checkbox" ${ok} onchange="cronToggleEntrevEq(${i},${j},'${ne}',this.checked)" onclick="event.stopPropagation()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="color:${c};font-weight:700">${_primeiroNome(u.nome)}</span></label>`;
       }).join('');
       const mselLabel = entrevSel.length ? `${entrevSel.length} selecionado${entrevSel.length>1?'s':''}` : 'Equipe...';
 
