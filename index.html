@@ -5667,118 +5667,200 @@ function _cronRenderTabela() {
   const mes = _cronMes, semana = _cronSemana;
   const inf = _SEMANAS_CAL[mes]?.[semana];
   const periodo = inf ? `${inf.de} a ${inf.ate}` : '—';
-  const _tipoCor = t => ({'Coleta PNAD-C':'#2563a8','Coleta CNEFE':'#16a34a','Entregar cartas':'#d97706','Pendências':'#dc2626'}[t]||'#94a3b8');
 
-  let cards = '';
+  const _DIAS_PT = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const fmtDia = iso => {
+    if (!iso || iso === '0000-00-00') return '?';
+    const [y,m,d] = iso.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    return `${_DIAS_PT[dt.getDay()]}, ${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}`;
+  };
+  const fmtH = h => h ? h.replace(':00','h').replace(':','h') : '';
+  const fmtIso = iso => { if (!iso) return '?'; const p = iso.split('-'); return `${p[2]}/${p[1]}`; };
+
+  // Agrupa linhas por data; períodos ficam separados
+  const periodos = [];
+  const byDate = new Map();
   _cronLinhas.forEach((ln, i) => {
     if (!ln) return;
+    if (ln.tipo_card === 'periodo_livre') {
+      periodos.push({ ln, i });
+    } else {
+      const key = ln.data || '0000-00-00';
+      if (!byDate.has(key)) byDate.set(key, []);
+      byDate.get(key).push({ ln, i });
+    }
+  });
 
-    // — CABEÇALHO: período livre vs data fixa —
-    const isPeriodo = ln.tipo_card === 'periodo_livre';
-    const cardClass = isPeriodo ? 'cron-card cron-card-periodo' : 'cron-card';
-    const cardHeader = isPeriodo
-      ? `<div class="cron-card-top">
+  const allEntries = [];
+  for (const [date, group] of byDate) allEntries.push({ type: 'day', key: date, group });
+  for (const p of periodos) allEntries.push({ type: 'periodo', key: p.ln.data_inicio || '0000-00-00', ...p });
+  allEntries.sort((a, b) => a.key.localeCompare(b.key));
+
+  // CSS inline para o bloco (compartilhado)
+  const BS = 'border:0.5px solid #D3D1C7;border-radius:8px;margin-bottom:6px;overflow:hidden;max-width:520px';
+  const HS = 'background:#EEEDE8;padding:5px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+
+  let cards = '';
+
+  for (const entry of allEntries) {
+
+    // ── Período livre ───────────────────────────────────────────
+    if (entry.type === 'periodo') {
+      const { ln, i } = entry;
+      cards += `<div style="${BS}">
+        <div style="${HS}">
           <input type="date" value="${ln.data_inicio||''}" onchange="cronSet(${i},'data_inicio',this.value)"
-            style="border:1px solid var(--borda);border-radius:4px;padding:3px 7px;font-size:0.88rem;background:transparent;flex-shrink:0">
-          <span style="font-size:0.68rem;font-weight:600;background:#FAEEDA;color:#854F0B;border-radius:4px;padding:1px 7px;flex-shrink:0">até</span>
+            style="border:0.5px solid #D3D1C7;border-radius:4px;padding:2px 4px;font-size:11px;background:#F8F7F4;color:#2C2C2A">
+          <span style="background:#FAEEDA;color:#854F0B;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">até</span>
           <input type="date" value="${ln.data_fim||''}" onchange="cronSet(${i},'data_fim',this.value)"
-            style="border:1px solid var(--borda);border-radius:4px;padding:3px 7px;font-size:0.88rem;background:transparent;flex-shrink:0">
-          <div style="flex:1"></div>
-          <button onclick="cronDelRow(${i})" style="background:none;border:none;cursor:pointer;color:var(--cinza);font-size:0.95rem;padding:0 2px;flex-shrink:0" title="Remover">🗑️</button>
-        </div>`
-      : `<div class="cron-card-top">
-          <input type="date" value="${ln.data||''}" onchange="cronSet(${i},'data',this.value)"
-            style="border:1px solid var(--borda);border-radius:4px;padding:3px 7px;font-size:0.88rem;background:transparent;flex-shrink:0">
-          <input type="time" value="${ln.hora||''}" onchange="cronSet(${i},'hora',this.value)"
-            style="border:1px solid var(--borda);border-radius:4px;padding:1px 4px;font-size:0.75rem;background:transparent;flex-shrink:0">
-          <div style="flex:1"></div>
-          <button onclick="cronDelRow(${i})" style="background:none;border:none;cursor:pointer;color:var(--cinza);font-size:0.95rem;padding:0 2px;flex-shrink:0" title="Remover">🗑️</button>
-        </div>`;
-
-    // — EQUIPES (comuns aos dois tipos) —
-    const equipes = ln.equipes || [];
-    let equipesHtml = '';
-
-    equipes.forEach((eq, j) => {
-      const corEq = _CORES_EQUIPE[j % _CORES_EQUIPE.length];
-      const upas  = eq.upas       || [''];
-      const locs  = eq.localidades || [''];
-      const tipos = eq.tipos      || [''];
-      const tiposAl   = upas.map((_, si) => tipos[si] || tipos[0] || '');
-      const entrevSel = eq.entrevistadores ? eq.entrevistadores.split(',').map(s=>s.trim()).filter(Boolean) : [];
-
-      const chips = entrevSel.map(n => {
-        const c = corEntrevistador(n);
-        return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${_primeiroNome(n)}</span>`;
-      }).join('');
-
-      const mselChecks = _cronEntrevs.map(u => {
-        const ok = entrevSel.includes(u.nome) ? 'checked' : '';
-        const ne = u.nome.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-        const c  = corEntrevistador(u.nome);
-        return `<label><input type="checkbox" ${ok} onchange="cronToggleEntrevEq(${i},${j},'${ne}',this.checked)" onclick="event.stopPropagation()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="color:${c};font-weight:700">${_primeiroNome(u.nome)}</span></label>`;
-      }).join('');
-      const mselLabel = entrevSel.length ? `${entrevSel.length} selecionado${entrevSel.length>1?'s':''}` : 'Equipe...';
-
-      let setorCells = '';
-      upas.forEach((u, si) => {
-        const sinf    = _cronSetores.find(s => s.upa === u);
-        const etapas  = sinf?.etapas || [];
-        const etBadge = etapas.length
-          ? etapas.map(et=>`<span style="padding:1px 5px;border-radius:8px;font-size:0.65rem;font-weight:700;${_COR_ETAPA[et]||''}">${et}ª</span>`).join(' ')
-          : '<span style="color:var(--cinza);font-size:0.7rem">—</span>';
-        const locVal   = (locs[si] ?? '').replace(/"/g,'&quot;');
-        const upaVal   = (u || '').replace(/"/g,'&quot;');
-        const tc       = _tipoCor(tiposAl[si]);
-        const tipoText = tiposAl[si] || '＋ tipo';
-        const tipoCss  = tiposAl[si]
-          ? `color:${tc};background:${tc}18;border:1.5px solid ${tc}55`
-          : `color:var(--cinza);background:var(--cinza-claro);border:1.5px dashed var(--borda)`;
-        const tipoBadge = `<span onclick="event.stopPropagation();cronCiclarTipoEq(${i},${j},${si})" style="padding:1px 7px;border-radius:10px;font-size:0.63rem;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;${tipoCss}" title="Clique para mudar o tipo">${tipoText}</span>`;
-        const delBtn    = upas.length > 1
-          ? `<button onclick="cronRemoveSetorEq(${i},${j},${si})" style="background:none;border:none;cursor:pointer;color:var(--cinza);font-size:0.75rem;padding:0 2px" title="Remover">×</button>`
-          : '<span style="width:14px;display:inline-block"></span>';
-        setorCells += `
-          <input type="text" value="${upaVal}" placeholder="Setor..." list="cron-dl-setores"
-            onblur="cronSetorEq(${i},${j},${si},this.value)"
-            style="border:1px solid var(--borda);border-left:3px solid ${tc};border-radius:4px;padding:1px 4px;font-size:0.68rem;background:#fafafa;font-family:monospace;min-width:0">
-          <input type="text" value="${locVal}" placeholder="Localidade..."
-            onblur="cronSetLocalidadeEq(${i},${j},${si},this.value)"
-            class="cron-loc-input"
-            style="border:1px solid var(--borda);border-radius:4px;padding:1px 4px;font-size:0.68rem;background:#fafafa;min-width:0">
-          <div style="text-align:right;padding:0 2px 0 8px;white-space:nowrap">${etBadge}</div>
-          <div>${tipoBadge}</div>
-          <div>${delBtn}</div>`;
-      });
-
-      const delEqBtn = equipes.length > 1
-        ? `<button onclick="cronRemoveEquipe(${i},${j})" class="cron-equipe-del" title="Remover equipe">🗑️</button>`
-        : '';
-
-      equipesHtml += `<div class="cron-equipe" style="border-left-color:${corEq}">
-        <div class="cron-equipe-hd">
-          <div id="cron-chips-${i}-${j}" class="cron-chips">${chips}</div>
-          <div class="cron-msel cron-msel-reveal" onclick="event.stopPropagation()">
-            <div class="cron-msel-btn" onclick="cronAbrirMsel(this)" style="font-size:0.72rem;padding:2px 6px">${mselLabel} ▾</div>
-            <div class="cron-msel-list" style="display:none">${mselChecks}</div>
-          </div>
-          ${delEqBtn}
-        </div>
-        <div class="cron-equipe-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:2px 5px;align-items:center">
-            ${setorCells}
-          </div>
-          <button onclick="cronAddSetorEq(${i},${j})" class="cron-equipe-add-setor">＋ setor</button>
+            style="border:0.5px solid #D3D1C7;border-radius:4px;padding:2px 4px;font-size:11px;background:#F8F7F4;color:#2C2C2A">
+          <span style="flex:1"></span>
+          <button onclick="cronDelRow(${i})" style="background:none;border:none;cursor:pointer;color:#B4B2A9;font-size:0.9rem;padding:0 2px">🗑️</button>
         </div>
       </div>`;
-    });
+      continue;
+    }
 
-    cards += `<div class="${cardClass}" data-i="${i}" style="border-left:none">
-      ${cardHeader}
-      ${equipesHtml}
-      <button onclick="cronAddEquipe(${i})" class="cron-add-equipe-btn">＋ equipe</button>
+    // ── Dia(s) com data ─────────────────────────────────────────
+    const { group } = entry;
+    const date = entry.key;
+
+    const allTimes = group.map(({ ln }) => ln.hora || '');
+    const uniqueTimes = [...new Set(allTimes)];
+    const sameTime = uniqueTimes.length === 1;
+    const timeVal = uniqueTimes[0] || '';
+    const timeLabel = sameTime
+      ? (timeVal ? fmtH(timeVal) : 'horário a combinar')
+      : 'horários distintos';
+    const timeBadge = sameTime && timeVal
+      ? `<span style="background:#F8F7F4;border:0.5px solid #D3D1C7;border-radius:4px;padding:1px 8px;font-size:11px;color:#444441;white-space:nowrap">${timeLabel}</span>`
+      : `<span style="background:#F8F7F4;border:0.5px solid #D3D1C7;border-radius:4px;padding:1px 8px;font-size:11px;color:#888780;font-style:italic;white-space:nowrap">${timeLabel}</span>`;
+
+    // Entrada de data (só para bloco de ln único)
+    const dateInput = group.length === 1
+      ? `<input type="date" value="${group[0].ln.data||''}" onchange="cronSet(${group[0].i},'data',this.value)"
+           style="border:0.5px solid #D3D1C7;border-radius:4px;padding:2px 4px;font-size:11px;background:#F8F7F4;color:#2C2C2A">`
+      : '';
+
+    let bodyHtml = '';
+    let isFirst = true;
+
+    for (const { ln, i } of group) {
+      const showSubTime = !sameTime && ln.hora;
+      const equipes = ln.equipes || [];
+
+      equipes.forEach((eq, j) => {
+        const upas      = eq.upas        || [''];
+        const locs      = eq.localidades || [''];
+        const tipos     = eq.tipos       || [''];
+        const tiposAl   = upas.map((_, si) => tipos[si] || tipos[0] || '');
+        const entrevSel = eq.entrevistadores
+          ? eq.entrevistadores.split(',').map(s => s.trim()).filter(Boolean)
+          : [];
+
+        // Pills dos nomes
+        const pills = entrevSel.map(n =>
+          `<span style="background:#F1EFE8;border:0.5px solid #B4B2A9;border-radius:999px;font-size:11px;font-weight:500;color:#444441;padding:2px 9px">${_primeiroNome(n)}</span>`
+        ).join('');
+
+        // Msel dropdown (funcionalidade mantida)
+        const mselChecks = _cronEntrevs.map(u => {
+          const ok = entrevSel.includes(u.nome) ? 'checked' : '';
+          const ne = u.nome.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+          const c  = corEntrevistador(u.nome);
+          return `<label><input type="checkbox" ${ok} onchange="cronToggleEntrevEq(${i},${j},'${ne}',this.checked)" onclick="event.stopPropagation()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="color:${c};font-weight:700">${_primeiroNome(u.nome)}</span></label>`;
+        }).join('');
+        const mselLabel = entrevSel.length ? `${entrevSel.length} sel. ▾` : 'Equipe… ▾';
+
+        // Linhas de setores
+        let setorRows = '';
+        upas.forEach((u, si) => {
+          const sinf   = _cronSetores.find(s => s.upa === u);
+          const etapas = sinf?.etapas || [];
+          const loc    = locs[si] || '';
+          const tipo   = tiposAl[si] || '';
+          const upaVal = (u || '').replace(/"/g,'&quot;');
+          const locVal = loc.replace(/"/g,'&quot;');
+          const isPend = tipo === 'Pendências';
+          const delBtn = upas.length > 1
+            ? `<button onclick="cronRemoveSetorEq(${i},${j},${si})" style="background:none;border:none;cursor:pointer;color:#B4B2A9;font-size:0.75rem;padding:0 2px;flex-shrink:0">×</button>`
+            : '';
+
+          if (isPend) {
+            setorRows += `<div style="display:flex;align-items:center;gap:5px;padding:2px 0;flex-wrap:wrap">
+              <span style="font-size:11px;font-style:italic;color:#5F5E5A;white-space:nowrap">Pendências</span>
+              <input type="text" value="${locVal}" placeholder="SEM.X · SEM.Y…"
+                onblur="cronSetLocalidadeEq(${i},${j},${si},this.value)"
+                style="font-size:11px;font-style:italic;color:#5F5E5A;border:none;border-bottom:0.5px dashed #D3D1C7;background:transparent;padding:0 2px;min-width:60px;flex:1">
+              ${delBtn}
+            </div>`;
+          } else {
+            const etBadges = etapas.map(et =>
+              `<span style="width:18px;height:18px;border-radius:50%;background:#F1EFE8;border:0.5px solid #D3D1C7;font-size:10px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${et}ª</span>`
+            ).join('');
+            const tipoBadge = tipo
+              ? `<span onclick="event.stopPropagation();cronCiclarTipoEq(${i},${j},${si})" title="Clique para mudar" style="background:#F1EFE8;border:0.5px solid #B4B2A9;font-size:11px;color:#444441;padding:1px 6px;border-radius:4px;cursor:pointer;white-space:nowrap;flex-shrink:0">${tipo}</span>`
+              : `<span onclick="event.stopPropagation();cronCiclarTipoEq(${i},${j},${si})" style="background:#F8F7F4;border:0.5px dashed #D3D1C7;font-size:11px;color:#888780;padding:1px 6px;border-radius:4px;cursor:pointer;flex-shrink:0">＋ tipo</span>`;
+            setorRows += `<div style="display:flex;align-items:center;gap:5px;padding:2px 0;flex-wrap:wrap">
+              <input type="text" value="${upaVal}" placeholder="Setor…" list="cron-dl-setores"
+                onblur="cronSetorEq(${i},${j},${si},this.value)"
+                style="font-family:monospace;font-size:10px;color:#888780;background:#F1EFE8;border:0.5px solid #D3D1C7;border-radius:3px;padding:1px 5px;min-width:60px;max-width:140px">
+              <input type="text" value="${locVal}" placeholder="Localidade…"
+                onblur="cronSetLocalidadeEq(${i},${j},${si},this.value)"
+                class="cron-loc-input"
+                style="font-size:12px;font-weight:500;color:#1a1a1a;border:none;border-bottom:0.5px solid transparent;background:transparent;padding:0 2px;min-width:60px;flex:1">
+              ${etBadges}${tipoBadge}${delBtn}
+            </div>`;
+          }
+        });
+
+        const addSetorBtn = `<button onclick="cronAddSetorEq(${i},${j})" style="font-size:10px;color:#888780;background:none;border:none;cursor:pointer;padding:1px 0;display:block;margin-top:2px">＋ setor</button>`;
+        const delEqBtn = equipes.length > 1
+          ? `<button onclick="cronRemoveEquipe(${i},${j})" style="background:none;border:none;cursor:pointer;color:#C4C2B8;font-size:0.78rem;padding:0 2px;margin-left:auto" title="Remover equipe">🗑️</button>`
+          : '';
+        const subTimeHtml = showSubTime
+          ? `<div style="font-size:11px;color:#888780;font-style:italic;margin-bottom:3px">${fmtH(ln.hora)}</div>`
+          : '';
+        const divider = !isFirst ? `<div style="border-top:0.5px dashed #D3D1C7"></div>` : '';
+        isFirst = false;
+
+        bodyHtml += `${divider}<div style="padding:6px 10px">
+          ${subTimeHtml}
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center">
+            ${pills}
+            <div class="cron-msel cron-msel-reveal" onclick="event.stopPropagation()" style="flex-shrink:0">
+              <div class="cron-msel-btn" onclick="cronAbrirMsel(this)" style="font-size:11px;padding:2px 7px">${mselLabel}</div>
+              <div class="cron-msel-list" style="display:none">${mselChecks}</div>
+            </div>
+            ${delEqBtn}
+          </div>
+          ${setorRows}
+          ${addSetorBtn}
+        </div>`;
+      });
+
+      // Rodapé por ln: hora + adicionar equipe + remover linha
+      bodyHtml += `<div style="padding:3px 10px 6px;display:flex;align-items:center;gap:6px;border-top:0.5px solid #ECEAE3">
+        <button onclick="cronAddEquipe(${i})" style="font-size:11px;color:#888780;background:none;border:none;cursor:pointer;padding:0">＋ equipe</button>
+        <span style="flex:1"></span>
+        <input type="time" value="${ln.hora||''}" onchange="cronSet(${i},'hora',this.value)"
+          style="border:0.5px solid #D3D1C7;border-radius:4px;padding:1px 4px;font-size:11px;background:#F8F7F4;color:#2C2C2A;width:68px">
+        <button onclick="cronDelRow(${i})" style="background:none;border:none;cursor:pointer;color:#C4C2B8;font-size:0.85rem;padding:0 2px" title="Remover">🗑️</button>
+      </div>`;
+    }
+
+    cards += `<div style="${BS}">
+      <div style="${HS}">
+        <span style="font-size:12px;font-weight:500;color:#2C2C2A;flex:1">${fmtDia(date)}</span>
+        ${timeBadge}
+        ${dateInput}
+      </div>
+      ${bodyHtml}
     </div>`;
-  });
+  }
+
+  if (!cards) cards = '<div style="font-size:0.82rem;color:var(--cinza);padding:0.35rem 0">Nenhuma atividade registrada.</div>';
 
   el.innerHTML = `<div class="card-tabela">
     <div class="card-tabela-header" style="flex-wrap:wrap;gap:0.5rem">
