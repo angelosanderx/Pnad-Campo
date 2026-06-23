@@ -922,6 +922,10 @@
   .cnefe-tab-panel.ativo { display:block; }
   .grid-stats-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:0.75rem; margin-bottom:1.25rem; }
   @media(max-width:700px) { .grid-stats-4 { grid-template-columns:repeat(2,1fr); } }
+  .cnefe-tbl { font-size:0.7rem; width:100%; }
+  .cnefe-tbl th { padding:0.28rem 0.4rem; font-size:0.65rem; }
+  .cnefe-tbl td { padding:0.22rem 0.4rem; }
+  .cnefe-tbl .cnefe-loc-val { display:block; max-width:100px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 </style>
 </head>
 <body>
@@ -1387,9 +1391,12 @@
             <select id="filtro-upa-setor" onchange="atualizarFiltroSetorSetor();carregarSetores()" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:160px">
               <option value="">Todas as UPAs</option>
             </select>
-            <select id="filtro-setor-setor" onchange="carregarSetores()" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:160px">
-              <option value="">Todos os setores</option>
-            </select>
+            <div style="position:relative" id="filtro-setor-setor-wrap">
+              <button id="filtro-setor-setor-btn" onclick="toggleDropdownSetorSetor(event)" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.5rem;min-width:160px;justify-content:space-between">
+                <span id="filtro-setor-setor-label">Todos os setores</span><span style="font-size:0.7rem;opacity:0.6">▾</span>
+              </button>
+              <div id="filtro-setor-setor-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:200px;max-height:260px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0"></div>
+            </div>
             <select id="filtro-semana-setor" onchange="carregarSetores()" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
               <option value="">Todas as semanas</option>
               <option value="1">Semana 1</option>
@@ -1409,16 +1416,20 @@
         <div class="card-tabela-header" style="flex-wrap:wrap;gap:0.5rem">
           <h3>📅 Amostra Mestra — Calendário de Setores</h3>
           <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
-            <select id="am-filtro-mes" onchange="renderAmostraMestra()" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
-              <option value="">Todos os meses</option>
-              <option value="6">Junho</option>
-              <option value="7">Julho</option>
-              <option value="8">Agosto</option>
-              <option value="9">Setembro</option>
-              <option value="10">Outubro</option>
-              <option value="11">Novembro</option>
-              <option value="12">Dezembro</option>
-            </select>
+            <div style="position:relative" id="am-filtro-mes-wrap">
+              <button id="am-filtro-mes-btn" onclick="toggleDropdownAMMes(event)" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.5rem;min-width:150px;justify-content:space-between">
+                <span id="am-filtro-mes-label">Todos os meses</span><span style="font-size:0.7rem;opacity:0.6">▾</span>
+              </button>
+              <div id="am-filtro-mes-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:160px;max-height:260px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0">
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="6" onchange="atualizarAMMesSel()"> Junho</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="7" onchange="atualizarAMMesSel()"> Julho</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="8" onchange="atualizarAMMesSel()"> Agosto</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="9" onchange="atualizarAMMesSel()"> Setembro</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="10" onchange="atualizarAMMesSel()"> Outubro</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="11" onchange="atualizarAMMesSel()"> Novembro</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="12" onchange="atualizarAMMesSel()"> Dezembro</label>
+              </div>
+            </div>
             <select id="am-filtro-semana" onchange="renderAmostraMestra()" style="padding:0.35rem 0.6rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
               <option value="">Todas as semanas</option>
               <option value="1">Semana 1</option>
@@ -1639,6 +1650,7 @@
           </div>
           <div id="cnefe-setores-tabela"><div class="loader">Carregando...</div></div>
           <input type="file" accept=".csv" id="cnefe-csv-direto-input" style="display:none" onchange="importarCnefeCSVDireto(this)">
+          <input type="file" accept=".kml" multiple id="cnefe-kml-tbl-input" style="display:none" onchange="importarCnefeKmlTbl(this)">
         </div>
       </div>
 
@@ -2399,40 +2411,26 @@
   </div>
 </div>
 
-<!-- Modal: Editar setor CNEFE (atribuir agente / marcar concluído) -->
-<div class="modal-overlay" id="modal-cnefe-setor-edit">
-  <div class="modal">
-    <div class="modal-header">
-      <h3>Editar setor CNEFE</h3>
-      <button class="btn-fechar" onclick="fecharModal('modal-cnefe-setor-edit')">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="cnefe-setor-edit-id">
-      <input type="hidden" id="cnefe-setor-edit-setor">
-      <div class="form-grid">
-        <div class="form-grupo full">
-          <label>Agente responsável</label>
-          <select id="cnefe-setor-edit-agente">
-            <option value="">Sem agente</option>
-          </select>
-        </div>
-        <div class="form-grupo full">
-          <label>UPA na PNAD (código)</label>
-          <input type="text" id="cnefe-setor-edit-upa" placeholder="Ex: 3301009050" style="font-family:monospace">
-          <small style="color:var(--texto-secundario);font-size:0.75rem">Código da UPA da qual este setor faz parte (para cruzamento de qualidade)</small>
-        </div>
-        <div class="form-grupo full">
-          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
-            <input type="checkbox" id="cnefe-setor-edit-concluido">
-            Marcar como concluído
-          </label>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-acao secundario" onclick="fecharModal('modal-cnefe-setor-edit')">Cancelar</button>
-      <button class="btn-acao" onclick="salvarCnefeSetorEdit()">Salvar</button>
-    </div>
+<!-- Dropdown multi-select: Mês CNEFE -->
+<div id="cnefe-mes-dd" style="display:none;position:fixed;z-index:601;background:#fff;border:1.5px solid var(--borda);border-radius:8px;padding:0.25rem 0;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:175px;max-height:280px;overflow-y:auto"></div>
+
+<!-- Popover rápido: UPA + Concluído do setor CNEFE -->
+<div id="cnefe-quick-popover" style="display:none;position:fixed;z-index:600;background:#fff;border:1.5px solid var(--borda);border-radius:8px;padding:0.9rem;box-shadow:0 4px 24px rgba(0,0,0,0.18);min-width:230px">
+  <input type="hidden" id="cnefe-qp-setor">
+  <input type="hidden" id="cnefe-qp-docid">
+  <div style="font-size:0.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:0.55rem">
+    Setor <span id="cnefe-qp-label" style="color:var(--azul-medio);font-family:monospace;font-size:0.78rem"></span>
+  </div>
+  <div style="margin-bottom:0.5rem">
+    <label style="font-size:0.73rem;font-weight:600;display:block;margin-bottom:3px;color:var(--cinza);text-transform:uppercase;letter-spacing:0.3px">UPA na PNAD</label>
+    <input type="text" id="cnefe-qp-upa" placeholder="Ex: 3301009050" style="font-family:monospace;font-size:0.82rem;width:100%;padding:4px 7px;border:1.5px solid var(--borda);border-radius:5px;box-sizing:border-box">
+  </div>
+  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer;margin-bottom:0.75rem">
+    <input type="checkbox" id="cnefe-qp-concluido"> Concluído
+  </label>
+  <div style="display:flex;gap:0.4rem;justify-content:flex-end">
+    <button onclick="fecharCnefeQuickPop()" style="font-size:0.78rem;padding:4px 10px;background:none;border:1px solid var(--borda);border-radius:5px;cursor:pointer;font-family:var(--fonte)">Fechar</button>
+    <button onclick="salvarCnefeQuickPop()" style="font-size:0.78rem;padding:4px 10px;background:var(--azul-medio);color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:var(--fonte)">Salvar</button>
   </div>
 </div>
 
@@ -4464,9 +4462,13 @@ window.copiarPendenciasWhatsApp = (tableId) => {
   const semanas = [...new Set(lista.map(d => d.semana).filter(Boolean))].sort();
   const semanaStr = semanas.length === 1 ? `Semana ${semanas[0]}` : `Semanas ${semanas.join(', ')}`;
 
-  // Total de domicílios por entrevistador (todos, não só pendentes)
+  // Total de domicílios por entrevistador (até a semana do filtro ativo)
+  const _semanaAtualWpp = parseInt(localStorage.getItem('pnad_semana_atual') || '2');
+  const _maxSemanaWpp = _pendFiltros.semanas.size > 0
+    ? Math.max(...[..._pendFiltros.semanas].map(Number))
+    : _semanaAtualWpp;
   const totalPorNome = {};
-  todosdomicilios.forEach(d => {
+  todosdomicilios.filter(d => parseInt(d.semana || 0) <= _maxSemanaWpp).forEach(d => {
     const reg = _cache.find(u => nomesCorrespondem(u.nome, d.entrevistador_nome||''));
     const nome = reg ? tc(reg.nome) : tc(d.entrevistador_nome||'');
     if (!nome) return;
@@ -5300,6 +5302,22 @@ window.toggleDropdownPendEntr = (e) => {
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#pend-entr-wrap')) {
     const dd = document.getElementById('pend-entr-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+  if (!e.target.closest('#filtro-setor-setor-wrap')) {
+    const dd = document.getElementById('filtro-setor-setor-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+  if (!e.target.closest('#am-filtro-mes-wrap')) {
+    const dd = document.getElementById('am-filtro-mes-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+  if (!e.target.closest('#cnefe-quick-popover') && !e.target.closest('[onclick*="abrirCnefeQuickPop"]')) {
+    const pop = document.getElementById('cnefe-quick-popover');
+    if (pop) pop.style.display = 'none';
+  }
+  if (!e.target.closest('#cnefe-mes-dd') && !e.target.closest('[onclick*="toggleCnefeMesDropdown"]')) {
+    const dd = document.getElementById('cnefe-mes-dd');
     if (dd) dd.style.display = 'none';
   }
 });
@@ -6363,9 +6381,8 @@ async function carregarVisitas() {
 
 // ── SETORES ──
 function popularFiltrosSetores() {
-  const selUpa   = document.getElementById('filtro-upa-setor');
-  const selSetor = document.getElementById('filtro-setor-setor');
-  if (!selUpa || !selSetor) return;
+  const selUpa = document.getElementById('filtro-upa-setor');
+  if (!selUpa) return;
 
   const upas = [...new Set(todosdomicilios.filter(pertencePeriodo).map(d => d.upa).filter(Boolean))].sort();
   const upaSel = selUpa.value;
@@ -6375,20 +6392,47 @@ function popularFiltrosSetores() {
 }
 
 window.atualizarFiltroSetorSetor = () => {
-  const selUpa   = document.getElementById('filtro-upa-setor');
-  const selSetor = document.getElementById('filtro-setor-setor');
-  if (!selSetor) return;
+  const selUpa = document.getElementById('filtro-upa-setor');
+  const dd = document.getElementById('filtro-setor-setor-dropdown');
+  if (!dd) return;
   const upaFiltro = selUpa?.value || '';
   const doms = todosdomicilios.filter(d => pertencePeriodo(d) && (!upaFiltro || d.upa === upaFiltro));
   const setores = [...new Set(doms.map(d => d.controle ? d.controle.slice(0,-1) : d.upa).filter(Boolean))].sort();
-  const setorSel = selSetor.value;
-  selSetor.innerHTML = '<option value="">Todos os setores</option>' +
-    setores.map(s => `<option value="${s}" ${s===setorSel?'selected':''}>${s}</option>`).join('');
+  const selecionados = new Set([...dd.querySelectorAll('input:checked')].map(c => c.value));
+  dd.innerHTML = setores.map(s =>
+    `<label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''">
+      <input type="checkbox" value="${s}" ${selecionados.has(s) ? 'checked' : ''} onchange="atualizarSetorSetorSel()"> ${s}
+    </label>`
+  ).join('');
+  _sincronizarLabelSetorSetor();
+};
+
+function _sincronizarLabelSetorSetor() {
+  const dd = document.getElementById('filtro-setor-setor-dropdown');
+  const lbl = document.getElementById('filtro-setor-setor-label');
+  if (!dd || !lbl) return;
+  const sel = [...dd.querySelectorAll('input:checked')].map(c => c.value);
+  lbl.textContent = sel.length === 0 ? 'Todos os setores' : `${sel.length} setor${sel.length > 1 ? 'es' : ''} selecionado${sel.length > 1 ? 's' : ''}`;
+}
+
+window.toggleDropdownSetorSetor = (e) => {
+  e.stopPropagation();
+  const dd = document.getElementById('filtro-setor-setor-dropdown');
+  if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+};
+
+window.atualizarSetorSetorSel = () => {
+  _sincronizarLabelSetorSetor();
+  carregarSetores();
 };
 
 window.limparFiltrosSetores = () => {
-  const ids = ['filtro-upa-setor','filtro-setor-setor','filtro-semana-setor'];
-  ids.forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const selUpa = document.getElementById('filtro-upa-setor');
+  const selSem = document.getElementById('filtro-semana-setor');
+  if (selUpa) selUpa.value = '';
+  if (selSem) selSem.value = '';
+  document.querySelectorAll('#filtro-setor-setor-dropdown input').forEach(c => c.checked = false);
+  _sincronizarLabelSetorSetor();
   carregarSetores();
 };
 
@@ -6469,12 +6513,12 @@ window.renderAmostraMestra = () => {
   const el = document.getElementById('tabela-am-calendario');
   if (!el || !_amCache) return;
 
-  const filtroMes    = parseInt(document.getElementById('am-filtro-mes')?.value)    || null;
+  const filtroMeses  = new Set([...document.querySelectorAll('#am-filtro-mes-dropdown input:checked')].map(c => parseInt(c.value)));
   const filtroSemana = parseInt(document.getElementById('am-filtro-semana')?.value)  || null;
   const filtroTexto  = (document.getElementById('am-filtro-upa')?.value || '').trim().toLowerCase();
 
   let lista = _amCache;
-  if (filtroMes)    lista = lista.filter(r => r.mes    === filtroMes);
+  if (filtroMeses.size > 0) lista = lista.filter(r => filtroMeses.has(r.mes));
   if (filtroSemana) lista = lista.filter(r => r.semana === filtroSemana);
   if (filtroTexto)  lista = lista.filter(r =>
     (r.upa||'').toLowerCase().includes(filtroTexto) ||
@@ -6572,8 +6616,24 @@ window.renderAmostraMestra = () => {
 };
 
 window.limparFiltrosAM = () => {
-  ['am-filtro-mes','am-filtro-semana'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
+  document.querySelectorAll('#am-filtro-mes-dropdown input').forEach(c => c.checked = false);
+  const lbl = document.getElementById('am-filtro-mes-label'); if (lbl) lbl.textContent = 'Todos os meses';
+  const selSem = document.getElementById('am-filtro-semana'); if (selSem) selSem.value = '';
   const t = document.getElementById('am-filtro-upa'); if(t) t.value='';
+  renderAmostraMestra();
+};
+
+window.toggleDropdownAMMes = (e) => {
+  e.stopPropagation();
+  const dd = document.getElementById('am-filtro-mes-dropdown');
+  if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+};
+
+window.atualizarAMMesSel = () => {
+  const sel = [...document.querySelectorAll('#am-filtro-mes-dropdown input:checked')].map(c => c.value);
+  const lbl = document.getElementById('am-filtro-mes-label');
+  const NOMES = {6:'Junho',7:'Julho',8:'Agosto',9:'Setembro',10:'Outubro',11:'Novembro',12:'Dezembro'};
+  if (lbl) lbl.textContent = sel.length === 0 ? 'Todos os meses' : sel.length === 1 ? NOMES[sel[0]] : `${sel.length} meses`;
   renderAmostraMestra();
 };
 
@@ -7490,7 +7550,7 @@ async function carregarSetores() {
 
     const filtrSemana = document.getElementById('filtro-semana-setor')?.value || '';
     const filtrUpa    = document.getElementById('filtro-upa-setor')?.value || '';
-    const filtrSetor  = document.getElementById('filtro-setor-setor')?.value || '';
+    const filtrSetores = new Set([...document.querySelectorAll('#filtro-setor-setor-dropdown input:checked')].map(c => c.value));
 
     // Usa domicílios já em memória (mais rápido e consistente com o filtro de período)
     let domicilios = todosdomicilios.filter(d => d.endereco && pertencePeriodo(d));
@@ -7498,9 +7558,9 @@ async function carregarSetores() {
     // Filtros
     if (filtrSemana) domicilios = domicilios.filter(d => String(d.semana) === filtrSemana);
     if (filtrUpa)    domicilios = domicilios.filter(d => (d.upa || '') === filtrUpa);
-    if (filtrSetor)  domicilios = domicilios.filter(d => {
+    if (filtrSetores.size > 0) domicilios = domicilios.filter(d => {
       const s = d.controle ? d.controle.slice(0,-1) : d.upa;
-      return s === filtrSetor;
+      return filtrSetores.has(s);
     });
 
     if (domicilios.length === 0) {
@@ -10337,7 +10397,7 @@ window.processarCentralSIGC = async () => {
 
 let _cnefeAgentesCache  = null;
 let _cnefeMesesUnicos   = [];
-const _cnefeFiltros     = { setor:'', pesquisa:'', agente:'', mes:'', status:'', localidade:'' };
+const _cnefeFiltros     = { setor:'', pesquisa:'', agente:'', mes: new Set(), status:'', localidade:'' };
 window.setCnefeFiltro   = (c, v) => { _cnefeFiltros[c] = v; renderCnefeSetores(); };
 let _cnefeMapInstance  = null;
 let _cnefeMapLayers    = { contorno: null, faces: null, pontos: null };
@@ -10374,6 +10434,8 @@ window.carregarCnefe = async () => {
 function _csvSetoresLocal() { try { return JSON.parse(localStorage.getItem('cnefe_csv_setores') || '{}'); } catch { return {}; } }
 function _marcarCsvLocal(setor) { const d = _csvSetoresLocal(); d[setor] = true; localStorage.setItem('cnefe_csv_setores', JSON.stringify(d)); }
 function _limparCsvLocal(setor) { const d = _csvSetoresLocal(); delete d[setor]; localStorage.setItem('cnefe_csv_setores', JSON.stringify(d)); }
+function _kmlSetoresLocal() { try { return JSON.parse(localStorage.getItem('cnefe_kml_setores') || '{}'); } catch { return {}; } }
+function _marcarKmlLocal(setor) { const d = _kmlSetoresLocal(); d[setor] = true; localStorage.setItem('cnefe_kml_setores', JSON.stringify(d)); }
 
 // ── ABA SETORES ───────────────────────────────────────────────────────────────
 
@@ -10543,12 +10605,13 @@ async function carregarCnefeSetores() {
 
     // Aplica flags do localStorage (leitura instantânea)
     const _csvLocal = _csvSetoresLocal();
+    const _kmlLocal = _kmlSetoresLocal();
     for (const s of _cnefeSetoresList) {
       if (_csvLocal[s.setor]) s.tem_csv = true;
+      if (_kmlLocal[s.setor]) s.tem_kml = true;
     }
 
-    // Migração única: na primeira vez detecta dados já existentes no Firestore
-    // e popula o localStorage para as próximas vezes serem instantâneas.
+    // Migração única CSV
     if (!localStorage.getItem('cnefe_csv_migrado')) {
       const semFlag = _cnefeSetoresList.filter(s => !s.tem_csv);
       if (semFlag.length) {
@@ -10562,6 +10625,18 @@ async function carregarCnefeSetores() {
         }
       }
       localStorage.setItem('cnefe_csv_migrado', '1');
+    }
+
+    // Migração única KML
+    if (!localStorage.getItem('cnefe_kml_migrado')) {
+      try {
+        const snapKml = await getDocs(collection(db, 'cnefe_kml'));
+        const setoresComKml = new Set(snapKml.docs.map(d => d.data().setor).filter(Boolean));
+        for (const s of _cnefeSetoresList) {
+          if (setoresComKml.has(s.setor)) { s.tem_kml = true; _marcarKmlLocal(s.setor); }
+        }
+      } catch(_) {}
+      localStorage.setItem('cnefe_kml_migrado', '1');
     }
 
     renderCnefeSetores();
@@ -10605,7 +10680,7 @@ window.renderCnefeSetores = () => {
   const fS = (_cnefeFiltros.setor     || '').toLowerCase();
   const fP = _cnefeFiltros.pesquisa   || '';
   const fA = (_cnefeFiltros.agente    || '').toLowerCase();
-  const fM = _cnefeFiltros.mes        || '';
+  const fM = _cnefeFiltros.mes;
   const fSt= _cnefeFiltros.status     || '';
   const fL = (_cnefeFiltros.localidade|| '').toLowerCase();
 
@@ -10614,7 +10689,7 @@ window.renderCnefeSetores = () => {
     if (fP && s.pesquisa !== fP) return false;
     const agNome = s.agente_nome || (_cnefeAgentesCache?.find(a => a.id === s.agente_id)?.nome) || '';
     if (fA && !primeiroNome(agNome).toLowerCase().includes(fA)) return false;
-    if (fM && `${s.anoCnefe}_${String(s.mesCnefe).padStart(2,'0')}` !== fM) return false;
+    if (fM.size > 0 && !fM.has(`${s.anoCnefe}_${String(s.mesCnefe).padStart(2,'0')}`)) return false;
     if (fSt && calcStatus(s) !== fSt) return false;
     if (fL && !(s.localidade||'').toLowerCase().includes(fL)) return false;
     return true;
@@ -10637,13 +10712,14 @@ window.renderCnefeSetores = () => {
     grupos.get(chave).push(s);
   });
 
-  const stLabel = { a_iniciar:'A iniciar', em_andamento:'Em andamento', concluido:'Concluído', atrasado:'Atrasado' };
+  const stLabel = { a_iniciar:'A iniciar', em_andamento:'Andamento', concluido:'Concluído', atrasado:'Atrasado' };
   const stBadge = { a_iniciar:'badge-cinza', em_andamento:'badge-azul', concluido:'badge-verde', atrasado:'badge-vermelho' };
-  const fi = `style="width:100%;font-size:0.72rem;padding:2px 4px;border:1px solid var(--borda);border-radius:4px;background:var(--fundo);color:var(--texto);margin-top:3px"`;
+  const fi = `style="width:100%;font-size:0.65rem;padding:1px 3px;border:1px solid var(--borda);border-radius:3px;background:var(--fundo);color:var(--texto);margin-top:2px"`;
 
   // Linha de filtros do thead
-  const optMeses   = `<option value="">Todos</option>` + _cnefeMesesUnicos.map(m =>
-    `<option value="${m.key}"${m.key===fM?' selected':''}>${_CNEFE_MESES[m.mes-1]} ${m.ano}</option>`).join('');
+  const _fMLabel = fM.size === 0 ? 'Todos' : fM.size === 1
+    ? (() => { const m = _cnefeMesesUnicos.find(x => fM.has(x.key)); return m ? `${_CNEFE_MESES[m.mes-1]} ${m.ano}` : '1 mês'; })()
+    : `${fM.size} meses`;
   const optPesq    = `<option value="">Todas</option>` + pesquisas.map(p =>
     `<option value="${p}"${p===fP?' selected':''}>${p}</option>`).join('');
   const optAgentes = `<option value="">Todos</option>` + agentes.map(a =>
@@ -10659,16 +10735,17 @@ window.renderCnefeSetores = () => {
     <th><select ${fi} onchange="setCnefeFiltro('pesquisa',this.value)">${optPesq}</select></th>
     <th><select ${fi} onchange="setCnefeFiltro('agente',this.value)">${optAgentes}</select></th>
     <th><input ${fi} placeholder="Localidade…" value="${fL}" oninput="setCnefeFiltro('localidade',this.value)"></th>
-    <th><select ${fi} onchange="setCnefeFiltro('mes',this.value)">${optMeses}</select></th>
+    <th><button onclick="toggleCnefeMesDropdown(event)" style="width:100%;font-size:0.65rem;padding:1px 3px;border:1px solid var(--borda);border-radius:3px;background:var(--fundo);color:${fM.size>0?'var(--azul-medio)':'var(--texto)'};font-weight:${fM.size>0?'700':'400'};margin-top:2px;cursor:pointer;text-align:left;white-space:nowrap;font-family:var(--fonte)">${_fMLabel} ▾</button></th>
     <th></th>
     <th><select ${fi} onchange="setCnefeFiltro('status',this.value)">${optStatus}</select></th>
+    <th></th>
     <th></th>
   </tr>`;
 
   let tbody = '';
   for (const [mes, grp] of grupos) {
     tbody += `<tr style="background:var(--azul-claro)">
-      <td colspan="8" style="font-size:0.75rem;font-weight:700;color:var(--azul);padding:0.35rem 0.9rem;letter-spacing:0.3px">
+      <td colspan="9" style="font-size:0.75rem;font-weight:700;color:var(--azul);padding:0.35rem 0.9rem;letter-spacing:0.3px">
         📅 ${mes} — ${grp.length} setor${grp.length !== 1 ? 'es' : ''}
       </td></tr>`;
     grp.forEach(s => {
@@ -10677,37 +10754,48 @@ window.renderCnefeSetores = () => {
       const pzLbl = s.prazoFinal instanceof Date ? s.prazoFinal.toLocaleDateString('pt-BR') : '—';
       const agNome = s.agente_nome || (_cnefeAgentesCache?.find(a => a.id === s.agente_id)?.nome) || '—';
       const locVal = (s.localidade || '').replace(/'/g, '&#39;');
-      tbody += `<tr>
-        <td style="cursor:pointer;color:var(--azul-medio);text-decoration:underline dotted" onclick="abrirCnefeListagem('${s.setor}')" title="Abrir listagem de campo"><code style="font-size:0.78rem;color:inherit">${s.setor}</code></td>
-        <td style="font-size:0.82rem">${s.pesquisa}</td>
-        <td style="font-size:0.82rem">${primeiroNome(agNome)}</td>
-        <td style="font-size:0.82rem;min-width:130px;cursor:pointer" onclick="cnefeEditarLocalidade(this,'${s.setor}','${s.docId||''}')">
-          <span class="cnefe-loc-val" title="Clique para editar localidade">${s.localidade || '<span style=\'color:var(--cinza);font-style:italic\'>—</span>'}</span>
-        </td>
-        <td style="font-size:0.82rem">${mcLbl}</td>
-        <td style="font-size:0.82rem">${pzLbl}</td>
-        <td>
-          <span class="badge ${stBadge[st]}" title="${s.concluido ? 'Clique para desmarcar' : 'Clique para marcar como concluído'}"
-            style="cursor:pointer;user-select:none"
-            onclick="toggleCnefeConcluidoRapido('${s.setor}','${s.docId||''}',${!s.concluido})">
-            ${s.concluido ? '✓ ' : ''}${stLabel[st]}
-          </span>
-        </td>
-        <td>
-          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">
-            <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
-              onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido},'${s.upa_id||''}')">✏️</button>
-            ${(() => { const tc = s.tem_csv || (_cnefeEnderecoCache[s.setor] instanceof Array && _cnefeEnderecoCache[s.setor].length > 0); return `<button title="${tc ? 'CSV importado — clique para reimportar' : 'Importar CSV da listagem'}" onclick="window._cnefeCSVDiretoSetor='${s.setor}';document.getElementById('cnefe-csv-direto-input').click()" style="font-size:0.7rem;padding:0.18rem 0.38rem;background:none;border:1px solid ${tc ? '#1a56db' : 'var(--borda)'};border-radius:4px;color:${tc ? '#1a56db' : 'var(--cinza)'};font-weight:${tc ? '700' : '400'};cursor:pointer;line-height:1.3;transition:all 0.15s">csv</button>`; })()}
+      const _agNomeEsc = agNome === '—' ? '' : agNome.replace(/"/g, '&quot;');
+      const _trKml = s.tem_kml ? ' style="color:#1a56db;font-weight:700;background:#eff6ff"' : '';
+      const _btnCsv = (() => { const tc = s.tem_csv || (_cnefeEnderecoCache[s.setor] instanceof Array && _cnefeEnderecoCache[s.setor].length > 0); return `<button title="${tc?'CSV importado — reimportar':'Importar CSV'}" onclick="window._cnefeCSVDiretoSetor='${s.setor}';document.getElementById('cnefe-csv-direto-input').click()" style="font-size:0.68rem;padding:1px 5px;background:none;border:1px solid ${tc?'#1a56db':'var(--borda)'};border-radius:4px;color:${tc?'#1a56db':'var(--cinza)'};font-weight:${tc?'700':'400'};cursor:pointer;line-height:1.4">csv</button>`; })();
+      const _btnKml = (() => { const tk = !!s.tem_kml; return `<button title="${tk?'KML importado — reimportar':'Importar KML'}" onclick="document.getElementById('cnefe-kml-tbl-input').click()" style="font-size:0.68rem;padding:1px 5px;background:none;border:1px solid ${tk?'#1a56db':'var(--borda)'};border-radius:4px;color:${tk?'#1a56db':'var(--cinza)'};font-weight:${tk?'700':'400'};cursor:pointer;line-height:1.4">kml</button>`; })();
+      tbody += `<tr${_trKml}>
+        <td style="color:var(--azul-medio)">
+          <div style="display:flex;align-items:center;gap:3px">
+            <code style="font-size:0.78rem;color:inherit;cursor:pointer;text-decoration:underline dotted" onclick="abrirCnefeListagem('${s.setor}')">${s.setor}</code>
+            <button onclick="event.stopPropagation();abrirCnefeQuickPop(event,'${s.setor}','${s.docId||''}','${s.upa_id||''}',${s.concluido})"
+              style="background:none;border:none;color:var(--cinza);opacity:0.25;cursor:pointer;font-size:0.85rem;padding:1px 3px;line-height:1;border-radius:3px;flex-shrink:0"
+              onmouseenter="this.style.opacity='1';this.style.background='var(--cinza-claro)'"
+              onmouseleave="this.style.opacity='0.25';this.style.background='none'"
+              title="Definir UPA / concluído">⋯</button>
           </div>
         </td>
+        <td>${s.pesquisa}</td>
+        <td>
+          <input type="text" list="cnefe-agentes-datalist"
+            value="${_agNomeEsc}" data-original="${_agNomeEsc}"
+            data-setor="${s.setor}" data-docid="${s.docId||''}"
+            placeholder="Agente…"
+            style="width:100%;font-size:0.7rem;padding:1px 4px;border:1px solid transparent;border-radius:4px;background:transparent;font-family:var(--fonte);color:var(--texto)"
+            onfocus="this.style.border='1px solid var(--azul-medio)';this.style.background='#fff'"
+            onblur="this.style.border='1px solid transparent';this.style.background='transparent';salvarCnefeAgenteInline(this)">
+        </td>
+        <td style="cursor:pointer" onclick="cnefeEditarLocalidade(this,'${s.setor}','${s.docId||''}')">
+          <span class="cnefe-loc-val" title="${s.localidade||'Clique para editar localidade'}">${s.localidade||'<span style=\'color:var(--cinza);font-style:italic\'>—</span>'}</span>
+        </td>
+        <td>${mcLbl}</td>
+        <td>${pzLbl}</td>
+        <td><span class="badge ${stBadge[st]}" style="cursor:pointer;user-select:none" title="${s.concluido?'Clique para desmarcar':'Marcar como concluído'}" onclick="toggleCnefeConcluidoRapido('${s.setor}','${s.docId||''}',${!s.concluido})">${s.concluido?'✓ ':''}${stLabel[st]}</span></td>
+        <td>${_btnCsv}</td>
+        <td>${_btnKml}</td>
       </tr>`;
     });
   }
 
-  el.innerHTML = `<div style="overflow-x:auto"><table style="min-width:860px"><thead>
+  const _datalistAgentes = `<datalist id="cnefe-agentes-datalist">${(_cnefeAgentesCache||[]).map(a => `<option value="${(a.nome||'').replace(/"/g,'&quot;')}"></option>`).join('')}</datalist>`;
+  el.innerHTML = `<div style="overflow-x:auto"><table class="cnefe-tbl"><thead>
     <tr>
-      <th>Setor</th><th>Pesquisa</th><th>Agente</th><th>Localidade</th><th>Mês CNEFE</th><th>Prazo Final</th><th>Status</th><th>Ações</th>
-    </tr>${filterRow}</thead><tbody>${tbody}</tbody></table></div>`;
+      <th>Setor</th><th>Pesquisa</th><th>Agente</th><th>Localidade</th><th>Mês CNEFE</th><th>Prazo</th><th>Status</th><th>CSV</th><th>KML</th>
+    </tr>${filterRow}</thead><tbody>${tbody}</tbody></table></div>${_datalistAgentes}`;
 };
 
 window.cnefeEditarLocalidade = (td, setor, docIdAtual) => {
@@ -10877,33 +10965,115 @@ window.importarIndicadoresGerenciais = (input) => {
   reader.readAsText(file, 'UTF-8');
 };
 
-window.editarCnefeSetor = (setor, docId, agId, concluido, upaId) => {
-  document.getElementById('cnefe-setor-edit-setor').value = setor;
-  document.getElementById('cnefe-setor-edit-id').value = docId || '';
-  document.getElementById('cnefe-setor-edit-upa').value = upaId || '';
-  document.getElementById('cnefe-setor-edit-concluido').checked = concluido === true || concluido === 'true';
-  _cnefePopularAgentes('cnefe-setor-edit-agente', agId);
-  abrirModal('modal-cnefe-setor-edit');
+window.toggleCnefeMesDropdown = (e) => {
+  e.stopPropagation();
+  const dd = document.getElementById('cnefe-mes-dd');
+  if (!dd) return;
+  if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
+  dd.innerHTML = (_cnefeMesesUnicos.length ? _cnefeMesesUnicos : []).map(m =>
+    `<label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;cursor:pointer;font-size:0.82rem"
+      onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''">
+      <input type="checkbox" value="${m.key}" ${_cnefeFiltros.mes.has(m.key)?'checked':''} onchange="toggleCnefeMesItem(this)">
+      ${_CNEFE_MESES[m.mes-1]} ${m.ano}
+    </label>`
+  ).join('') || '<div style="padding:0.5rem 0.8rem;font-size:0.82rem;color:var(--cinza)">Nenhum mês disponível</div>';
+  dd.style.display = 'block';
+  const rect = e.currentTarget.getBoundingClientRect();
+  const dw = dd.offsetWidth || 180;
+  let left = rect.left;
+  if (left + dw > window.innerWidth - 10) left = window.innerWidth - dw - 10;
+  dd.style.left = left + 'px';
+  dd.style.top  = (rect.bottom + 4) + 'px';
 };
 
-window.salvarCnefeSetorEdit = async () => {
-  const setor   = document.getElementById('cnefe-setor-edit-setor').value;
-  const agId    = document.getElementById('cnefe-setor-edit-agente').value;
-  const upaId   = document.getElementById('cnefe-setor-edit-upa').value.trim();
-  const concluido = document.getElementById('cnefe-setor-edit-concluido').checked;
-  // Reusa o docId atualizado no cache (pode ter sido criado por cnefeEditarLocalidade após renderização)
-  const docIdHtml = document.getElementById('cnefe-setor-edit-id').value;
-  const docId = docIdHtml || (_cnefeSetoresList||[]).find(s => s.setor === setor)?.docId || '';
-  const ag = _cnefeAgentesCache?.find(a => a.id === agId);
+window.toggleCnefeMesItem = (input) => {
+  if (input.checked) _cnefeFiltros.mes.add(input.value);
+  else               _cnefeFiltros.mes.delete(input.value);
+  renderCnefeSetores();
+};
+
+window.abrirCnefeQuickPop = (e, setor, docId, upaId, concluido) => {
+  e.stopPropagation();
+  const pop = document.getElementById('cnefe-quick-popover');
+  if (!pop) return;
+  const docIdEfetivo = docId || (_cnefeSetoresList?.find(s => s.setor === setor)?.docId) || '';
+  document.getElementById('cnefe-qp-setor').value = setor;
+  document.getElementById('cnefe-qp-docid').value = docIdEfetivo;
+  document.getElementById('cnefe-qp-label').textContent = setor;
+  document.getElementById('cnefe-qp-upa').value = upaId || '';
+  document.getElementById('cnefe-qp-concluido').checked = concluido === true || concluido === 'true';
+  pop.style.display = 'block';
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pw = pop.offsetWidth || 240;
+  let left = rect.left;
+  let top  = rect.bottom + 6;
+  if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+  if (top + 180 > window.innerHeight) top = rect.top - 185;
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+};
+
+window.fecharCnefeQuickPop = () => {
+  const pop = document.getElementById('cnefe-quick-popover');
+  if (pop) pop.style.display = 'none';
+};
+
+window.salvarCnefeQuickPop = async () => {
+  const setor    = document.getElementById('cnefe-qp-setor').value;
+  const upaId    = document.getElementById('cnefe-qp-upa').value.trim();
+  const concluido = document.getElementById('cnefe-qp-concluido').checked;
+  let docId = document.getElementById('cnefe-qp-docid').value || (_cnefeSetoresList?.find(s => s.setor === setor)?.docId) || '';
+  const item = _cnefeSetoresList?.find(s => s.setor === setor);
+  const pesquisa = item?.pesquisa || 'PNAD-C';
   try {
-    const payload = { setor, pesquisa: 'PNAD-C', agente_id: agId, agente_nome: ag?.nome || '', concluido, upa_id: upaId };
-    if (docId) await setDoc(doc(db, 'cnefe_setores', docId), payload, { merge: true });
-    else       await addDoc(collection(db, 'cnefe_setores'), { ...payload, criadoEm: serverTimestamp() });
-    fecharModal('modal-cnefe-setor-edit');
-    _cnefeSetoresCache = null;
+    const payload = { setor, upa_id: upaId, concluido };
+    if (docId) {
+      await setDoc(doc(db, 'cnefe_setores', docId), payload, { merge: true });
+    } else {
+      const ref = await addDoc(collection(db, 'cnefe_setores'), { ...payload, pesquisa, criadoEm: serverTimestamp() });
+      docId = ref.id;
+    }
+    if (item) { item.upa_id = upaId; item.concluido = concluido; item.docId = docId; }
+    if (_cnefeSetoresCache) {
+      const ci = _cnefeSetoresCache.find(s => s.id === docId || s.setor === setor);
+      if (ci) { ci.upa_id = upaId; ci.concluido = concluido; }
+      else _cnefeSetoresCache.push({ id: docId, setor, pesquisa, upa_id: upaId, concluido });
+    }
+    fecharCnefeQuickPop();
     mostrarToast('Setor atualizado!', 'sucesso');
-    carregarCnefeSetores();
+    renderCnefeSetores();
   } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+};
+
+window.salvarCnefeAgenteInline = async (input) => {
+  const setor = input.dataset.setor;
+  const nomeDigitado = input.value.trim();
+  const original = input.dataset.original || '';
+  if (nomeDigitado === original) return;
+  let docId = input.dataset.docid || (_cnefeSetoresList?.find(s => s.setor === setor)?.docId) || '';
+  const ag = (_cnefeAgentesCache||[]).find(a => a.nome.toLowerCase() === nomeDigitado.toLowerCase());
+  const agId   = ag?.id   || '';
+  const agNome = ag?.nome || nomeDigitado;
+  const item = _cnefeSetoresList?.find(s => s.setor === setor);
+  const pesquisa = item?.pesquisa || 'PNAD-C';
+  try {
+    const payload = { setor, agente_id: agId, agente_nome: agNome };
+    if (docId) {
+      await setDoc(doc(db, 'cnefe_setores', docId), payload, { merge: true });
+    } else {
+      const ref = await addDoc(collection(db, 'cnefe_setores'), { ...payload, pesquisa, criadoEm: serverTimestamp() });
+      docId = ref.id;
+      input.dataset.docid = docId;
+    }
+    if (item) { item.agente_id = agId; item.agente_nome = agNome; item.docId = docId; }
+    if (_cnefeSetoresCache) {
+      const ci = _cnefeSetoresCache.find(s => s.id === docId || s.setor === setor);
+      if (ci) { ci.agente_id = agId; ci.agente_nome = agNome; }
+      else _cnefeSetoresCache.push({ id: docId, setor, pesquisa, agente_id: agId, agente_nome: agNome });
+    }
+    input.dataset.original = nomeDigitado;
+    mostrarToast('Agente salvo!', 'sucesso');
+  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); input.value = original; }
 };
 
 window.toggleCnefeConcluidoRapido = async (setor, docId, novoEstado) => {
@@ -11613,7 +11783,7 @@ async function carregarCnefeQualidade() {
         <td><code style="font-size:0.78rem">${s.setor}</code></td>
         <td style="font-size:0.82rem">${(s.agente_nome||'—').split(' ')[0]}</td>
         <td><button class="btn-acao secundario" style="font-size:0.75rem;padding:0.2rem 0.55rem"
-          onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido},'')">✏️ Definir UPA</button></td>
+          onclick="abrirCnefeQuickPop(event,'${s.setor}','${s.docId||''}','${s.upa_id||''}',${s.concluido})">📍 Definir UPA</button></td>
       </tr>`).join('') +
       '</tbody></table></div>';
     }
@@ -11842,6 +12012,68 @@ window.selecionarCnefeMapaSetor = async (setor) => {
     document.getElementById('cnefe-mapa-container').innerHTML =
       '<div class="vazio" style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column"><div class="icone-vazio">⚠️</div>Erro ao buscar KML</div>';
   }
+};
+
+window.importarCnefeKmlTbl = async (input) => {
+  const files = [...input.files];
+  input.value = '';
+  if (!files.length) return;
+
+  const todosSetores = new Set((_cnefeSetoresList||[]).map(s => s.setor));
+
+  const _resolverSetor = (nome) => {
+    const base = nome.replace(/\.[^.]+$/, '');
+    // 1. Segmento final após "_"
+    const porUnd = base.split('_').pop();
+    if (porUnd && todosSetores.has(porUnd)) return porUnd;
+    // 2. Segmento inicial
+    const porIni = base.split('_')[0];
+    if (porIni && todosSetores.has(porIni)) return porIni;
+    // 3. Primeira sequência de 9-11 dígitos
+    const m = base.match(/\d{9,11}/);
+    if (m && todosSetores.has(m[0])) return m[0];
+    // 4. Nome inteiro sem extensão
+    if (todosSetores.has(base)) return base;
+    return null;
+  };
+
+  const lerArquivo = f => new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = () => res(null);
+    r.readAsText(f, 'UTF-8');
+  });
+
+  let ok = 0, erros = 0;
+  const erroNomes = [];
+
+  for (const file of files) {
+    const setor = _resolverSetor(file.name);
+    if (!setor) { erros++; erroNomes.push(`${file.name} (setor não identificado)`); continue; }
+
+    const texto = await lerArquivo(file);
+    if (!texto) { erros++; erroNomes.push(file.name); continue; }
+
+    try {
+      const { contorno, faces } = _parsearKML(texto);
+      if (!contorno && !faces.length) { erros++; erroNomes.push(`${file.name} (KML sem geometria)`); continue; }
+
+      const q = await getDocs(query(collection(db, 'cnefe_kml'), where('setor', '==', setor)));
+      const data = { setor, contorno: contorno || null, faces, atualizadoEm: serverTimestamp() };
+      if (!q.empty) await setDoc(q.docs[0].ref, data);
+      else          await addDoc(collection(db, 'cnefe_kml'), data);
+
+      _cnefeKmlCache[setor] = data;
+      _marcarKmlLocal(setor);
+      const item = (_cnefeSetoresList||[]).find(s => s.setor === setor);
+      if (item) item.tem_kml = true;
+      ok++;
+    } catch(e) { erros++; erroNomes.push(file.name); }
+  }
+
+  if (ok) renderCnefeSetores();
+  const resumo = `${ok} KML${ok!==1?'s':''} importado${ok!==1?'s':''}${erros?` · ${erros} erro${erros!==1?'s':''}` :''}`;
+  mostrarToast(resumo + (erroNomes.length ? ` — ${erroNomes.join('; ')}` : ''), erros && !ok ? 'erro' : ok ? 'sucesso' : 'aviso');
 };
 
 window.carregarKmlCnefe = async (input) => {
