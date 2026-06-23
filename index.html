@@ -3582,12 +3582,19 @@ window.gerarEtiquetas = async (idsOverride, tableId) => {
   const parsearEndereco = (endRaw, compRaw) => {
     const end = (endRaw||'').trim();
     const comp = (compRaw||'').trim();
-    const m = end.match(/^(.*?)\s+(\d+)\s*$/);
+    // Tenta número no final; senão, número antes de separador (ex: "Rua X 3 - Sobrado")
+    let m = end.match(/^(.*?)\s+(\d+)\s*$/);
+    let embedComp = '';
+    if (!m) {
+      const m2 = end.match(/^(.*?)\s+(\d+)\s*[-,–]\s*(.+)$/);
+      if (m2) { m = m2; embedComp = m2[3].trim(); }
+    }
     let logradouro, numero;
     if (m) { logradouro = m[1].trim(); numero = m[2]==='0' ? 's/n' : m[2]; }
     else { logradouro = end; numero = 's/n'; }
     const partes = [titleCase(logradouro), numero];
-    if (comp) partes.push(titleCase(comp));
+    const fullComp = comp || embedComp;
+    if (fullComp) partes.push(titleCase(fullComp));
     return partes.join(', ');
   };
   const FEMININOS = new Set(['MARIA','ANA','PAULA','JULIA','JESSICA','PATRICIA','SANDRA','LUCIA','ROSA','RITA','FERNANDA','CLAUDIA','BEATRIZ','CARLA','SARA','ALICE','HELOISA','CAMILA','LARISSA','VANESSA','ADRIANA','REGINA','VERA','MONICA','SONIA','CRISTINA','ROBERTA','JULIANA','FABIANA','LETICIA','RAFAELA','GABRIELA','RENATA','SIMONE','ELIANE','LUCIANA','MARCIA','KARINA','TATIANA','VIVIANE','ANDREA','DEBORA','DENISE','ELAINE','FLAVIA','LIDIANE','MIRIAM','NATALIA','PRISCILA','SOLANGE','SUELI','VIVIAN','TEREZA','TERESA','HELEN','HELENA','ISABEL','ISABELA','NATHALIA','GIOVANA','REBECA','BRUNA','THAIS','LUANA','MILENA','SUELLEN','PAMELA','SAMELLA','RHENA','KARIA','ELIZABETHE','ELIZABETH']);
@@ -3784,10 +3791,16 @@ window.gerarCartoes = async (idsOverride, tableId) => {
     // Endereço formatado
     const endRaw = (d.endereco || '').trim();
     const compRaw = (d.complemento || '').trim();
-    const mEnd = endRaw.match(/^(.*?)\s+(\d+)\s*$/);
+    let mEnd = endRaw.match(/^(.*?)\s+(\d+)\s*$/);
+    let endEmbed = '';
+    if (!mEnd) {
+      const m2 = endRaw.match(/^(.*?)\s+(\d+)\s*[-,–]\s*(.+)$/);
+      if (m2) { mEnd = m2; endEmbed = m2[3].trim(); }
+    }
     let endFmt = endRaw;
     if (mEnd) endFmt = titleCase(mEnd[1]) + ', ' + (mEnd[2]==='0'?'s/n':mEnd[2]);
-    if (compRaw) endFmt += ', ' + titleCase(compRaw);
+    const compFmt = compRaw || endEmbed;
+    if (compFmt) endFmt += ', ' + titleCase(compFmt);
 
     // Histórico compacto — até 5 etapas
     const HIST_MAX = 5;
@@ -4089,9 +4102,12 @@ window.gerarDiarioCampo = async (idsOverride, tableId) => {
     const tel = d.telefone || '—';
     const endRaw = (d.endereco||'').trim();
     const compRaw = (d.complemento||'').trim();
-    const mE = endRaw.match(/^(.*?)\s+(\d+)\s*$/);
+    let mE = endRaw.match(/^(.*?)\s+(\d+)\s*$/);
+    let endEmbed1 = '';
+    if (!mE) { const m2 = endRaw.match(/^(.*?)\s+(\d+)\s*[-,–]\s*(.+)$/); if (m2) { mE = m2; endEmbed1 = m2[3].trim(); } }
     let endFmt = endRaw ? (mE ? tc(mE[1])+', '+(mE[2]==='0'?'s/n':mE[2]) : tc(endRaw)) : '—';
-    if (compRaw) endFmt += ', '+tc(compRaw);
+    const compFmt1 = compRaw || endEmbed1;
+    if (compFmt1) endFmt += ', '+tc(compFmt1);
     const num = d.domicilio_num || d.numero_sequencial || '—';
     const morLista = mors.length > 0
       ? mors.map(m => `${tc(m.nome||'?')}${m.idade!=null?' ('+m.idade+'a)':''}`).join(' · ')
@@ -4284,9 +4300,12 @@ window.gerarResumoPendencias = async (idsOverride, tableId) => {
     const num   = d.domicilio_num || d.numero_sequencial || '—';
     const endRaw  = (d.endereco||'').trim();
     const compRaw = (d.complemento||'').trim();
-    const mE = endRaw.match(/^(.*?)\s+(\d+)\s*$/);
-    let endFmt = endRaw ? (mE ? tc(mE[1])+', '+(mE[2]==='0'?'s/n':mE[2]) : tc(endRaw)) : '—';
-    if (compRaw) endFmt += ', ' + tc(compRaw);
+    let mE2 = endRaw.match(/^(.*?)\s+(\d+)\s*$/);
+    let endEmbed2 = '';
+    if (!mE2) { const m2 = endRaw.match(/^(.*?)\s+(\d+)\s*[-,–]\s*(.+)$/); if (m2) { mE2 = m2; endEmbed2 = m2[3].trim(); } }
+    let endFmt = endRaw ? (mE2 ? tc(mE2[1])+', '+(mE2[2]==='0'?'s/n':mE2[2]) : tc(endRaw)) : '—';
+    const compFmt2 = compRaw || endEmbed2;
+    if (compFmt2) endFmt += ', ' + tc(compFmt2);
     const status = STATUS_LABEL[d.status_atual] || d.status_atual || '—';
     const tents = (d.tentativas_recentes || []).filter(t => t.origem);
     const temTelefone = tents.some(t => /telefone/i.test(t.origem||''));
@@ -4781,12 +4800,19 @@ window.gerarRoteiroCarta = async (idsOverride, tableId) => {
 
   const parsearEnd = (end, comp) => {
     if (!end) return comp ? tc(comp) : '';
-    const m = end.match(/^(.+?),\s*(\d+)\s*$/);
+    // Tenta "Logradouro, Número" ou "Logradouro Número"; senão número antes de separador
+    let m = end.match(/^(.+?),\s*(\d+)\s*$/) || end.match(/^(.*?)\s+(\d+)\s*$/);
+    let embedComp = '';
+    if (!m) {
+      const m2 = end.match(/^(.*?)[,\s]+(\d+)\s*[-,–]\s*(.+)$/);
+      if (m2) { m = m2; embedComp = m2[3].trim(); }
+    }
     let log, num;
     if (m) { log = m[1].trim(); num = m[2]==='0' ? 's/n' : m[2]; }
     else { log = end; num = 's/n'; }
     const partes = [tc(log), num];
-    if (comp) partes.push(tc(comp));
+    const fullComp = comp || embedComp;
+    if (fullComp) partes.push(tc(fullComp));
     return partes.filter(Boolean).join(', ');
   };
 
