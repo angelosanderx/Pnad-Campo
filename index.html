@@ -4705,7 +4705,7 @@ function _montarLinhaDOM(d, ns = '') {
         <div style="font-size:0.8rem;font-weight:700;color:var(--cinza-escuro);line-height:1.2">S${d.semana || '-'}</div>
         <div style="font-size:0.72rem;color:var(--cinza);line-height:1.2">${d.visita_etapa || '-'}ª</div>
       </td>
-      <td style="font-size:0.75rem;padding:0.4rem 0.4rem;word-break:break-word">${nomeEntr}</td>
+      <td style="font-size:0.75rem;padding:0.4rem 0.4rem;white-space:nowrap">${nomeEntr}</td>
       <td style="padding:0.4rem 0.6rem">
         <div class="campo-editavel-inline" style="font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:3px">
           <span id="${ns}dom-end-${d.id}">${d.endereco_custom || d.endereco || '-'}</span>
