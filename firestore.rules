@@ -1,9 +1,90 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Qualquer usuário autenticado pode ler e gravar em qualquer coleção
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function isAuth() {
+      return request.auth != null;
     }
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.perfil;
+    }
+    function isAdmin() {
+      return isAuth() && perfil() == "administrador";
+    }
+    function isSupervisor() {
+      return isAuth() && perfil() in ["administrador", "supervisor"];
+    }
+    match /usuarios/{uid} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || request.auth.uid == uid;
+    }
+    match /setores/{id} {
+      allow read: if isAuth();
+      allow write: if isSupervisor();
+    }
+    match /domicilios/{id} {
+      allow read: if isAuth();
+      allow create, update: if isAuth();
+      allow delete: if isAdmin();
+    }
+    match /domicilios/{id}/moradores/{moradorId} {
+      allow read, write: if isAuth();
+    }
+    match /visitas/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isSupervisor();
+    }
+    match /avisos/{id} {
+      allow read: if isAuth();
+      allow write: if isSupervisor();
+    }
+    match /chat/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAdmin();
+    }
+    match /enderecos_setor/{setor} {
+      allow read, write: if isAuth();
+    }
+    match /amostra_mestra/{id} {
+      allow read, write: if isAuth();
+    }
+    match /localidades_upa/{id} {
+      allow read, write: if isAuth();
+    }
+    match /cronograma/{id} {
+      allow read, write: if isAuth();
+    }
+    match /cnefe_setores/{id} {
+      allow read: if isAuth();
+      allow write: if isSupervisor();
+    }
+    match /cnefe_agentes/{id} {
+      allow read: if isAuth();
+      allow write: if isSupervisor();
+    }
+    match /cnefe_enderecos/{id} {
+      allow read: if isAuth();
+      allow write: if isSupervisor();
+    }
+    match /pendencias_obs/{id} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+    match /meta_importacao/{id} {
+      allow read: if isAuth();
+      allow write: if isSupervisor();
+    }
+    // ── CONCURSO ──────────────────────────────────────
+    match /concurso_disciplinas/{id}  { allow read, write: if true; }
+    match /concurso_tarefas/{id}      { allow read, write: if true; }
+    match /concurso_questoes/{id}     { allow read, write: if true; }
+    match /concurso_sessoes/{id}      { allow read, write: if true; }
+    match /concurso_meta/{id}         { allow read, write: if true; }
+    match /concurso_trilhas/{id}      { allow read, write: if true; }
+    match /concurso_mapa_aulas/{id}   { allow read, write: if true; }
+    match /concurso_trilha_aulas/{id} { allow read, write: if true; }
+    match /concurso_cadernos_tec/{id} { allow read, write: if true; }
+    match /concurso_plano_semana/{id} { allow read, write: if true; }
   }
 }
