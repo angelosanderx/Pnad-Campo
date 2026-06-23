@@ -78,6 +78,8 @@ service cloud.firestore {
     // ── CONCURSO ──────────────────────────────────────
     match /concurso_disciplinas/{id}  { allow read, write: if true; }
     match /concurso_tarefas/{id}      { allow read, write: if true; }
+    match /tarefas/{id}               { allow read, write: if true; }
+    match /disciplinas/{id}           { allow read, write: if true; }
     match /concurso_questoes/{id}     { allow read, write: if true; }
     match /concurso_sessoes/{id}      { allow read, write: if true; }
     match /concurso_meta/{id}         { allow read, write: if true; }
