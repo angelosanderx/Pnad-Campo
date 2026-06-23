@@ -1818,7 +1818,7 @@
 
     <div class="pagina" id="pag-ficha-domicilio">
       <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem">
-        <button class="btn-acao secundario" onclick="irPara('domicilios')">← Voltar</button>
+        <button class="btn-acao secundario" id="ficha-btn-voltar" onclick="irPara('domicilios')">← Voltar</button>
         <div class="titulo-pagina" style="margin-bottom:0" id="ficha-titulo">Ficha do Domicílio</div>
       </div>
 
@@ -5488,9 +5488,26 @@ function renderizarPaginaPendencias() {
 }
 
 // ── FICHA DO DOMICÍLIO (Sem Abas) ──
-window.abrirFicha = (id) => {
-  const dom = todosdomicilios.find(d => d.id === id);
+window.abrirFicha = (id, origem = '') => {
+  const dom = todosdomicilios.find(d => d.id === id) || _todosdomiciliosGlobal.find(d => d.id === id);
   if (!dom) return;
+
+  const btnVoltar = document.getElementById('ficha-btn-voltar');
+  if (btnVoltar) {
+    if (origem === 'cnefe-qualidade') {
+      btnVoltar.textContent = '← Voltar para CNEFE';
+      btnVoltar.onclick = () => {
+        irPara('cnefe');
+        requestAnimationFrame(() => {
+          const tabBtn = [...document.querySelectorAll('.cnefe-tab-btn')].find(b => b.getAttribute('onclick')?.includes('qualidade'));
+          if (tabBtn) cnefeMudarAba('qualidade', tabBtn);
+        });
+      };
+    } else {
+      btnVoltar.textContent = '← Voltar';
+      btnVoltar.onclick = () => irPara('domicilios');
+    }
+  }
 
   domicilioAtualId = id;
   carregarMoradores(id);
@@ -11755,7 +11772,7 @@ async function carregarCnefeQualidade() {
                         : etapa === 1 ? `Dom ${d.domicilio_num||'?'} ✓`
                         : `Dom ${d.domicilio_num||'?'} (E${etapa})`;
             const title = etapa > 1 ? `Etapa ${etapa} — não conta para CNEFE` : (status || '');
-            return `<span onclick="abrirFicha('${d.id}')" style="display:inline-block;margin:1px 2px;font-size:0.7rem;border:1px solid;border-radius:4px;padding:1px 5px;cursor:pointer;${bg}"
+            return `<span onclick="abrirFicha('${d.id}','cnefe-qualidade')" style="display:inline-block;margin:1px 2px;font-size:0.7rem;border:1px solid;border-radius:4px;padding:1px 5px;cursor:pointer;${bg}"
               title="${title}">${label}</span>`;
           }).join('');
 
@@ -11764,7 +11781,7 @@ async function carregarCnefeQualidade() {
             : '<span style="color:var(--texto-secundario)">—</span>';
 
           const dppomaCells = dppoma.length
-            ? dppoma.map(d => `<span onclick="abrirFicha('${d.id}')" style="display:inline-block;margin:1px 2px;font-size:0.7rem;border:1px solid var(--laranja);border-radius:4px;padding:1px 5px;background:var(--laranja-claro);color:var(--laranja);cursor:pointer"
+            ? dppoma.map(d => `<span onclick="abrirFicha('${d.id}','cnefe-qualidade')" style="display:inline-block;margin:1px 2px;font-size:0.7rem;border:1px solid var(--laranja);border-radius:4px;padding:1px 5px;background:var(--laranja-claro);color:var(--laranja);cursor:pointer"
                 title="Sem moradores cadastrados — ${d.status_atual||'nao_visitado'}">Dom ${d.domicilio_num||'?'}</span>`).join('')
             : '<span style="color:var(--texto-secundario);font-size:0.78rem">—</span>';
 
