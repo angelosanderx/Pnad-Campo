@@ -11717,8 +11717,10 @@ async function carregarCnefeQualidade() {
           <th title="Domicílios na PNAD sem moradores cadastrados">DPPOMA</th>
         </tr></thead><tbody>`;
 
+      const upaSummaries = [];
       let mesAtual = '';
       for (const [upaId, { setores, mesCnefe, anoCnefe }] of upasFiltradas) {
+        let _upaTotal = 0, _upaVisit = 0, _upaErros = 0, _upaDppoma = 0;
         const mesLabel = mesCnefe ? `${_CNEFE_MESES[mesCnefe-1]} ${anoCnefe}` : 'Sem mês';
         const mesKey   = mesCnefe ? `${anoCnefe}_${String(mesCnefe).padStart(2,'0')}` : 'sem';
 
@@ -11818,6 +11820,12 @@ async function carregarCnefeQualidade() {
           qualAgente[ag].total += domsVisitados.length;
           qualAgente[ag].erros += errosSetor.length;
 
+          // Acumula por UPA (para tabela de controle)
+          _upaTotal += totalSetor;
+          _upaVisit += domsVisitados.length;
+          _upaErros += errosSetor.length;
+          _upaDppoma += dppoma.length;
+
           // Lista todos os domicílios, não apenas os errados
           const domsList = domsSetor.map(d => {
             const etapa   = parseInt(d.visita_etapa) || 1;
@@ -11859,9 +11867,63 @@ async function carregarCnefeQualidade() {
             <td style="font-size:0.8rem">${dppomaCells}</td>
           </tr>`;
         }
+
+        // Empurra resumo desta UPA
+        const _upaPct = _upaVisit > 0 ? Math.round((_upaVisit - _upaErros) / _upaVisit * 100) : null;
+        upaSummaries.push({
+          upaId, mesCnefe, anoCnefe,
+          agente: (setores[0]?.agente_nome || '—'),
+          total: _upaTotal, visitados: _upaVisit,
+          erros: _upaErros, dppoma: _upaDppoma, pct: _upaPct
+        });
       }
 
       html += '</tbody></table></div>';
+
+      // ── Tabela de controle por UPA ───────────────────────────────────────────
+      const htmlControle = (() => {
+        if (!upaSummaries.length) return '';
+        const rows = upaSummaries.map(u => {
+          const pctCor = u.pct === null ? 'var(--texto-secundario)'
+            : u.pct >= 90 ? 'var(--verde)' : u.pct >= 70 ? 'var(--amarelo)' : 'var(--vermelho)';
+          const icone = u.pct === null ? '⬜' : u.pct >= 90 ? '🟢' : u.pct >= 70 ? '🟡' : '🔴';
+          const erroCol = u.erros > 0
+            ? `<span style="color:var(--vermelho);font-weight:700">${u.erros}</span>`
+            : `<span style="color:var(--verde)">0</span>`;
+          const dppCol = u.dppoma > 0
+            ? `<span style="color:var(--laranja);font-weight:700">${u.dppoma}</span>`
+            : `<span style="color:var(--texto-secundario)">0</span>`;
+          const mesBadge = u.mesCnefe
+            ? `<span class="badge badge-azul" style="font-size:0.68rem">${_CNEFE_MESES[u.mesCnefe-1]}/${u.anoCnefe}</span>`
+            : '<span style="color:var(--texto-secundario)">—</span>';
+          const primeiroNome = u.agente.split(' ')[0];
+          return `<tr>
+            <td style="font-size:0.8rem;font-weight:600">${icone} ${u.upaId}</td>
+            <td style="text-align:center">${mesBadge}</td>
+            <td style="font-size:0.8rem">${primeiroNome}</td>
+            <td style="text-align:center;font-weight:600">${u.total}</td>
+            <td style="text-align:center">${u.visitados}</td>
+            <td style="text-align:center">${erroCol}</td>
+            <td style="text-align:center">${dppCol}</td>
+            <td style="text-align:center;font-weight:700;color:${pctCor}">${u.pct !== null ? u.pct + '%' : '—'}</td>
+          </tr>`;
+        }).join('');
+        return `<div class="card-tabela-header" style="margin-bottom:0.5rem"><h3>📊 Controle por UPA</h3></div>
+        <div style="overflow-x:auto;margin-bottom:1.5rem"><table style="min-width:620px">
+          <thead><tr>
+            <th>UPA</th>
+            <th style="text-align:center">Mês CNEFE</th>
+            <th>Agente</th>
+            <th style="text-align:center" title="Total de domicílios no setor">Total</th>
+            <th style="text-align:center" title="Etapa 1 já visitados">Etapa 1</th>
+            <th style="text-align:center" title="Erros CNEFE (endereço inválido)">Erros</th>
+            <th style="text-align:center" title="Sem moradores cadastrados">DPPOMA</th>
+            <th style="text-align:center">% Acerto</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`;
+      })();
+      html = htmlControle + html;
     }
 
     // ── Setores sem UPA ─────────────────────────────────────────────────────────
