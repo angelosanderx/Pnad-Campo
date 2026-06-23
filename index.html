@@ -8644,6 +8644,19 @@ function renderizarRoteiro(lista, domAtual, setor) {
   const cor = corEntrevistador(domAtual.entrevistador_nome || '');
   renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, cor, domAtual);
   
+  // Cruza auxiliares com domicílios selecionados no período atual
+  const _domSel = (entry) => todosdomicilios.find(d =>
+    pertencePeriodo(d) &&
+    String(d.domicilio_num) === String(entry.dom) &&
+    (d.upa === setor || (d.controle && d.controle.slice(0,-1) === setor))
+  );
+  const _badgeSel = (entry) => {
+    const d = _domSel(entry);
+    if (!d) return '';
+    const c = corEntrevistador(d.entrevistador_nome || '');
+    return ` <span style="background:${c};color:white;border-radius:9px;padding:1px 7px;font-size:0.72rem;font-weight:700;vertical-align:middle">Dom.${d.domicilio_num}</span>`;
+  };
+
   // Renderiza lista
   let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.83rem"><thead><tr style="background:var(--cinza-claro)">' +
     '<th style="padding:0.5rem 0.75rem;text-align:left">Tipo</th>' +
@@ -8652,17 +8665,18 @@ function renderizarRoteiro(lista, domAtual, setor) {
     '<th style="padding:0.5rem 0.75rem;text-align:left">Complemento</th>' +
     '<th style="padding:0.5rem 0.75rem;text-align:left">Morador</th>' +
     '</tr></thead><tbody>';
-  
+
   anteriores.forEach(d => {
-    html += `<tr style="background:#f8fafc">
-      <td style="padding:0.5rem 0.75rem"><span class="badge badge-cinza">← Anterior</span></td>
+    const sel = _badgeSel(d);
+    html += `<tr style="background:${sel ? '#f0f9ff' : '#f8fafc'}">
+      <td style="padding:0.5rem 0.75rem"><span class="badge badge-cinza">← Anterior</span>${sel}</td>
       <td style="padding:0.5rem 0.75rem;font-weight:600">${d.seq_visita}</td>
       <td style="padding:0.5rem 0.75rem">${d.endereco || '—'}</td>
       <td style="padding:0.5rem 0.75rem;font-size:0.78rem;color:var(--cinza)">${d.complemento || ''}</td>
       <td style="padding:0.5rem 0.75rem;font-size:0.78rem">${d.morador || ''}</td>
     </tr>`;
   });
-  
+
   if (alvo) {
     html += `<tr style="background:${cor}22;border:2px solid ${cor}">
       <td style="padding:0.5rem 0.75rem"><span class="badge" style="background:${cor};color:white">🎯 ALVO</span></td>
@@ -8672,10 +8686,11 @@ function renderizarRoteiro(lista, domAtual, setor) {
       <td style="padding:0.5rem 0.75rem;font-size:0.78rem">${alvo.morador || domAtual.morador || ''}</td>
     </tr>`;
   }
-  
+
   posteriores.forEach(d => {
-    html += `<tr style="background:#f8fafc">
-      <td style="padding:0.5rem 0.75rem"><span class="badge badge-azul">→ Posterior</span></td>
+    const sel = _badgeSel(d);
+    html += `<tr style="background:${sel ? '#f0f9ff' : '#f8fafc'}">
+      <td style="padding:0.5rem 0.75rem"><span class="badge badge-azul">→ Posterior</span>${sel}</td>
       <td style="padding:0.5rem 0.75rem;font-weight:600">${d.seq_visita}</td>
       <td style="padding:0.5rem 0.75rem">${d.endereco || '—'}</td>
       <td style="padding:0.5rem 0.75rem;font-size:0.78rem;color:var(--cinza)">${d.complemento || ''}</td>
