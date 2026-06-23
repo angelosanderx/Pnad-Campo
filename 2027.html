@@ -978,6 +978,124 @@
     margin-left: .4rem;
   }
   .mini-barra-fill { height: 100%; border-radius: 3px; }
+
+  /* ══════════════════════════════════
+     PLANO DE ESTUDO
+  ══════════════════════════════════ */
+  .plano-abas {
+    display: flex;
+    gap: .3rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .plano-aba {
+    padding: .55rem 1.1rem;
+    border-radius: 8px 8px 0 0;
+    font-size: .84rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    transition: all .15s;
+    margin-bottom: -1px;
+    background: transparent;
+    user-select: none;
+  }
+  .plano-aba:hover { color: var(--text); background: rgba(255,255,255,.04); }
+  .plano-aba.ativa {
+    background: var(--bg-card);
+    border-color: var(--border);
+    border-bottom-color: var(--bg-card);
+    color: var(--azul);
+    font-weight: 600;
+  }
+  .plano-painel { display: none; }
+  .plano-painel.ativo { display: block; }
+
+  /* chips filtro */
+  .plano-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .plano-chip {
+    padding: .28rem .7rem;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--bg-card);
+    transition: all .15s;
+    user-select: none;
+  }
+  .plano-chip:hover { border-color: var(--azul); color: var(--azul); }
+  .plano-chip.ativo { color: #fff; border-color: transparent; }
+
+  /* tarefa semana */
+  .tarefa-item {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: .7rem .875rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: .45rem;
+    transition: border-color .15s;
+  }
+  .tarefa-item:hover { border-color: var(--border2); }
+  .tarefa-item.concluida { opacity: .5; }
+  .tarefa-item.concluida .tarefa-desc { text-decoration: line-through; }
+  .tarefa-check { flex-shrink: 0; margin-top: 3px; accent-color: var(--verde); width: 16px; height: 16px; cursor: pointer; }
+  .tarefa-corpo { flex: 1; min-width: 0; }
+  .tarefa-badges { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .3rem; align-items: center; }
+  .tarefa-badge { padding: .12rem .45rem; border-radius: 4px; font-size: .68rem; font-weight: 700; color: #fff; }
+  .tarefa-desc { font-size: .83rem; color: var(--text); line-height: 1.4; }
+  .tarefa-link { font-size: .73rem; color: var(--azul); text-decoration: none; display: inline-block; margin-top: .2rem; }
+  .tarefa-link:hover { text-decoration: underline; }
+  .tarefa-meta { font-size: .71rem; color: var(--text-dim); margin-top: .2rem; }
+  .btn-excluir {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: .2rem .4rem;
+    border-radius: 4px;
+    font-size: .8rem;
+    flex-shrink: 0;
+    transition: all .15s;
+  }
+  .btn-excluir:hover { color: var(--vermelho); background: rgba(239,68,68,.1); }
+
+  /* trilha de aulas */
+  .ta-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: .75rem; overflow: hidden; }
+  .ta-header { display: flex; align-items: center; gap: .75rem; padding: .875rem 1rem; cursor: pointer; user-select: none; transition: background .15s; }
+  .ta-header:hover { background: rgba(255,255,255,.03); }
+  .ta-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ta-titulo { font-weight: 600; font-size: .9rem; color: var(--text); flex: 1; }
+  .ta-stats { font-size: .75rem; color: var(--text-muted); }
+  .ta-toggle { color: var(--text-dim); font-size: .75rem; transition: transform .2s; flex-shrink: 0; }
+  .ta-toggle.aberto { transform: rotate(90deg); }
+  .ta-corpo { display: none; border-top: 1px solid var(--border); overflow-x: auto; }
+  .ta-corpo.aberto { display: block; }
+  .ta-table { width: 100%; border-collapse: collapse; font-size: .79rem; min-width: 620px; }
+  .ta-table th { background: var(--bg-sidebar); color: var(--text-muted); font-weight: 600; font-size: .67rem; text-transform: uppercase; letter-spacing: .5px; padding: .45rem .7rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ta-table td { padding: .38rem .7rem; border-bottom: 1px solid rgba(59,130,246,.06); vertical-align: top; }
+  .ta-table tr:last-child td { border-bottom: none; }
+  .ta-table tr.concluida td { opacity: .5; }
+  .ta-tipo-badge { display: inline-block; padding: .1rem .4rem; border-radius: 3px; font-size: .67rem; font-weight: 700; color: #fff; white-space: nowrap; }
+  .btn-add-sem { background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-size: .68rem; padding: .15rem .4rem; border-radius: 4px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .btn-add-sem:hover { border-color: var(--azul); color: var(--azul); background: rgba(59,130,246,.08); }
+
+  /* cadernos TEC */
+  .tec-table { width: 100%; border-collapse: collapse; font-size: .8rem; min-width: 580px; }
+  .tec-table th { background: var(--bg-sidebar); color: var(--text-muted); font-weight: 600; font-size: .67rem; text-transform: uppercase; letter-spacing: .5px; padding: .45rem .7rem; text-align: left; border-bottom: 1px solid var(--border); }
+  .tec-table td { padding: .38rem .7rem; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
+  .tec-table tr:last-child td { border-bottom: none; }
+  .tec-table tr.concluido td { opacity: .5; }
+  .banca-badge { display: inline-block; padding: .1rem .4rem; border-radius: 3px; font-size: .7rem; font-weight: 700; color: #fff; }
+  .banca-FGV { background: #6366f1; }
+  .banca-FCC { background: #3b82f6; }
+  .banca-CESPE { background: #f97316; }
 </style>
 </head>
 <body>
@@ -999,6 +1117,9 @@
     </div>
 
     <div class="nav-section">Estudo</div>
+    <div class="nav-item" onclick="irPara('plano', this)">
+      <span class="nav-icon">📅</span> Plano de Estudo
+    </div>
     <div class="nav-item" onclick="irPara('cronometro', this)">
       <span class="nav-icon">⏱️</span> Cronômetro
     </div>
@@ -1221,6 +1342,42 @@
   </div>
 
   <!-- ════════════════════════════
+       PLANO DE ESTUDO
+  ════════════════════════════ -->
+  <div class="pagina" id="pag-plano">
+    <div class="hero">
+      <h1>📅 Plano de Estudo</h1>
+      <p>Organize suas tarefas semanais, acompanhe a trilha de aulas e os cadernos TEC</p>
+    </div>
+
+    <div class="plano-abas">
+      <div class="plano-aba ativa" onclick="mudarAbaPlano('semana', this)">📋 Semana Atual</div>
+      <div class="plano-aba" onclick="mudarAbaPlano('trilha', this)">📚 Trilha de Aulas</div>
+      <div class="plano-aba" onclick="mudarAbaPlano('tec', this)">🎯 Cadernos TEC</div>
+    </div>
+
+    <!-- ABA 1: SEMANA ATUAL -->
+    <div class="plano-painel ativo" id="plano-painel-semana">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem">
+        <div id="semana-contador" style="font-size:.85rem;color:var(--text-muted)">—</div>
+        <button class="btn btn-primary" onclick="abrirModalPlanoTarefa()">+ Adicionar Tarefa</button>
+      </div>
+      <div id="semana-chips" class="plano-chips" style="margin-bottom:1rem"></div>
+      <div id="semana-lista"><div class="loader">Carregando tarefas...</div></div>
+    </div>
+
+    <!-- ABA 2: TRILHA DE AULAS -->
+    <div class="plano-painel" id="plano-painel-trilha">
+      <div id="trilha-aulas-lista"><div class="loader">Carregando trilha de aulas...</div></div>
+    </div>
+
+    <!-- ABA 3: CADERNOS TEC -->
+    <div class="plano-painel" id="plano-painel-tec">
+      <div id="cadernos-tec-lista"><div class="loader">Carregando cadernos TEC...</div></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════
        TRILHAS
   ════════════════════════════ -->
   <div class="pagina" id="pag-trilhas">
@@ -1374,6 +1531,72 @@
 </div>
 
 
+<!-- Modal: Adicionar Tarefa ao Plano -->
+<div class="modal-overlay" id="modal-plano-tarefa" style="display:none">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>+ Adicionar Tarefa à Semana</h3>
+      <button class="btn-fechar" onclick="fecharModal('modal-plano-tarefa')">✕</button>
+    </div>
+    <div class="modal-corpo">
+      <div class="form-grid">
+        <div class="form-grupo">
+          <label>Disciplina</label>
+          <select id="pm-disc"><option value="">— Selecione —</option></select>
+        </div>
+        <div class="form-grupo">
+          <label>Tipo</label>
+          <select id="pm-tipo">
+            <option value="TEORIA">Teoria</option>
+            <option value="QUESTOES_PDF">Questões PDF</option>
+            <option value="REVISAO">Revisão</option>
+            <option value="MAPA_MENTAL">Mapa Mental</option>
+            <option value="CADERNO_TEC">Caderno TEC</option>
+            <option value="PROVA">Prova</option>
+            <option value="Discursiva">Discursiva</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+        <div class="form-grupo full">
+          <label>Descrição</label>
+          <textarea id="pm-desc" rows="3" placeholder="Descreva a tarefa..."></textarea>
+        </div>
+        <div class="form-grupo full">
+          <label>Link (opcional)</label>
+          <input type="text" id="pm-link" placeholder="https://...">
+        </div>
+        <div class="form-grupo">
+          <label>Semana</label>
+          <input type="text" id="pm-semana" placeholder="2026-W01">
+        </div>
+        <div class="form-grupo">
+          <label>Estimativa</label>
+          <select id="pm-est">
+            <option value="15">15 min</option>
+            <option value="30">30 min</option>
+            <option value="45">45 min</option>
+            <option value="60" selected>1h</option>
+            <option value="90">1h30</option>
+            <option value="120">2h+</option>
+          </select>
+        </div>
+        <div class="form-grupo">
+          <label>Prioridade</label>
+          <select id="pm-prio">
+            <option value="Alta">Alta</option>
+            <option value="Média" selected>Média</option>
+            <option value="Baixa">Baixa</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-rodape">
+      <button class="btn btn-ghost" onclick="fecharModal('modal-plano-tarefa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarPlanoTarefa()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════════════════════════════════
      SCRIPTS
 ════════════════════════════════════════════ -->
@@ -1442,7 +1665,7 @@ function erroCarregamento(ids) {
 }
 
 // ── navegação ──
-const TITULOS = { dashboard: 'Dashboard', disciplinas: 'Disciplinas e Tarefas', cronometro: 'Cronômetro', trilhas: 'Trilhas de Estudo', 'mapa-aulas': 'Mapa de Aulas' };
+const TITULOS = { dashboard: 'Dashboard', disciplinas: 'Disciplinas e Tarefas', cronometro: 'Cronômetro', trilhas: 'Trilhas de Estudo', 'mapa-aulas': 'Mapa de Aulas', plano: 'Plano de Estudo' };
 window.irPara = (pag, navEl) => {
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('ativo'));
@@ -1459,6 +1682,7 @@ window.irPara = (pag, navEl) => {
   if (pag === 'cronometro') { popularSelectsDisciplina(); cronCarregarSessoesHoje(); }
   if (pag === 'trilhas') carregarTrilhas();
   if (pag === 'mapa-aulas') carregarMapaAulas();
+  if (pag === 'plano') { if (!_planoSemanaCarregado) carregarPlanoSemana(); }
 };
 window.toggleSidebar = () => {
   document.getElementById('sidebar').classList.toggle('aberta');
@@ -2596,6 +2820,743 @@ function _atualizarResumoMapa() {
   const resumoEl = document.getElementById('mapa-resumo');
   if (resumoEl) resumoEl.textContent = `${aulas.length} aulas · T+R: ${tTR}/${aulas.length} · ${tQ} questões · ${tQ ? tDp + '% geral' : '—'}`;
 }
+</script>
+
+<!-- ════ MÓDULO: PLANO DE ESTUDO ════ -->
+<script>
+// ── Utils ──
+function _semanaISO() {
+  const d = new Date();
+  const thursday = new Date(d);
+  thursday.setDate(d.getDate() - (d.getDay() + 6) % 7 + 3);
+  const ft = new Date(thursday.getFullYear(), 0, 4);
+  ft.setDate(ft.getDate() - (ft.getDay() + 6) % 7 + 3);
+  const w = Math.round((thursday - ft) / 604800000) + 1;
+  return `${thursday.getFullYear()}-W${String(w).padStart(2,'0')}`;
+}
+function _corDisc(nome) {
+  const n = (nome || '').toLowerCase();
+  if (n.includes('constitucional')) return '#6366f1';
+  if (n.includes('administrativo')) return '#3b82f6';
+  if (n.includes('tribut')) return '#f97316';
+  if (n.includes('contabilidade')) return '#22c55e';
+  if (n.includes('portugu')) return '#a855f7';
+  if (n.includes('auditoria')) return '#ec4899';
+  if (n.includes('racioc')) return '#06b6d4';
+  if (n.includes('ingl')) return '#eab308';
+  if (n.includes('discursiva')) return '#ef4444';
+  return '#64748b';
+}
+const TIPO_LABEL = { TEORIA:'Teoria', QUESTOES_PDF:'Questões PDF', REVISAO:'Revisão', MAPA_MENTAL:'Mapa Mental', CADERNO_TEC:'Caderno TEC', PROVA:'Prova', Discursiva:'Discursiva', Outro:'Outro' };
+const TIPO_COR = { TEORIA:'#3b82f6', QUESTOES_PDF:'#f97316', REVISAO:'#22c55e', MAPA_MENTAL:'#a855f7', CADERNO_TEC:'#06b6d4', PROVA:'#ef4444', Discursiva:'#ec4899', Outro:'#64748b' };
+
+// ── State ──
+let planoSemanaCache = {};
+let trilhaAulasCache = {};
+let cadernosTECCache = {};
+let _planoSemanaCarregado = false;
+let _trilhaAulasCarregada = false;
+let _cadernosTECCarregado = false;
+let _planoFiltroDisc = null;
+const _planoDebounce = {};
+
+// ── Seed Data ──
+const _st = (n, tipo, aula, parte, desc) => ({ n, tipo, aula, parte: parte || null, desc });
+
+const SEED_TRILHA_AULAS = {
+  constitucional: {
+    link: 'https://www.estrategiaconcursos.com.br/app/dashboard/cursos/220880/aulas/',
+    tarefas: [
+      _st(1,'TEORIA','Aula 00','Parte 1/4',"Teoria da Aula 00 – Parte 1 de 4. De 'Natureza, Conceito, Objeto e Conteúdo Científico do Direito Constitucional' até 'Constitucionalismo e Neoconstitucionalismo', inclusive."),
+      _st(2,'TEORIA','Aula 00','Parte 2/4',"Teoria da Aula 00 – Parte 2 de 4. De 'Sentidos da Constituição' até 'Classificação das Constituições', inclusive."),
+      _st(3,'TEORIA','Aula 00','Parte 3/4',"Teoria da Aula 00 – Parte 3 de 4. De 'Aplicabilidade das Normas Constitucionais' até 'Poder Constituinte', inclusive."),
+      _st(4,'TEORIA','Aula 00','Parte 4/4',"Teoria da Aula 00 – Parte 4 de 4. Dos 'Princípios Fundamentais' até o final da parte teórica do PDF."),
+      _st(5,'QUESTOES_PDF','Aula 00',null,"Resolução de questões do PDF da Aula 00 (somente ímpares) — Constitucionalismo, Sentidos, Estrutura, Classificações, Aplicabilidade, Hierarquia, Poder Constituinte, Princípios Fundamentais."),
+      _st(6,'REVISAO','Aula 00',null,"Revisão da Aula 00 e resolução das questões (questões pares — FGV)."),
+      _st(7,'MAPA_MENTAL','Aula 00',null,"REV 2 – Revisão por Resumos e/ou Mapas Mentais da Aula 00. Refazer questões erradas + finalizar questões do PDF."),
+      _st(8,'TEORIA','Aula 01',null,"Teoria de toda a Aula 01 – Aplicação das Normas Constitucionais e Interpretação Constitucional."),
+      _st(9,'QUESTOES_PDF','Aula 01',null,"Resolução de questões do PDF da Aula 01."),
+      _st(10,'REVISAO','Aula 01',null,"Revisão da Aula 01 e resolução das questões."),
+      _st(11,'MAPA_MENTAL','Aula 01',null,"REV 2 – Revisão por Resumos e/ou Mapas Mentais da Aula 01."),
+      _st(12,'TEORIA','Aula 02',null,"Teoria de toda a Aula 02 – Direitos Fundamentais."),
+      _st(13,'QUESTOES_PDF','Aula 02',null,"Resolução de questões do PDF da Aula 02."),
+      _st(14,'REVISAO','Aula 02',null,"Revisão da Aula 02 e resolução das questões."),
+      _st(15,'MAPA_MENTAL','Aula 02',null,"REV 2 – Revisão por Resumos e/ou Mapas Mentais da Aula 02."),
+      _st(16,'TEORIA','Aula 03','Parte 1/2',"Teoria da Aula 03 – Parte 1 de 2. Direitos e Deveres Individuais e Coletivos: incisos I ao X do art. 5° da CF/88."),
+      _st(17,'TEORIA','Aula 03','Parte 2/2',"Teoria da Aula 03 – Parte 2 de 2. Direitos e Deveres Individuais e Coletivos: incisos XI ao XXXI do art. 5° da CF/88."),
+      _st(18,'QUESTOES_PDF','Aula 03',null,"Resolução de questões do PDF da Aula 03."),
+      _st(19,'REVISAO','Aula 03',null,"Revisão da Aula 03 e resolução das questões."),
+      _st(20,'TEORIA','Aula 04','Parte 1/3',"Teoria da Aula 04 – Parte 1 de 3. Direitos e Deveres Individuais e Coletivos: incisos XXXII ao L do art. 5° da CF/88."),
+      _st(21,'TEORIA','Aula 04','Parte 2/3',"Teoria da Aula 04 – Parte 2 de 3. Direitos e Deveres Individuais e Coletivos: incisos LI ao LXXVIII do art. 5° da CF/88."),
+      _st(22,'TEORIA','Aula 04','Parte 3/3',"Teoria da Aula 04 – Parte 3 de 3. Remédios Constitucionais até o final da parte teórica."),
+      _st(23,'QUESTOES_PDF','Aula 04',null,"Resolução de questões do PDF da Aula 04."),
+      _st(24,'REVISAO','Aula 04',null,"Revisão da Aula 04 e resolução das questões."),
+      _st(25,'TEORIA','Aula 05',null,"Teoria de toda a Aula 05 – Direitos Sociais."),
+      _st(26,'QUESTOES_PDF','Aula 05',null,"Resolução de questões do PDF da Aula 05."),
+      _st(27,'REVISAO','Aula 05',null,"Revisão da Aula 05 e resolução das questões."),
+      _st(28,'TEORIA','Aula 06',null,"Teoria de toda a Aula 06 – Nacionalidade."),
+      _st(29,'QUESTOES_PDF','Aula 06',null,"Resolução de questões do PDF da Aula 06."),
+      _st(30,'REVISAO','Aula 06',null,"Revisão da Aula 06 e resolução das questões."),
+      _st(31,'TEORIA','Aula 07',null,"Teoria de toda a Aula 07 – Direitos Políticos."),
+      _st(32,'QUESTOES_PDF','Aula 07',null,"Resolução de questões do PDF da Aula 07."),
+      _st(33,'REVISAO','Aula 07',null,"Revisão da Aula 07 e resolução das questões."),
+    ]
+  },
+  administrativo: {
+    link: 'https://www.estrategiaconcursos.com.br/app/dashboard/cursos/220883/aulas/',
+    tarefas: [
+      _st(1,'TEORIA','Aula 00','Parte 1/2',"Teoria da Aula 00 - Parte 1 de 2. Estudo dos princípios administrativos. Do início até 'Princípios Expressos', inclusive."),
+      _st(2,'TEORIA','Aula 00','Parte 2/2',"Teoria da Aula 00 - Parte 2 de 2. De princípios administrativos implícitos até o fim da parte teórica."),
+      _st(3,'QUESTOES_PDF','Aula 00',null,"Resolução de questões do PDF da Aula 00 (01 a 07 de cada lista: Cebraspe, FCC e FGV)."),
+      _st(4,'REVISAO','Aula 00',null,"Revisão da Aula 00 e resolução das questões (08 a 18 de cada lista)."),
+      _st(5,'MAPA_MENTAL','Aula 00',null,"Revisão por Resumos e/ou Mapas Mentais da Aula 00."),
+      _st(6,'TEORIA','Aula 01','Parte 1/2',"Teoria da Aula 01 – Parte 1 de 2. Noções Iniciais de Direito Administrativo."),
+      _st(7,'TEORIA','Aula 01','Parte 2/2',"Teoria da Aula 01 – Parte 2 de 2. Administração Pública."),
+      _st(8,'QUESTOES_PDF','Aula 01',null,"Resolução de questões do PDF da Aula 01."),
+      _st(9,'REVISAO','Aula 01',null,"Revisão da Aula 01 e resolução das questões."),
+      _st(10,'TEORIA','Aula 02','Parte 1/2',"Teoria da Aula 02 – Parte 1 de 2. Organização Administrativa + Administração Direta e Indireta (tópicos 1 e 2)."),
+      _st(11,'TEORIA','Aula 02','Parte 2/2',"Teoria da Aula 02 – Parte 2 de 2. Autarquias + Jurisprudência (tópicos 3 e 4)."),
+      _st(12,'QUESTOES_PDF','Aula 02',null,"Resolução de questões do PDF da Aula 02."),
+      _st(13,'REVISAO','Aula 02',null,"Revisão da Aula 02 e resolução das questões."),
+      _st(14,'TEORIA','Aula 03','Parte 1/2',"Teoria da Aula 03 - Parte 1 de 2. Empresas Públicas e Sociedades de Economia Mista; Fundações Públicas. Do início até 'Prescrição'."),
+      _st(15,'TEORIA','Aula 03','Parte 2/2',"Teoria da Aula 03 - Parte 2 de 2. Do tópico 'Regime de pessoal' até o fim da parte teórica."),
+      _st(16,'QUESTOES_PDF','Aula 03',null,"Resolução de questões do PDF da Aula 03."),
+      _st(17,'REVISAO','Aula 03',null,"Revisão da Aula 03 e resolução das questões."),
+      _st(18,'TEORIA','Aula 04','Parte 1/2',"Teoria da Aula 04 - Parte 1 de 2. Entidades paraestatais: Serviço Social Autônomo, OS e OSCIP."),
+      _st(19,'TEORIA','Aula 04','Parte 2/2',"Teoria da Aula 04 - Parte 2 de 2. Organizações da Sociedade Civil (Regime de Parcerias)."),
+      _st(20,'QUESTOES_PDF','Aula 04',null,"Resolução de questões do PDF da Aula 04."),
+      _st(21,'REVISAO','Aula 04',null,"Revisão da Aula 04 e resolução das questões."),
+      _st(22,'TEORIA','Aula 05','Parte 1/3',"Teoria da Aula 05 - Parte 1 de 3. Poderes Administrativos — do início até 'Poder Disciplinar', inclusive."),
+      _st(23,'TEORIA','Aula 05','Parte 2/3',"Teoria da Aula 05 - Parte 2 de 3. Poder Regulamentar até o fim da parte teórica."),
+      _st(24,'TEORIA','Aula 05','Parte 3/3',"Teoria da Aula 05 - Parte 3 de 3. Continuação Poder Regulamentar até o fim."),
+      _st(25,'QUESTOES_PDF','Aula 05',null,"Resolução de questões do PDF da Aula 05."),
+      _st(26,'REVISAO','Aula 05',null,"Revisão da Aula 05 e resolução das questões."),
+      _st(27,'TEORIA','Aula 06','Parte 1/6',"Teoria da Aula 06 - Parte 1 de 6. Atos Administrativos — do início até 'Atributos dos Atos Administrativos'."),
+      _st(28,'TEORIA','Aula 06','Parte 2/6',"Teoria da Aula 06 - Parte 2 de 6. Elementos dos Atos Administrativos."),
+      _st(29,'TEORIA','Aula 06','Parte 3/6',"Teoria da Aula 06 - Parte 3 de 6. Vícios dos Atos Administrativos até 'Classificação dos Atos Administrativos'."),
+      _st(30,'TEORIA','Aula 06','Parte 4/6',"Teoria da Aula 06 - Parte 4 de 6. Continuação Vícios até Classificação."),
+      _st(31,'TEORIA','Aula 06','Parte 5/6',"Teoria da Aula 06 - Parte 5 de 6. Espécies dos Atos Administrativos ao fim da parte teórica."),
+      _st(32,'TEORIA','Aula 06','Parte 6/6',"Teoria da Aula 06 - Parte 6 de 6. Continuação Espécies ao fim."),
+      _st(33,'QUESTOES_PDF','Aula 06',null,"Resolução de questões do PDF da Aula 06."),
+      _st(34,'REVISAO','Aula 06',null,"Revisão da Aula 06 e resolução das questões."),
+    ]
+  },
+  tributario: {
+    link: 'https://www.estrategiaconcursos.com.br/app/dashboard/cursos/220884/aulas',
+    tarefas: [
+      _st(1,'TEORIA','Aula 00','Parte 1/3',"Estudo da Aula 00 – Parte 1 de 3. De 'noções introdutórias' até 'espécies tributárias', exclusive."),
+      _st(2,'TEORIA','Aula 00','Parte 2/3',"Estudo da Aula 00 – Parte 2 de 3. De 'espécies tributárias' até 'empréstimos compulsórios', exclusive."),
+      _st(3,'TEORIA','Aula 00','Parte 3/3',"Estudo da Aula 00 – Parte 3 de 3. De 'empréstimos compulsórios' até 'classificação dos tributos segundo a doutrina', inclusive."),
+      _st(4,'QUESTOES_PDF','Aula 00',null,"Resolução de questões do PDF da Aula 00."),
+      _st(5,'REVISAO','Aula 00',null,"Revisão da Aula 00 e resolução de questões."),
+      _st(6,'TEORIA','Aula 01','Parte 1/2',"Estudo da Aula 01 – Parte 1 de 2. De 'limitações ao poder de tributar' até 'Princípios da Anterioridade e Irretroatividade', exclusive."),
+      _st(7,'TEORIA','Aula 01','Parte 2/2',"Estudo da Aula 01 – Parte 2 de 2. De 'Princípios da Anterioridade e Irretroatividade' até 'princípio da cooperação e da defesa do meio ambiente', inclusive."),
+      _st(8,'QUESTOES_PDF','Aula 01',null,"Resolução de questões do PDF da Aula 01."),
+      _st(9,'REVISAO','Aula 01',null,"Revisão da Aula 01 e resolução de questões."),
+      _st(10,'TEORIA','Aula 02','Parte 1/2',"Estudo da Aula 02 – Parte 1 de 2. De 'imunidades' até 'imunidade dos partidos políticos', exclusive."),
+      _st(11,'TEORIA','Aula 02','Parte 2/2',"Estudo da Aula 02 – Parte 2 de 2. De 'imunidade dos partidos políticos' até 'Imunidades do ITCMD e do IPVA', inclusive."),
+      _st(12,'QUESTOES_PDF','Aula 02',null,"Resolução de questões do PDF da Aula 02."),
+      _st(13,'REVISAO','Aula 02',null,"Revisão da Aula 02 e resolução de questões."),
+      _st(14,'TEORIA','Aula 03',null,"Estudo da Aula 03 — integral."),
+      _st(15,'QUESTOES_PDF','Aula 03',null,"Resolução de questões do PDF da Aula 03."),
+      _st(16,'REVISAO','Aula 03',null,"Revisão da Aula 03 e resolução de questões."),
+      _st(17,'TEORIA','Aula 04','Parte 1/2',"Estudo da Aula 04 – Parte 1 de 2. De 'legislação tributária' até 'vigência da legislação tributária', inclusive."),
+      _st(18,'TEORIA','Aula 04','Parte 2/2',"Estudo da Aula 04 – Parte 2 de 2. De 'Aplicação da legislação tributária' até 'Integração da legislação tributária', inclusive."),
+      _st(19,'QUESTOES_PDF','Aula 04',null,"Resolução de questões do PDF da Aula 04."),
+      _st(20,'REVISAO','Aula 04',null,"Revisão da Aula 04 e resolução de questões."),
+      _st(21,'TEORIA','Aula 05','Parte 1/2',"Estudo da Aula 05 – Parte 1 de 2. De 'Obrigação Tributária - Aspectos Gerais' até 'ELISÃO, EVASÃO E ELUSÃO FISCAL', inclusive."),
+      _st(22,'TEORIA','Aula 05','Parte 2/2',"Estudo da Aula 05 – Parte 2 de 2. De 'sujeitos da obrigação tributária' até 'domicílio tributário', inclusive."),
+      _st(23,'QUESTOES_PDF','Aula 05',null,"Resolução de questões do PDF da Aula 05."),
+      _st(24,'REVISAO','Aula 05',null,"Revisão da Aula 05 e resolução de questões."),
+      _st(25,'TEORIA','Aula 06','Parte 1/2',"Estudo da Aula 06 – Parte 1 de 2. De 'Aspectos Gerais' até 'responsabilidade de terceiros', exclusive."),
+      _st(26,'TEORIA','Aula 06','Parte 2/2',"Estudo da Aula 06 – Parte 2 de 2. De 'Responsabilidade de terceiros' até 'responsabilidade por infrações', inclusive."),
+      _st(27,'QUESTOES_PDF','Aula 06',null,"Resolução de questões do PDF da Aula 06."),
+      _st(28,'REVISAO','Aula 06',null,"Revisão da Aula 06 e resolução de questões."),
+      _st(29,'TEORIA','Aula 07',null,"Estudo da Aula 07 — integral."),
+      _st(30,'QUESTOES_PDF','Aula 07',null,"Resolução de questões do PDF da Aula 07."),
+      _st(31,'REVISAO','Aula 07',null,"Revisão da Aula 07 e resolução de questões."),
+    ]
+  },
+  contabilidade: {
+    link: '',
+    tarefas: [
+      _st(1,'TEORIA','Aula 00',null,"Teoria da Aula 00."),
+      _st(2,'QUESTOES_PDF','Aula 00',null,"Resolução de questões do PDF da Aula 00."),
+      _st(3,'REVISAO','Aula 00',null,"Revisão da Aula 00 e resolução das questões."),
+      _st(4,'MAPA_MENTAL','Aula 00',null,"Revisão por Resumos e/ou Mapas Mentais da Aula 00."),
+      _st(5,'TEORIA','Aula 01',null,"Teoria da Aula 01."),
+      _st(6,'QUESTOES_PDF','Aula 01',null,"Resolução de questões do PDF da Aula 01."),
+      _st(7,'REVISAO','Aula 01',null,"Revisão da Aula 01 e resolução das questões."),
+      _st(8,'TEORIA','Aula 01','Parte II',"Teoria da Aula 01 - Parte II."),
+      _st(9,'QUESTOES_PDF','Aula 01','Parte II',"Resolução de questões do PDF da Aula 01 - Parte II."),
+      _st(10,'REVISAO','Aula 01','Parte II',"Revisão da Aula 01 - Parte II e resolução das questões."),
+      _st(11,'MAPA_MENTAL','Aula 01',null,"Revisão por Resumos e/ou Mapas Mentais da Aula 01."),
+      _st(12,'MAPA_MENTAL','Aula 01','Parte II',"Revisão por Resumos e/ou Mapas Mentais da Aula 01 - Parte II."),
+      _st(13,'TEORIA','Aula 02','Parte 1/2',"Teoria da Aula 02 - Parte 1 de 2. De 'Plano de Contas' até 'Fórmulas de Lançamento', inclusive."),
+      _st(14,'TEORIA','Aula 02','Parte 2/2',"Teoria da Aula 02 - Parte 2 de 2. De 'Retificação de lançamento' até o final da parte teórica."),
+      _st(15,'QUESTOES_PDF','Aula 02',null,"Resolução de questões do PDF da Aula 02."),
+      _st(16,'REVISAO','Aula 02',null,"Revisão da Aula 02 e resolução das questões."),
+      _st(17,'TEORIA','Aula 02','Parte II',"Teoria da Aula 02 - Parte II."),
+      _st(18,'QUESTOES_PDF','Aula 02','Parte II',"Resolução de questões do PDF da Aula 02 - Parte II."),
+      _st(19,'REVISAO','Aula 02','Parte II',"Revisão da Aula 02 - Parte II e resolução das questões."),
+      _st(20,'MAPA_MENTAL','Aula 02',null,"Revisão por Resumos e/ou Mapas Mentais da Aula 02."),
+      _st(21,'MAPA_MENTAL','Aula 02','Parte II',"Revisão por Resumos e/ou Mapas Mentais da Aula 02 - Parte II."),
+      _st(22,'TEORIA','Aula 03',null,"Teoria da Aula 03."),
+      _st(23,'QUESTOES_PDF','Aula 03',null,"Resolução de questões do PDF da Aula 03."),
+      _st(24,'REVISAO','Aula 03',null,"Revisão da Aula 03 e resolução das questões."),
+      _st(25,'MAPA_MENTAL','Aula 03',null,"Revisão por Resumos e/ou Mapas Mentais da Aula 03."),
+      _st(26,'TEORIA','Aula 04',null,"Teoria da Aula 04."),
+      _st(27,'QUESTOES_PDF','Aula 04',null,"Resolução de questões do PDF da Aula 04."),
+      _st(28,'REVISAO','Aula 04',null,"Revisão da Aula 04 e resolução das questões."),
+      _st(29,'TEORIA','Aula 05','Parte 1/2',"Teoria da Aula 05 - Parte 1 de 2. De 'Controle de Estoque' até 'Resultado Bruto com Mercadorias', inclusive."),
+      _st(30,'TEORIA','Aula 05','Parte 2/2',"Teoria da Aula 05 - Parte 2 de 2. De 'CPC 16 - Estoques' até o final da parte teórica."),
+      _st(31,'QUESTOES_PDF','Aula 05',null,"Resolução de questões do PDF da Aula 05."),
+      _st(32,'REVISAO','Aula 05',null,"Revisão da Aula 05 e resolução das questões."),
+      _st(33,'TEORIA','Aula 06','Parte 1/2',"Teoria da Aula 06 - Parte 1 de 2. De 'Introdução' até 'Critério de Avaliação do Ativo Imobilizado', inclusive."),
+      _st(34,'TEORIA','Aula 06','Parte 2/2',"Teoria da Aula 06 - Parte 2 de 2. De 'Depreciação' até o final da parte teórica."),
+      _st(35,'QUESTOES_PDF','Aula 06',null,"Resolução de questões do PDF da Aula 06."),
+      _st(36,'REVISAO','Aula 06',null,"Revisão da Aula 06 e resolução das questões."),
+      _st(37,'TEORIA','Aula 07',null,"Teoria da Aula 07."),
+      _st(38,'QUESTOES_PDF','Aula 07',null,"Resolução de questões do PDF da Aula 07."),
+      _st(39,'REVISAO','Aula 07',null,"Revisão da Aula 07 e resolução das questões."),
+      _st(40,'TEORIA','Aula 08','Parte 1/2',"Teoria da Aula 08 - Parte 1 de 2. De 'CPC 04 – Ativo Intangível' até 'Fundo de Comércio Adquirido', inclusive."),
+      _st(41,'TEORIA','Aula 08','Parte 2/2',"Teoria da Aula 08 - Parte 2 de 2. De 'Aquisição no contexto de Combinação de negócios' até o final da parte teórica."),
+      _st(42,'QUESTOES_PDF','Aula 08',null,"Resolução de questões do PDF da Aula 08."),
+      _st(43,'REVISAO','Aula 08',null,"Revisão da Aula 08 e resolução das questões."),
+      _st(44,'TEORIA','Aula 09',null,"Teoria da Aula 09."),
+      _st(45,'QUESTOES_PDF','Aula 09',null,"Resolução de questões do PDF da Aula 09."),
+      _st(46,'REVISAO','Aula 09',null,"Revisão da Aula 09 e resolução das questões."),
+      _st(47,'TEORIA','Aula 10',null,"Teoria da Aula 10."),
+      _st(48,'QUESTOES_PDF','Aula 10',null,"Resolução de questões do PDF da Aula 10."),
+      _st(49,'REVISAO','Aula 10',null,"Revisão da Aula 10 e resolução das questões."),
+      _st(50,'TEORIA','Aula 11',null,"Teoria da Aula 11."),
+      _st(51,'QUESTOES_PDF','Aula 11',null,"Resolução de questões do PDF da Aula 11."),
+      _st(52,'REVISAO','Aula 11',null,"Revisão da Aula 11 e resolução das questões."),
+    ]
+  },
+  portugu: {
+    link: '',
+    tarefas: [
+      _st(1,'TEORIA','Aula 00','Parte 1/3',"Teoria da Aula 00 – Parte 1 de 3. De 'Noções Iniciais de Ortografia' até 'Acentos Diferenciais', inclusive."),
+      _st(2,'TEORIA','Aula 00','Parte 2/3',"Teoria da Aula 00 – Parte 2 de 3. De 'Emprego do Hífen' até 'Siglas e Abreviações', inclusive."),
+      _st(3,'TEORIA','Aula 00','Parte 3/3',"Teoria da Aula 00 – Parte 3 de 3. De 'Expressões Problemáticas' até 'Outras regras Ortográficas Relevantes', inclusive."),
+      _st(4,'QUESTOES_PDF','Aula 00',null,"Resolução de questões do PDF da Aula 00."),
+      _st(5,'REVISAO','Aula 00',null,"Revisão da Aula 00 e resolução das questões."),
+      _st(6,'MAPA_MENTAL','Aula 00',null,"Revisão por Resumos e/ou Mapas Mentais da Aula 00."),
+      _st(7,'TEORIA','Aula 01','Parte 1/2',"Teoria da Aula 01 – Parte 1 de 2. De 'Noções iniciais de Classes de Palavras' até 'Expressões com Substantivo e Adjetivo', inclusive."),
+      _st(8,'TEORIA','Aula 01','Parte 2/2',"Teoria da Aula 01 – Parte 2 de 2. De 'Advérbio' até 'Palavras especiais', inclusive."),
+      _st(9,'QUESTOES_PDF','Aula 01',null,"Resolução de questões do PDF da Aula 01."),
+      _st(10,'REVISAO','Aula 01',null,"Revisão da Aula 01 e resolução das questões."),
+      _st(11,'TEORIA','Aula 02','Parte 1/2',"Teoria da Aula 02 – Parte 1 de 2. De 'Noções iniciais de Classes de Palavras II' até 'Conjunções Coordenativas Explicativas', inclusive."),
+      _st(12,'TEORIA','Aula 02','Parte 2/2',"Teoria da Aula 02 – Parte 2 de 2. De 'Conjunções Subordinativas' até 'Conjunções com mais de um sentido possível', inclusive."),
+      _st(13,'QUESTOES_PDF','Aula 02',null,"Resolução de questões do PDF da Aula 02."),
+      _st(14,'REVISAO','Aula 02',null,"Revisão da Aula 02 e resolução das questões."),
+      _st(15,'TEORIA','Aula 03','Parte 1/2',"Teoria da Aula 03 – Parte 1 de 2. De 'Noções iniciais de pronomes' até 'Pronomes', inclusive."),
+      _st(16,'TEORIA','Aula 03','Parte 2/2',"Teoria da Aula 03 – Parte 2 de 2. Continuação de pronomes."),
+      _st(17,'QUESTOES_PDF','Aula 03',null,"Resolução de questões do PDF da Aula 03."),
+      _st(18,'REVISAO','Aula 03',null,"Revisão da Aula 03 e resolução das questões."),
+      _st(19,'TEORIA','Aula 04','Parte 1/3',"Teoria da Aula 04 – Parte 1 de 3. De 'Noções iniciais de Verbos' até 'Modo indicativo', inclusive."),
+      _st(20,'TEORIA','Aula 04','Parte 2/3',"Teoria da Aula 04 – Parte 2 de 3. De 'Modo subjuntivo' até 'Formas nominais do verbo', inclusive."),
+      _st(21,'TEORIA','Aula 04','Parte 3/3',"Teoria da Aula 04 – Parte 3 de 3. De 'Transitividade verbal' até 'Classificação dos verbos', inclusive."),
+      _st(22,'QUESTOES_PDF','Aula 04',null,"Resolução de questões do PDF da Aula 04."),
+      _st(23,'REVISAO','Aula 04',null,"Revisão da Aula 04 e resolução das questões."),
+      _st(24,'TEORIA','Aula 05',null,"Teoria da Aula 05 – Parte 1 de 1. De 'Noções iniciais - Correlação e vozes verbais' até 'Vozes verbais', inclusive."),
+      _st(25,'QUESTOES_PDF','Aula 05',null,"Resolução de questões do PDF da Aula 05."),
+      _st(26,'REVISAO','Aula 05',null,"Revisão da Aula 05 e resolução das questões."),
+      _st(27,'TEORIA','Aula 06',null,"Teoria da Aula 06 – Parte 1 de 1. De 'Noções Iniciais de Formação de palavras' até 'Quadro de Desinências', inclusive."),
+      _st(28,'QUESTOES_PDF','Aula 06',null,"Resolução de questões do PDF da Aula 06."),
+      _st(29,'REVISAO','Aula 06',null,"Revisão da Aula 06 e resolução das questões."),
+    ]
+  },
+  auditoria: {
+    link: '',
+    tarefas: [
+      _st(1,'TEORIA','Aula 00','Parte 1/3',"Estudo da Aula 00 - Parte 1 de 3. De 'Contextualização' até o subtópico 'Objetivos gerais do auditor', inclusive."),
+      _st(2,'TEORIA','Aula 00','Parte 2/3',"Estudo da Aula 00 - Parte 2 de 3. Do subtópico 'Definições' até 'Resumo - Conceitos Iniciais de Auditoria e NBC TA 200', inclusive."),
+      _st(3,'TEORIA','Aula 00','Parte 3/3',"Estudo da Aula 00 - Parte 3 de 3. De todo o tópico 'Estrutura Conceitual' até o fim da teoria."),
+      _st(4,'QUESTOES_PDF','Aula 00',null,"Resolução de questões da Aula 00."),
+      _st(5,'TEORIA','Aula 01',null,"Estudo de toda a Aula 01. Do tópico 'Conceituação e Disposições Gerais' até o subtópico 'Procedimentos de Auditoria Interna', inclusive."),
+      _st(6,'QUESTOES_PDF','Aula 01',null,"Resolução de questões da Aula 01."),
+      _st(7,'TEORIA','Aula 02','Parte 1/2',"Estudo de toda a Aula 02 – Parte 1: Planejamento de Auditoria."),
+      _st(8,'TEORIA','Aula 02','Parte 2/2',"Estudo de toda a Aula 02 – Parte 2: de Papéis de Trabalho até o fim da teoria."),
+      _st(9,'QUESTOES_PDF','Aula 02',null,"Resolução de questões da Aula 02."),
+    ]
+  },
+  racioc: {
+    link: '',
+    tarefas: [
+      _st(1,'TEORIA','Aula 00',null,"Estudo da aula 00 — Introdução às proposições até 'Descompasso entre a língua portuguesa e a linguagem proposicional', inclusive."),
+      _st(2,'TEORIA','Aula 00','Parte 2',"Estudo da aula 00 — 'Proposições Compostas' até 'Bicondicional (p↔q)', inclusive."),
+      _st(3,'TEORIA','Aula 00','Parte 3',"Estudo da aula 00 — 'Conversão da linguagem natural para a proposicional' até o final."),
+      _st(4,'QUESTOES_PDF','Aula 00',null,"Resolução de questões do PDF da aula 00 (Estruturas Lógicas)."),
+      _st(5,'TEORIA','Aula 01','Parte 1',"Estudo da aula 01 — 'Equivalência Lógica' até 'Equivalências fundamentais', inclusive."),
+      _st(6,'TEORIA','Aula 01','Parte 2',"Estudo da aula 01 — 'Negações Lógicas' até 'Negações da bicondicional', inclusive."),
+      _st(7,'TEORIA','Aula 01','Parte 3',"Estudo da aula 01 — 'Álgebra de proposições' até o final."),
+      _st(8,'QUESTOES_PDF','Aula 01',null,"Resolução de questões do PDF da aula 01 (Equivalências Lógicas)."),
+      _st(9,'TEORIA','Aula 02',null,"Estudo da aula 02 — 'Proposições Quantificadas e Diagramas Lógicos' até o final."),
+      _st(10,'QUESTOES_PDF','Aula 02',null,"Resolução de questões da aula 02 (Diagramas Lógicos)."),
+      _st(11,'TEORIA','Aula 03',null,"Estudo da aula 03 — Lógica de 1ª ordem — do início até o final."),
+      _st(12,'QUESTOES_PDF','Aula 03',null,"Resolução de questões da aula 03 (Lógica de 1ª ordem)."),
+      _st(13,'TEORIA','Aula 04','Parte 1',"Estudo da aula 04 — 'Conectivos Lógicos – Questões Clássicas' apenas."),
+      _st(14,'TEORIA','Aula 04','Parte 2',"Estudo da aula 04 — 'Lógica de argumentação: argumentos dedutivos' até o final."),
+      _st(15,'QUESTOES_PDF','Aula 04',null,"Resolução de questões da aula 04 (Conectivos Lógicos)."),
+      _st(16,'TEORIA','Aula 05','Parte 1',"Estudo da aula 05 — 'Argumentos: estrutura básica e classificações' até 'Argumentos abdutivos', inclusive."),
+      _st(17,'TEORIA','Aula 05','Parte 2',"Estudo da aula 05 — 'Argumentos falaciosos e apelativos' até o final."),
+      _st(18,'QUESTOES_PDF','Aula 05',null,"Resolução de questões da aula 05 (Raciocínio Crítico - Parte 1)."),
+      _st(19,'TEORIA','Aula 06',null,"Estudo da aula 06 — 'Elaboração de argumentos' até o final."),
+      _st(20,'QUESTOES_PDF','Aula 06',null,"Resolução de questões da aula 06 (Raciocínio Crítico Parte 2)."),
+    ]
+  },
+};
+
+// Cadernos TEC config: key = substring, semanas = semana_sugerida por bloco
+const SEED_CADERNOS_TEC = {
+  portugu:        { blocos: 8,  semanas: [1,2,4,5,8,9,11,12]           },
+  racioc:         { blocos: 8,  semanas: [1,2,4,5,8,9,11,12]           },
+  administrativo: { blocos: 10, semanas: [1,2,4,5,8,9,11,12,15,16]     },
+  constitucional: { blocos: 10, semanas: [1,2,4,5,8,9,11,12,15,16]     },
+  tributario:     { blocos: 10, semanas: [1,2,4,5,8,9,11,12,15,16]     },
+  contabilidade:  { blocos: 10, semanas: [1,2,4,5,8,9,11,12,15,16]     },
+  auditoria:      { blocos: 8,  semanas: [1,2,4,5,8,9,11,12]           },
+};
+
+function _matchDisc(nome, key) {
+  const n = nome.toLowerCase();
+  if (key === 'tributario') return n.includes('tribut');
+  return n.includes(key);
+}
+
+// ══════════════════════════════════════════
+//  NAVEGAÇÃO
+// ══════════════════════════════════════════
+window.mudarAbaPlano = (aba, el) => {
+  document.querySelectorAll('.plano-aba').forEach(a => a.classList.remove('ativa'));
+  el.classList.add('ativa');
+  document.querySelectorAll('.plano-painel').forEach(p => p.classList.remove('ativo'));
+  document.getElementById('plano-painel-' + aba).classList.add('ativo');
+  if (aba === 'semana')  { if (!_planoSemanaCarregado) carregarPlanoSemana(); else renderizarPlanoSemana(); }
+  if (aba === 'trilha')  { if (!_trilhaAulasCarregada) carregarTrilhaAulas(); }
+  if (aba === 'tec')     { if (!_cadernosTECCarregado) carregarCadernosTEC(); }
+};
+
+// ══════════════════════════════════════════
+//  ABA 1: SEMANA ATUAL
+// ══════════════════════════════════════════
+async function carregarPlanoSemana() {
+  try {
+    const semAtual = _semanaISO();
+    const snap = await getDocs(query(collection(db, 'concurso_plano_semana'), where('semana', '==', semAtual)));
+    planoSemanaCache = {};
+    snap.docs.forEach(d => { planoSemanaCache[d.id] = { id: d.id, ...d.data() }; });
+    _planoSemanaCarregado = true;
+    renderizarPlanoSemana();
+  } catch (e) {
+    console.error(e);
+    erroCarregamento('semana-lista');
+  }
+}
+
+function renderizarPlanoSemana() {
+  const prioOrd = { Alta: 0, Média: 1, Baixa: 2 };
+  const lista = Object.values(planoSemanaCache)
+    .sort((a, b) => (prioOrd[a.prioridade] ?? 1) - (prioOrd[b.prioridade] ?? 1));
+  const filtrados = _planoFiltroDisc ? lista.filter(t => t.disciplinaId === _planoFiltroDisc) : lista;
+  const total = lista.length;
+  const conc = lista.filter(t => t.concluida).length;
+
+  const ctEl = document.getElementById('semana-contador');
+  if (ctEl) ctEl.textContent = `${conc} de ${total} tarefas concluídas · Semana ${_semanaISO()}`;
+
+  const discIds = [...new Set(lista.map(t => t.disciplinaId))];
+  const chipsEl = document.getElementById('semana-chips');
+  if (chipsEl) {
+    let h = `<div class="plano-chip ${!_planoFiltroDisc ? 'ativo' : ''}" style="${!_planoFiltroDisc ? 'background:var(--azul)' : ''}" onclick="filtrarPlanoDisc(null)">Todas</div>`;
+    discIds.forEach(id => {
+      const t = lista.find(x => x.disciplinaId === id);
+      if (!t) return;
+      const cor = _corDisc(t.disciplinaNome || '');
+      h += `<div class="plano-chip ${_planoFiltroDisc === id ? 'ativo' : ''}" style="${_planoFiltroDisc === id ? 'background:' + cor : ''}" onclick="filtrarPlanoDisc('${id}')">${esc(t.disciplinaNome)}</div>`;
+    });
+    chipsEl.innerHTML = h;
+  }
+
+  const el = document.getElementById('semana-lista');
+  if (!el) return;
+  if (!filtrados.length) {
+    el.innerHTML = '<div class="vazio"><span class="icone-vazio">📋</span>Nenhuma tarefa para esta semana. Use "+ Adicionar Tarefa" ou o botão "Adicionar à semana" nas outras abas.</div>';
+    return;
+  }
+  const prioMap = { Alta: { c: 'var(--vermelho)', l: '▲ Alta' }, Média: { c: 'var(--amarelo)', l: '● Média' }, Baixa: { c: 'var(--verde)', l: '▼ Baixa' } };
+  const ests = { 15: '15 min', 30: '30 min', 45: '45 min', 60: '1h', 90: '1h30', 120: '2h+' };
+  el.innerHTML = filtrados.map(t => {
+    const cor = _corDisc(t.disciplinaNome || '');
+    const tc = TIPO_COR[t.tipo] || '#64748b';
+    const tl = TIPO_LABEL[t.tipo] || t.tipo;
+    const prio = prioMap[t.prioridade] || { c: 'var(--text-dim)', l: t.prioridade };
+    return `<div class="tarefa-item ${t.concluida ? 'concluida' : ''}">
+      <input type="checkbox" class="tarefa-check" ${t.concluida ? 'checked' : ''} onchange="toggleTarefaSemana('${t.id}',this.checked)">
+      <div class="tarefa-corpo">
+        <div class="tarefa-badges">
+          <span class="tarefa-badge" style="background:${cor}">${esc(t.disciplinaNome)}</span>
+          <span class="tarefa-badge" style="background:${tc}">${tl}</span>
+          <span style="font-size:.68rem;color:${prio.c};font-weight:600">${prio.l}</span>
+        </div>
+        <div class="tarefa-desc">${esc(t.descricao)}</div>
+        ${t.link ? `<a class="tarefa-link" href="${esc(t.link)}" target="_blank" rel="noopener">🔗 Abrir material</a>` : ''}
+        <div class="tarefa-meta">${ests[t.estimativa_min] || (t.estimativa_min + ' min')} estimado</div>
+      </div>
+      <button class="btn-excluir" onclick="excluirTarefaSemana('${t.id}')" title="Excluir">✕</button>
+    </div>`;
+  }).join('');
+}
+
+window.filtrarPlanoDisc = (discId) => {
+  _planoFiltroDisc = discId;
+  renderizarPlanoSemana();
+};
+window.toggleTarefaSemana = async (id, concluida) => {
+  if (!planoSemanaCache[id]) return;
+  planoSemanaCache[id].concluida = concluida;
+  renderizarPlanoSemana();
+  try { await updateDoc(doc(db, 'concurso_plano_semana', id), { concluida }); }
+  catch (e) { console.error(e); mostrarToast('Erro ao salvar', 'erro'); }
+};
+window.excluirTarefaSemana = async (id) => {
+  if (!confirm('Excluir esta tarefa?')) return;
+  delete planoSemanaCache[id];
+  renderizarPlanoSemana();
+  try { await deleteDoc(doc(db, 'concurso_plano_semana', id)); }
+  catch (e) { console.error(e); mostrarToast('Erro ao excluir', 'erro'); }
+};
+
+window.abrirModalPlanoTarefa = (pp) => {
+  const sel = document.getElementById('pm-disc');
+  sel.innerHTML = '<option value="">— Selecione —</option>' + disciplinasCache.map(d => `<option value="${d.id}">${esc(d.nome)}</option>`).join('');
+  document.getElementById('pm-semana').value = _semanaISO();
+  document.getElementById('pm-tipo').value = 'TEORIA';
+  document.getElementById('pm-desc').value = '';
+  document.getElementById('pm-link').value = '';
+  document.getElementById('pm-est').value = '60';
+  document.getElementById('pm-prio').value = 'Média';
+  if (pp) {
+    if (pp.discId) sel.value = pp.discId;
+    if (pp.tipo)   document.getElementById('pm-tipo').value = pp.tipo;
+    if (pp.desc)   document.getElementById('pm-desc').value = pp.desc;
+    if (pp.link)   document.getElementById('pm-link').value = pp.link;
+    if (pp.est)    document.getElementById('pm-est').value = String(pp.est);
+  }
+  abrirModal('modal-plano-tarefa');
+};
+window.confirmarPlanoTarefa = async () => {
+  const discId = document.getElementById('pm-disc').value;
+  const discNome = disciplinasCache.find(d => d.id === discId)?.nome || '';
+  const tipo = document.getElementById('pm-tipo').value;
+  const descricao = document.getElementById('pm-desc').value.trim();
+  const link = document.getElementById('pm-link').value.trim();
+  const semana = document.getElementById('pm-semana').value.trim() || _semanaISO();
+  const estimativa_min = parseInt(document.getElementById('pm-est').value) || 60;
+  const prioridade = document.getElementById('pm-prio').value;
+  if (!discId)    { mostrarToast('Selecione a disciplina', 'erro'); return; }
+  if (!descricao) { mostrarToast('Preencha a descrição',   'erro'); return; }
+  try {
+    const ref = await addDoc(collection(db, 'concurso_plano_semana'), {
+      disciplinaId: discId, disciplinaNome: discNome, tipo, descricao, link, semana,
+      estimativa_min, prioridade, concluida: false, criadoEm: serverTimestamp(),
+    });
+    planoSemanaCache[ref.id] = { id: ref.id, disciplinaId: discId, disciplinaNome: discNome, tipo, descricao, link, semana, estimativa_min, prioridade, concluida: false };
+    fecharModal('modal-plano-tarefa');
+    renderizarPlanoSemana();
+    mostrarToast('Tarefa adicionada!', 'sucesso');
+  } catch (e) { console.error(e); mostrarToast('Erro ao adicionar tarefa', 'erro'); }
+};
+
+async function _addTarefaSemana(dados) {
+  try {
+    const ref = await addDoc(collection(db, 'concurso_plano_semana'), {
+      ...dados, semana: _semanaISO(), concluida: false, criadoEm: serverTimestamp(),
+    });
+    planoSemanaCache[ref.id] = { id: ref.id, ...dados, semana: _semanaISO(), concluida: false };
+    mostrarToast('Adicionado à semana atual!', 'sucesso');
+    if (document.getElementById('plano-painel-semana')?.classList.contains('ativo')) renderizarPlanoSemana();
+  } catch (e) { console.error(e); mostrarToast('Erro ao adicionar', 'erro'); }
+}
+
+// ══════════════════════════════════════════
+//  ABA 2: TRILHA DE AULAS
+// ══════════════════════════════════════════
+async function carregarTrilhaAulas() {
+  const el = document.getElementById('trilha-aulas-lista');
+  el.innerHTML = '<div class="loader">Carregando trilha de aulas...</div>';
+  try {
+    const snap = await getDocs(collection(db, 'concurso_trilha_aulas'));
+    if (snap.empty) {
+      el.innerHTML = '<div class="loader">Criando trilha pela primeira vez...</div>';
+      await seedTrilhaAulas();
+      const snap2 = await getDocs(collection(db, 'concurso_trilha_aulas'));
+      snap2.docs.forEach(d => { trilhaAulasCache[d.id] = { id: d.id, ...d.data() }; });
+    } else {
+      snap.docs.forEach(d => { trilhaAulasCache[d.id] = { id: d.id, ...d.data() }; });
+    }
+    _trilhaAulasCarregada = true;
+    renderizarTrilhaAulas();
+  } catch (e) { console.error(e); erroCarregamento('trilha-aulas-lista'); }
+}
+
+async function seedTrilhaAulas() {
+  const discs = disciplinasCache.length
+    ? disciplinasCache
+    : await getDocs(collection(db, 'concurso_disciplinas')).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
+
+  const chunks = [];
+  let batch = writeBatch(db);
+  let count = 0;
+
+  for (const disc of discs) {
+    const chave = Object.keys(SEED_TRILHA_AULAS).find(k => _matchDisc(disc.nome, k));
+    if (!chave) continue;
+    const cfg = SEED_TRILHA_AULAS[chave];
+    for (const t of cfg.tarefas) {
+      const docId = `${disc.id}_t${String(t.n).padStart(3,'0')}`;
+      batch.set(doc(db, 'concurso_trilha_aulas', docId), {
+        disciplinaId: disc.id, disciplinaNome: disc.nome,
+        num_tarefa: t.n, tipo: t.tipo, aula: t.aula, parte: t.parte,
+        descricao: t.desc, link: cfg.link, concluida: false, data_conclusao: null,
+      });
+      count++;
+      if (count % 400 === 0) { chunks.push(batch); batch = writeBatch(db); }
+    }
+  }
+  chunks.push(batch);
+  for (const b of chunks) await b.commit();
+}
+
+function renderizarTrilhaAulas() {
+  const el = document.getElementById('trilha-aulas-lista');
+  const docs = Object.values(trilhaAulasCache);
+  if (!docs.length) { el.innerHTML = '<div class="vazio">Nenhuma tarefa na trilha. As disciplinas cadastradas têm trilha disponível?</div>'; return; }
+  const discIds = [...new Set(docs.map(d => d.disciplinaId))];
+  let html = '';
+  for (const discId of discIds) {
+    const lista = docs.filter(d => d.disciplinaId === discId).sort((a,b) => a.num_tarefa - b.num_tarefa);
+    const discNome = lista[0].disciplinaNome;
+    const cor = _corDisc(discNome);
+    const conc = lista.filter(x => x.concluida).length;
+    const total = lista.length;
+    const pct = total ? Math.round(conc / total * 100) : 0;
+    html += `<div class="ta-card">
+      <div class="ta-header" onclick="toggleTACard('${discId}')">
+        <div class="ta-dot" style="background:${cor}"></div>
+        <div class="ta-titulo">${esc(discNome)}</div>
+        <div class="ta-stats" id="ta-stats-${discId}">${conc}/${total} concluídas (${pct}%)</div>
+        <span class="ta-toggle" id="ta-toggle-${discId}">▶</span>
+      </div>
+      <div class="trilha-progress-bar" style="margin:.1rem 1rem .4rem"><div class="trilha-progress-fill" id="ta-pbar-${discId}" style="width:${pct}%;background:${cor}"></div></div>
+      <div class="ta-corpo" id="ta-corpo-${discId}">
+        <table class="ta-table"><thead><tr>
+          <th style="width:36px">N°</th><th style="width:70px">Aula</th>
+          <th style="width:95px">Tipo</th><th style="width:90px">Parte</th>
+          <th>Descrição</th><th style="width:90px">Ações</th><th style="width:28px">✓</th>
+        </tr></thead><tbody>` +
+      lista.map(t => {
+        const tc = TIPO_COR[t.tipo] || '#64748b';
+        const tl = TIPO_LABEL[t.tipo] || t.tipo;
+        return `<tr class="${t.concluida ? 'concluida' : ''}" id="ta-row-${t.id}">
+          <td style="color:var(--text-dim);font-size:.72rem;text-align:center">${t.num_tarefa}</td>
+          <td style="white-space:nowrap;font-size:.78rem">${esc(t.aula)}</td>
+          <td><span class="ta-tipo-badge" style="background:${tc}">${tl}</span></td>
+          <td style="font-size:.75rem;color:var(--text-muted)">${esc(t.parte || '')}</td>
+          <td style="font-size:.79rem;line-height:1.35">${esc(t.descricao)}${t.link ? ` <a class="tarefa-link" href="${esc(t.link)}" target="_blank" rel="noopener">↗</a>` : ''}</td>
+          <td><button class="btn-add-sem" onclick="adicionarTAAsemana('${t.id}')">+ Semana</button></td>
+          <td><input type="checkbox" ${t.concluida ? 'checked' : ''} onchange="toggleTrilhaAula('${t.id}',this.checked)"></td>
+        </tr>`;
+      }).join('') +
+      '</tbody></table></div></div>';
+  }
+  el.innerHTML = html;
+}
+
+window.toggleTACard = (discId) => {
+  document.getElementById('ta-corpo-' + discId).classList.toggle('aberto');
+  document.getElementById('ta-toggle-' + discId).classList.toggle('aberto');
+};
+window.toggleTrilhaAula = async (id, concluida) => {
+  if (!trilhaAulasCache[id]) return;
+  trilhaAulasCache[id].concluida = concluida;
+  const row = document.getElementById('ta-row-' + id);
+  if (row) row.classList.toggle('concluida', concluida);
+  const discId = trilhaAulasCache[id].disciplinaId;
+  const lista = Object.values(trilhaAulasCache).filter(d => d.disciplinaId === discId);
+  const conc = lista.filter(x => x.concluida).length;
+  const total = lista.length;
+  const pct = total ? Math.round(conc / total * 100) : 0;
+  const cor = _corDisc(trilhaAulasCache[id].disciplinaNome || '');
+  const statsEl = document.getElementById('ta-stats-' + discId);
+  if (statsEl) statsEl.textContent = `${conc}/${total} concluídas (${pct}%)`;
+  const pbarEl = document.getElementById('ta-pbar-' + discId);
+  if (pbarEl) { pbarEl.style.width = pct + '%'; pbarEl.style.background = cor; }
+  try { await updateDoc(doc(db, 'concurso_trilha_aulas', id), { concluida, data_conclusao: concluida ? serverTimestamp() : null }); }
+  catch (e) { console.error(e); mostrarToast('Erro ao salvar', 'erro'); }
+};
+window.adicionarTAAsemana = async (id) => {
+  const t = trilhaAulasCache[id];
+  if (!t) return;
+  const est = { TEORIA: 60, QUESTOES_PDF: 60, REVISAO: 45, MAPA_MENTAL: 30 };
+  await _addTarefaSemana({
+    disciplinaId: t.disciplinaId, disciplinaNome: t.disciplinaNome,
+    tipo: t.tipo, descricao: t.descricao, link: t.link || '',
+    estimativa_min: est[t.tipo] || 60, prioridade: 'Média',
+  });
+};
+
+// ══════════════════════════════════════════
+//  ABA 3: CADERNOS TEC
+// ══════════════════════════════════════════
+async function carregarCadernosTEC() {
+  const el = document.getElementById('cadernos-tec-lista');
+  el.innerHTML = '<div class="loader">Carregando cadernos TEC...</div>';
+  try {
+    const snap = await getDocs(collection(db, 'concurso_cadernos_tec'));
+    if (snap.empty) {
+      el.innerHTML = '<div class="loader">Criando cadernos pela primeira vez...</div>';
+      await seedCadernosTEC();
+      const snap2 = await getDocs(collection(db, 'concurso_cadernos_tec'));
+      snap2.docs.forEach(d => { cadernosTECCache[d.id] = { id: d.id, ...d.data() }; });
+    } else {
+      snap.docs.forEach(d => { cadernosTECCache[d.id] = { id: d.id, ...d.data() }; });
+    }
+    _cadernosTECCarregado = true;
+    renderizarCadernosTEC();
+  } catch (e) { console.error(e); erroCarregamento('cadernos-tec-lista'); }
+}
+
+async function seedCadernosTEC() {
+  const discs = disciplinasCache.length
+    ? disciplinasCache
+    : await getDocs(collection(db, 'concurso_disciplinas')).then(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
+  const batch = writeBatch(db);
+  const bancas = ['FGV', 'FCC', 'CESPE'];
+  for (const disc of discs) {
+    const chave = Object.keys(SEED_CADERNOS_TEC).find(k => _matchDisc(disc.nome, k));
+    if (!chave) continue;
+    const cfg = SEED_CADERNOS_TEC[chave];
+    for (let b = 1; b <= cfg.blocos; b++) {
+      for (const banca of bancas) {
+        batch.set(doc(db, 'concurso_cadernos_tec', `${disc.id}_bloco_${b}_${banca}`), {
+          disciplinaId: disc.id, disciplinaNome: disc.nome,
+          bloco: b, banca,
+          total_questoes: 0, questoes_feitas: 0, acertos: 0,
+          concluido: false, semana_sugerida: cfg.semanas[b - 1] || 0,
+        });
+      }
+    }
+  }
+  await batch.commit();
+}
+
+function renderizarCadernosTEC() {
+  const el = document.getElementById('cadernos-tec-lista');
+  const docs = Object.values(cadernosTECCache);
+  if (!docs.length) { el.innerHTML = '<div class="vazio">Nenhum caderno cadastrado.</div>'; return; }
+  const discIds = [...new Set(docs.map(d => d.disciplinaId))];
+  let html = '';
+  for (const discId of discIds) {
+    const lista = docs.filter(d => d.disciplinaId === discId).sort((a,b) => a.bloco - b.bloco || a.banca.localeCompare(b.banca));
+    const discNome = lista[0].disciplinaNome;
+    const cor = _corDisc(discNome);
+    const conc = lista.filter(x => x.concluido).length;
+    const total = lista.length;
+    const pct = total ? Math.round(conc / total * 100) : 0;
+    const tQ = lista.reduce((s,x) => s + (x.questoes_feitas||0), 0);
+    const tA = lista.reduce((s,x) => s + (x.acertos||0), 0);
+    const dp = tQ ? Math.round(tA/tQ*100) : 0;
+    html += `<div class="ta-card">
+      <div class="ta-header" onclick="toggleTECCard('${discId}')">
+        <div class="ta-dot" style="background:${cor}"></div>
+        <div class="ta-titulo">${esc(discNome)}</div>
+        <div class="ta-stats" id="tec-stats-${discId}">${conc}/${total} concluídos · ${tQ ? dp + '% desempenho' : 'sem questões'}</div>
+        <span class="ta-toggle" id="tec-toggle-${discId}">▶</span>
+      </div>
+      <div class="trilha-progress-bar" style="margin:.1rem 1rem .4rem"><div class="trilha-progress-fill" id="tec-pbar-${discId}" style="width:${pct}%;background:${cor}"></div></div>
+      <div class="ta-corpo" id="tec-corpo-${discId}">
+        <div style="overflow-x:auto"><table class="tec-table"><thead><tr>
+          <th>Bloco</th><th>Banca</th><th style="width:80px">Sem. Sug.</th>
+          <th style="width:80px">Feitas</th><th style="width:80px">Acertos</th>
+          <th style="width:60px">%</th><th style="width:90px">Ações</th><th style="width:28px">✓</th>
+        </tr></thead><tbody>` +
+      lista.map(c => {
+        const q = c.questoes_feitas || 0;
+        const a = c.acertos || 0;
+        const dp2 = q ? Math.round(a/q*100) : 0;
+        const dpCls = q ? (dp2 >= 70 ? 'pct-bom' : dp2 >= 50 ? 'pct-medio' : 'pct-ruim') : 'pct-vazio';
+        return `<tr class="${c.concluido ? 'concluido' : ''}" id="tec-row-${c.id}">
+          <td style="font-weight:600">Bloco ${c.bloco}</td>
+          <td><span class="banca-badge banca-${c.banca}">${c.banca}</span></td>
+          <td style="text-align:center;color:var(--text-muted);font-size:.78rem">${c.semana_sugerida ? 'Sem. ' + c.semana_sugerida : '—'}</td>
+          <td><input class="mapa-num-input" type="number" min="0" value="${q||''}" placeholder="0" oninput="agendarCaderno('${c.id}','questoes_feitas',this.value)" onchange="salvarCaderno('${c.id}','questoes_feitas',parseInt(this.value)||0)"></td>
+          <td><input class="mapa-num-input" type="number" min="0" value="${a||''}" placeholder="0" oninput="agendarCaderno('${c.id}','acertos',this.value)" onchange="salvarCaderno('${c.id}','acertos',parseInt(this.value)||0)"></td>
+          <td class="${dpCls}" id="tec-dp-${c.id}">${q ? dp2 + '%' : '—'}</td>
+          <td><button class="btn-add-sem" onclick="adicionarTECAsemana('${c.id}')">+ Semana</button></td>
+          <td><input type="checkbox" ${c.concluido ? 'checked' : ''} onchange="salvarCaderno('${c.id}','concluido',this.checked)"></td>
+        </tr>`;
+      }).join('') +
+      '</tbody></table></div></div></div>';
+  }
+  el.innerHTML = html;
+}
+
+window.toggleTECCard = (discId) => {
+  document.getElementById('tec-corpo-' + discId).classList.toggle('aberto');
+  document.getElementById('tec-toggle-' + discId).classList.toggle('aberto');
+};
+window.agendarCaderno = (id, campo, valor) => {
+  clearTimeout(_planoDebounce[id + campo]);
+  _planoDebounce[id + campo] = setTimeout(() => salvarCaderno(id, campo, parseInt(valor)||0), 1000);
+};
+window.salvarCaderno = async (id, campo, valor) => {
+  clearTimeout(_planoDebounce[id + campo]);
+  if (!cadernosTECCache[id]) return;
+  cadernosTECCache[id][campo] = valor;
+  const c = cadernosTECCache[id];
+  // Update desempenho cell
+  if (campo === 'questoes_feitas' || campo === 'acertos') {
+    const q = c.questoes_feitas || 0;
+    const a = c.acertos || 0;
+    const dp = q ? Math.round(a/q*100) : 0;
+    const dpEl = document.getElementById('tec-dp-' + id);
+    if (dpEl) { dpEl.textContent = q ? dp + '%' : '—'; dpEl.className = q ? (dp>=70?'pct-bom':dp>=50?'pct-medio':'pct-ruim') : 'pct-vazio'; }
+  }
+  // Update row class
+  if (campo === 'concluido') {
+    const row = document.getElementById('tec-row-' + id);
+    if (row) row.classList.toggle('concluido', !!valor);
+    _atualizarStatsTEC(c.disciplinaId);
+  }
+  try { await updateDoc(doc(db, 'concurso_cadernos_tec', id), { [campo]: valor }); }
+  catch (e) { console.error(e); mostrarToast('Erro ao salvar', 'erro'); }
+};
+function _atualizarStatsTEC(discId) {
+  const lista = Object.values(cadernosTECCache).filter(d => d.disciplinaId === discId);
+  const conc = lista.filter(x => x.concluido).length;
+  const total = lista.length;
+  const pct = total ? Math.round(conc/total*100) : 0;
+  const tQ = lista.reduce((s,x) => s + (x.questoes_feitas||0), 0);
+  const tA = lista.reduce((s,x) => s + (x.acertos||0), 0);
+  const dp = tQ ? Math.round(tA/tQ*100) : 0;
+  const statsEl = document.getElementById('tec-stats-' + discId);
+  if (statsEl) statsEl.textContent = `${conc}/${total} concluídos · ${tQ ? dp + '% desempenho' : 'sem questões'}`;
+  const pbarEl = document.getElementById('tec-pbar-' + discId);
+  if (pbarEl) pbarEl.style.width = pct + '%';
+}
+window.adicionarTECAsemana = async (id) => {
+  const c = cadernosTECCache[id];
+  if (!c) return;
+  await _addTarefaSemana({
+    disciplinaId: c.disciplinaId, disciplinaNome: c.disciplinaNome,
+    tipo: 'CADERNO_TEC',
+    descricao: `Caderno TEC – Bloco ${c.bloco} (${c.banca})`,
+    link: '', estimativa_min: 60, prioridade: 'Média',
+  });
+};
 </script>
 
 <!-- ════ FIREBASE ════ -->
