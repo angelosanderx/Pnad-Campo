@@ -879,6 +879,10 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   }
   #roteiro-mapa-close:hover { background: #fff; }
+  @keyframes gps-pulse {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    100% { transform: scale(3.5); opacity: 0; }
+  }
 
   .divisor-secao {
     border: 0;
@@ -1865,6 +1869,7 @@
                 📂 Endereço Completo
                 <input type="file" accept=".csv" style="display:none" onchange="importarEnderecoCompleto(this)">
               </label>
+              <button id="btn-gps-mapa" class="btn-acao secundario" style="font-size:0.82rem" onclick="toggleGpsMapa()">📡 GPS</button>
               <button id="btn-expandir-mapa" class="btn-acao secundario" style="font-size:0.82rem" onclick="toggleMapaFullscreen()">⛶ Expandir</button>
               <button class="btn-acao secundario" style="font-size:0.82rem" onclick="imprimirRoteiro()">🖨️ Imprimir</button>
             </div>
@@ -8995,6 +9000,12 @@ let _mapaRoteiroInstance = null;
 let _mapaMarkers = {};
 let _mapaSelecao = new Set();
 let _modoSelecaoAtivo = false;
+let _gpsWatchId = null;
+let _gpsMarker = null;
+let _gpsCircle = null;
+let _gpsLinha = null;
+let _gpsModoAtivo = false;
+let _mapaRoteiroAlvo = null;
 
 function _refreshIconeMapa(domId) {
   const info = _mapaMarkers[domId];
@@ -9102,6 +9113,89 @@ window.atribuirMultiplosMapa = async () => {
   }
 };
 
+function _haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function _pararGps() {
+  if (_gpsWatchId !== null) { navigator.geolocation.clearWatch(_gpsWatchId); _gpsWatchId = null; }
+  if (_gpsMarker) { try { _gpsMarker.remove(); } catch(e) {} _gpsMarker = null; }
+  if (_gpsCircle) { try { _gpsCircle.remove(); } catch(e) {} _gpsCircle = null; }
+  if (_gpsLinha)  { try { _gpsLinha.remove();  } catch(e) {} _gpsLinha  = null; }
+  _gpsModoAtivo = false;
+  const btn = document.getElementById('btn-gps-mapa');
+  if (btn) { btn.textContent = '📡 GPS'; btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = ''; }
+}
+
+window.toggleGpsMapa = () => {
+  if (_gpsModoAtivo) { _pararGps(); return; }
+  if (!navigator.geolocation) { mostrarToast('GPS não disponível neste dispositivo', 'erro'); return; }
+  mostrarToast('Obtendo localização…', '');
+
+  _gpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (!_mapaRoteiroInstance) return;
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy);
+
+      let distTxt = '';
+      if (_mapaRoteiroAlvo) {
+        const dm = _haversineM(lat, lng, _mapaRoteiroAlvo.lat, _mapaRoteiroAlvo.lng);
+        const dFmt = dm < 1000 ? Math.round(dm) + ' m' : (dm / 1000).toFixed(2) + ' km';
+        distTxt = '<br>📏 <strong>' + dFmt + '</strong> até Dom. ' + _mapaRoteiroAlvo.domNum;
+      }
+      const popupTxt = '📡 <strong>Você está aqui</strong><br>Precisão: ±' + acc + 'm' + distTxt;
+
+      const gpsIcon = window.L.divIcon({
+        html: '<div style="position:relative;width:22px;height:22px">' +
+              '<div style="position:absolute;inset:0;border-radius:50%;background:#2563eb;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(37,99,235,0.55);z-index:1"></div>' +
+              '<div style="position:absolute;inset:-5px;border-radius:50%;background:rgba(37,99,235,0.3);animation:gps-pulse 1.8s ease-out infinite"></div>' +
+              '</div>',
+        className: '', iconSize: [22, 22], iconAnchor: [11, 11]
+      });
+
+      if (_gpsMarker) {
+        _gpsMarker.setLatLng([lat, lng]).setPopupContent(popupTxt);
+        _gpsCircle.setLatLng([lat, lng]).setRadius(acc);
+      } else {
+        _gpsMarker = window.L.marker([lat, lng], { icon: gpsIcon, zIndexOffset: 2000 })
+          .bindPopup(popupTxt).addTo(_mapaRoteiroInstance);
+        _gpsCircle = window.L.circle([lat, lng], {
+          radius: acc, color: '#2563eb', fillColor: '#2563eb',
+          fillOpacity: 0.08, weight: 1
+        }).addTo(_mapaRoteiroInstance);
+        if (!_gpsModoAtivo) {
+          _gpsModoAtivo = true;
+          _mapaRoteiroInstance.panTo([lat, lng]);
+          const btn = document.getElementById('btn-gps-mapa');
+          if (btn) { btn.textContent = '📡 GPS ativo'; btn.style.background = '#2563a8'; btn.style.color = '#fff'; btn.style.borderColor = '#2563a8'; }
+          mostrarToast('GPS ativo', 'sucesso');
+        }
+      }
+
+      // Linha tracejada até o alvo
+      if (_gpsLinha) { _gpsLinha.remove(); _gpsLinha = null; }
+      if (_mapaRoteiroAlvo) {
+        _gpsLinha = window.L.polyline(
+          [[lat, lng], [_mapaRoteiroAlvo.lat, _mapaRoteiroAlvo.lng]],
+          { color: '#f59e0b', weight: 2.5, dashArray: '8 6', opacity: 0.9 }
+        ).addTo(_mapaRoteiroInstance);
+      }
+    },
+    (err) => {
+      const msgs = { 1: 'Permissão negada', 2: 'Posição indisponível', 3: 'Tempo esgotado' };
+      mostrarToast('GPS: ' + (msgs[err.code] || err.message), 'erro');
+      _pararGps();
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+  );
+};
+
 function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, domAtual) {
   const mapaDiv = document.getElementById('roteiro-mapa');
   if (!mapaDiv) return;
@@ -9111,7 +9205,11 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
     try { _mapaRoteiroInstance.remove(); } catch(e) {}
     _mapaRoteiroInstance = null;
   }
-  
+  // Limpa markers GPS — o mapa será recriado; o watch continua ativo se estiver ligado
+  if (_gpsMarker) { try { _gpsMarker.remove(); } catch(e) {} _gpsMarker = null; }
+  if (_gpsCircle) { try { _gpsCircle.remove(); } catch(e) {} _gpsCircle = null; }
+  if (_gpsLinha)  { try { _gpsLinha.remove();  } catch(e) {} _gpsLinha  = null; }
+
   // Pega coordenadas — primeiro do KML em memória, depois do Firestore
   const kmlSetor = kmlDados[setor] || [];
   const domNum = domAtual ? (domAtual.domicilio_num || domAtual.numero_sequencial) : '';
@@ -9120,6 +9218,7 @@ function renderizarMapaRoteiro(alvo, anteriores, posteriores, setor, corAlvo, do
   // Coordenadas do alvo: KML memória > Firestore > nenhum
   const latAlvo = pinAlvo?.lat || parseFloat(domAtual?.latitude_kml || '0');
   const lngAlvo = pinAlvo?.lng || parseFloat(domAtual?.longitude_kml || '0');
+  _mapaRoteiroAlvo = (latAlvo && lngAlvo) ? { lat: latAlvo, lng: lngAlvo, domNum: String(domNum) } : null;
 
   if (!latAlvo || !lngAlvo) {
     const tb = document.getElementById('roteiro-sel-toolbar');
