@@ -4241,9 +4241,17 @@ window.gerarResumoPendencias = async (idsOverride, tableId) => {
     supervisao:'Supervisão', vago:'Vago/inapto', uso_ocasional:'Uso ocasional',
   };
 
-  // Ordena: entrevistador → setor → dom
+  // Canonicaliza nomes via entrevistadoresCache para unificar variantes do mesmo entrevistador
+  // (ex: "Matheus Monteiro" e "Matheus de Souza Monteiro" viram o mesmo nome cadastrado)
+  const _cache = entrevistadoresCache || [];
+  lista.forEach(d => {
+    const reg = _cache.find(u => nomesCorrespondem(u.nome, d.entrevistador_nome||''));
+    d._nomeCanonical = reg ? tc(reg.nome) : tc(d.entrevistador_nome||'');
+  });
+
+  // Ordena: entrevistador (canonical) → setor → dom
   lista.sort((a, b) => {
-    const eA = (a.entrevistador_nome||'').localeCompare(b.entrevistador_nome||'');
+    const eA = (a._nomeCanonical||'').localeCompare(b._nomeCanonical||'');
     if (eA !== 0) return eA;
     const sA = a.controle ? a.controle.slice(0,-1) : (a.upa||'');
     const sB = b.controle ? b.controle.slice(0,-1) : (b.upa||'');
@@ -4252,11 +4260,11 @@ window.gerarResumoPendencias = async (idsOverride, tableId) => {
     return parseInt(a.domicilio_num||0) - parseInt(b.domicilio_num||0);
   });
 
-  // Agrupa por entrevistador
+  // Agrupa por entrevistador (nome canonical)
   const grupos = [];
   let grpAtual = null;
   lista.forEach(d => {
-    const nome = d.entrevistador_nome || '(sem entrevistador)';
+    const nome = d._nomeCanonical || '(sem entrevistador)';
     if (!grpAtual || grpAtual.nome !== nome) { grpAtual = {nome, doms:[]}; grupos.push(grpAtual); }
     grpAtual.doms.push(d);
   });
