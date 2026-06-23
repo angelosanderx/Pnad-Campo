@@ -4696,7 +4696,7 @@ function _montarLinhaDOM(d, ns = '') {
       <td style="padding:0.4rem 0.5rem">
         <div style="font-size:0.62rem;color:var(--cinza);line-height:1.3">UPA ${d.upa || '-'} · ${setor.slice(-5)}</div>
         <div style="display:flex;align-items:center;gap:3px">
-          <button onclick="abrirFicha('${d.id}')" style="font-weight:800;font-size:1rem;color:var(--azul);line-height:1.1;background:#eef2ff;border:none;border-radius:5px;padding:1px 6px;cursor:pointer;text-align:left;font-family:var(--fonte)" title="Abrir ficha">Dom. ${d.domicilio_num || d.numero_sequencial || '-'}</button>
+          <button onclick="abrirFicha('${d.id}')" style="font-weight:800;font-size:1rem;color:var(--azul);line-height:1.1;background:#eef2ff;border:none;border-radius:5px;padding:1px 6px;cursor:pointer;text-align:left;font-family:var(--fonte);white-space:nowrap" title="Abrir ficha">Dom.${d.domicilio_num || d.numero_sequencial || '-'}</button>
           <div id="${ns}ind-morad-${d.id}" style="display:inline-block;transform:scale(0.62);transform-origin:left center;line-height:1">${_badgeMoradores(d._tem_moradores)}</div>
         </div>
         ${periodoAtual === 'todos' ? `<div style="font-size:0.58rem;font-weight:700;color:var(--azul-medio);margin-top:1px">${PERIODOS[d.periodo || PERIODO_PADRAO]}</div>` : ''}
