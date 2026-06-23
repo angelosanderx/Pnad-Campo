@@ -2516,6 +2516,7 @@
       </div>
     </div>
     <div class="modal-body" style="padding:1rem 1.25rem">
+      <div id="cnefe-controle-filtros" style="margin-bottom:0.75rem"></div>
       <div id="cnefe-controle-tabela"><div class="loader">Carregando...</div></div>
     </div>
   </div>
@@ -10453,7 +10454,8 @@ let _cnefeMesesUnicos   = [];
 const _cnefeFiltros     = { setor:'', pesquisa:'', agente:'', mes: new Set(), status:'', localidade:'' };
 window.setCnefeFiltro   = (c, v) => { _cnefeFiltros[c] = v; renderCnefeSetores(); };
 let _qualFiltroMeses   = new Set(); // filtro de meses na aba qualidade
-let _upaSummariesCache = [];        // cache p/ modal de controle por UPA
+let _upaSummariesCache  = [];       // cache p/ modal de controle por UPA
+let _controleUpaFiltros = { mes: null, agente: null };
 let _cnefeMapInstance  = null;
 let _cnefeMapLayers    = { contorno: null, faces: null, pontos: null };
 const _cnefeKmlCache   = {};
@@ -11662,10 +11664,72 @@ function _renderTabelaControleUpa(summaries) {
   </div>`;
 }
 
+function _renderModalControleUpa() {
+  const all = _upaSummariesCache;
+
+  // Meses disponíveis
+  const mesesDisp = [...new Map(
+    all.filter(u => u.mesCnefe)
+       .map(u => [`${u.anoCnefe}_${String(u.mesCnefe).padStart(2,'0')}`, u])
+  ).values()].sort((a, b) => a.anoCnefe - b.anoCnefe || a.mesCnefe - b.mesCnefe);
+
+  // Agentes disponíveis
+  const agentesDisp = [...new Set(all.map(u => u.agente.split(' ')[0]))].filter(Boolean).sort();
+
+  // Renderiza filtros
+  const filtrosEl = document.getElementById('cnefe-controle-filtros');
+  if (filtrosEl) {
+    const chipStyle = (ativo) =>
+      `filtro-chip${ativo ? ' ativo' : ''}`;
+
+    const chipsMes = [`<button class="${chipStyle(!_controleUpaFiltros.mes)}" onclick="filtrarControleUpa('mes',null)">Todos</button>`,
+      ...mesesDisp.map(u => {
+        const key = `${u.anoCnefe}_${String(u.mesCnefe).padStart(2,'0')}`;
+        return `<button class="${chipStyle(_controleUpaFiltros.mes === key)}"
+          onclick="filtrarControleUpa('mes','${key}')">${_CNEFE_MESES[u.mesCnefe-1]}/${u.anoCnefe}</button>`;
+      })].join('');
+
+    const chipsAgente = [`<button class="${chipStyle(!_controleUpaFiltros.agente)}" onclick="filtrarControleUpa('agente',null)">Todos</button>`,
+      ...agentesDisp.map(a =>
+        `<button class="${chipStyle(_controleUpaFiltros.agente === a)}"
+          onclick="filtrarControleUpa('agente','${a}')">${a}</button>`)
+    ].join('');
+
+    filtrosEl.innerHTML = `
+      <div style="margin-bottom:0.5rem">
+        <div style="font-size:0.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.3rem">Mês CNEFE</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem">${chipsMes}</div>
+      </div>
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.3rem">Agente</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem">${chipsAgente}</div>
+      </div>`;
+  }
+
+  // Aplica filtros
+  let filtrados = all;
+  if (_controleUpaFiltros.mes) {
+    filtrados = filtrados.filter(u => {
+      const key = `${u.anoCnefe}_${String(u.mesCnefe).padStart(2,'0')}`;
+      return key === _controleUpaFiltros.mes;
+    });
+  }
+  if (_controleUpaFiltros.agente) {
+    filtrados = filtrados.filter(u => u.agente.split(' ')[0] === _controleUpaFiltros.agente);
+  }
+
+  document.getElementById('cnefe-controle-tabela').innerHTML = _renderTabelaControleUpa(filtrados);
+}
+
+window.filtrarControleUpa = (tipo, valor) => {
+  _controleUpaFiltros[tipo] = valor;
+  _renderModalControleUpa();
+};
+
 window.abrirControleCnefeUpa = async () => {
   abrirModal('modal-cnefe-controle');
   if (!_upaSummariesCache.length) await carregarCnefeQualidade();
-  document.getElementById('cnefe-controle-tabela').innerHTML = _renderTabelaControleUpa(_upaSummariesCache);
+  _renderModalControleUpa();
 };
 
 window.imprimirControleCnefeUpa = () => {
