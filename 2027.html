@@ -1656,8 +1656,9 @@ function inicioSemanaAtual() {
   d.setHours(0, 0, 0, 0);
   return d;
 }
-function erroCarregamento(ids) {
-  const html = '<div class="vazio"><span class="icone-vazio">⚠️</span>Falha ao carregar. <button class="btn btn-ghost" style="display:inline;padding:.25rem .7rem;font-size:.8rem" onclick="location.reload()">Recarregar</button></div>';
+function erroCarregamento(ids, err) {
+  const msg = err ? ` <small style="opacity:.6">${esc(String(err.message||err))}</small>` : '';
+  const html = `<div class="vazio"><span class="icone-vazio">⚠️</span>Falha ao carregar.${msg} <button class="btn btn-ghost" style="display:inline;padding:.25rem .7rem;font-size:.8rem" onclick="location.reload()">Recarregar</button></div>`;
   (Array.isArray(ids) ? ids : [ids]).forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = html;
@@ -2513,7 +2514,7 @@ async function carregarTrilhas() {
     renderizarTrilhas();
   } catch (e) {
     console.error(e);
-    erroCarregamento('trilhas-lista');
+    erroCarregamento('trilhas-lista', e);
   }
 }
 
@@ -2686,7 +2687,7 @@ async function carregarMapaAulas() {
     renderizarMapaTabs();
   } catch (e) {
     console.error(e);
-    erroCarregamento('mapa-aulas-conteudo');
+    erroCarregamento('mapa-aulas-conteudo', e);
   }
 }
 
@@ -3152,7 +3153,7 @@ async function carregarPlanoSemana() {
     renderizarPlanoSemana();
   } catch (e) {
     console.error(e);
-    erroCarregamento('semana-lista');
+    erroCarregamento('semana-lista', e);
   }
 }
 
@@ -3299,7 +3300,7 @@ async function carregarTrilhaAulas() {
     }
     _trilhaAulasCarregada = true;
     renderizarTrilhaAulas();
-  } catch (e) { console.error(e); erroCarregamento('trilha-aulas-lista'); }
+  } catch (e) { console.error(e); erroCarregamento('trilha-aulas-lista', e); }
 }
 
 async function seedTrilhaAulas() {
@@ -3426,7 +3427,7 @@ async function carregarCadernosTEC() {
     }
     _cadernosTECCarregado = true;
     renderizarCadernosTEC();
-  } catch (e) { console.error(e); erroCarregamento('cadernos-tec-lista'); }
+  } catch (e) { console.error(e); erroCarregamento('cadernos-tec-lista', e); }
 }
 
 async function seedCadernosTEC() {
