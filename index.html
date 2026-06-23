@@ -5168,7 +5168,7 @@ function _montarLinhaDOM(d, ns = '') {
               {carta_abertura:'📄 Abertura', carta_retorno:'🔄 Retorno', carta_recusa:'✉️ Recusa', apoio_supervisao:'👤 Apoio', apoio_viatura:'🚗 Viatura', corrigir_moradores:'👥 Moradores', correcao_questionario:'✏️ Correção', comunicar_dmc:'📢 DMC', contato_informante:'📞 Contato', mais_empenho:'💪 Empenho', verificar_status:'🔍 Status'}[s.tipo] || s.tipo
             }</span>`).join('')}
         </div>
-        <button class="btn-acao secundario" style="font-size:0.72rem;padding:0.18rem 0.5rem;margin-top:4px;background:var(--laranja-claro);color:var(--laranja);border:1px solid var(--laranja)" onclick="abrirSolicitar('${d.id}')">+ Solicitar</button>
+        <button class="btn-acao secundario" style="font-size:0.72rem;padding:0.18rem 0.5rem;margin-top:4px;background:var(--cinza-claro);color:var(--cinza);border:1px solid #cbd5e1" onclick="abrirSolicitar('${d.id}')">+ Solicitar</button>
       </td>
       <td style="font-size:0.75rem;padding:0.4rem 0.45rem">
         ${_ant
@@ -5680,7 +5680,7 @@ function renderizarAtalhosOperacionais(dom) {
     ${end ? `<button class="btn-acao secundario" style="font-size:0.82rem" onclick="copiarTextoClipboard('${end}','📋 Endereço copiado!')">📋 Copiar endereço</button>` : ''}
     <button class="btn-acao secundario" style="font-size:0.82rem" onclick="gerarEtiquetas(['${dom.id}'])">🏷️ Imprimir etiqueta</button>
     <button class="btn-acao secundario" style="font-size:0.82rem" onclick="gerarCartoes(['${dom.id}'])">🗂️ Imprimir cartão</button>
-    <button class="btn-acao secundario" style="font-size:0.82rem;background:var(--laranja-claro);color:var(--laranja);border-color:var(--laranja)" onclick="abrirSolicitar('${dom.id}')">📋 Solicitar</button>
+    <button class="btn-acao secundario" style="font-size:0.82rem;background:var(--cinza-claro);color:var(--cinza);border-color:#cbd5e1" onclick="abrirSolicitar('${dom.id}')">📋 Solicitar</button>
   `;
 }
 
