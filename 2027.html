@@ -1697,6 +1697,28 @@ window.fecharSidebar = () => {
 // ── modais ──
 window.fecharModal = (id) => { document.getElementById(id).classList.remove('visivel'); document.getElementById(id).style.display = 'none'; };
 function abrirModal(id) { document.getElementById(id).style.display = 'flex'; document.getElementById(id).classList.add('visivel'); }
+
+// ── login ──
+window.fazerLogin = async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erroEl = document.getElementById('login-erro');
+  const btn = document.getElementById('login-btn');
+  if (!email || !senha) { erroEl.textContent = 'Preencha e-mail e senha.'; erroEl.style.display = 'block'; return; }
+  btn.textContent = 'Entrando…'; btn.disabled = true; erroEl.style.display = 'none';
+  try {
+    await window._login(email, senha);
+    // onAuthStateChanged fires → hides overlay and dispatches firebase-pronto
+  } catch (e) {
+    const msgs = { 'auth/invalid-credential': 'E-mail ou senha incorretos.', 'auth/user-not-found': 'Usuário não encontrado.', 'auth/wrong-password': 'Senha incorreta.', 'auth/too-many-requests': 'Muitas tentativas. Aguarde e tente novamente.' };
+    erroEl.textContent = msgs[e.code] || 'Erro ao entrar: ' + e.message;
+    erroEl.style.display = 'block';
+    btn.textContent = 'Entrar'; btn.disabled = false;
+  }
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-overlay').style.display !== 'none') fazerLogin();
+});
 </script>
 
 <!-- ════ MÓDULO: DISCIPLINAS E TAREFAS ════ -->
@@ -3560,10 +3582,29 @@ window.adicionarTECAsemana = async (id) => {
 };
 </script>
 
+<!-- ════ LOGIN OVERLAY ════ -->
+<div id="login-overlay" style="display:none;position:fixed;inset:0;background:var(--bg-base);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:2rem 2.5rem;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+    <h2 style="margin:0 0 .25rem;font-size:1.3rem">📚 IBGE Concurso 2027</h2>
+    <p style="margin:0 0 1.5rem;color:var(--text-muted);font-size:.85rem">Entre com a sua conta IBGE</p>
+    <div style="display:flex;flex-direction:column;gap:.75rem">
+      <input id="login-email" type="email" placeholder="E-mail" autocomplete="email"
+        style="background:var(--bg-base);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;color:var(--text);font-size:.95rem;outline:none">
+      <input id="login-senha" type="password" placeholder="Senha" autocomplete="current-password"
+        style="background:var(--bg-base);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;color:var(--text);font-size:.95rem;outline:none">
+      <div id="login-erro" style="color:var(--vermelho);font-size:.82rem;display:none"></div>
+      <button onclick="fazerLogin()" id="login-btn"
+        style="background:var(--azul);color:#fff;border:none;border-radius:8px;padding:.7rem;font-size:.95rem;font-weight:600;cursor:pointer">
+        Entrar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ════ FIREBASE ════ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged }
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, getDoc, getDocs, addDoc, setDoc,
@@ -3588,20 +3629,20 @@ const db = initializeFirestore(app, {
 
 window._db = db;
 window._fb = { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, onSnapshot, serverTimestamp };
+window._login = async (email, senha) => {
+  await signInWithEmailAndPassword(auth, email, senha);
+};
 
-// Fire app after auth settled: reuse existing session or sign in anonymously
+// Fire app after auth settled; show login overlay if unauthenticated
 let _authFired = false;
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
   if (_authFired) return;
   if (!user) {
-    try {
-      await signInAnonymously(auth);
-      return; // onAuthStateChanged fires again with the new anon user
-    } catch(_) {
-      // Anonymous auth not enabled — proceed unauthenticated
-    }
+    document.getElementById('login-overlay').style.display = 'flex';
+    return;
   }
   _authFired = true;
+  document.getElementById('login-overlay').style.display = 'none';
   window.dispatchEvent(new Event('firebase-pronto'));
 });
 </script>
