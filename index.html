@@ -10249,9 +10249,8 @@ async function carregarCnefeSetores() {
         // Prefere mês importado dos Indicadores Gerenciais quando disponível
         const _mc = (manual?.mes_cnefe > 0) ? manual.mes_cnefe : mesCnefe;
         const _ac = (manual?.mes_cnefe > 0) ? (manual.ano_cnefe || anoCnefe) : anoCnefe;
-        const _pf = (manual?.mes_cnefe > 0 && manual.prazo_final)
-          ? (manual.prazo_final.seconds ? new Date(manual.prazo_final.seconds*1000) : new Date(manual.prazo_final))
-          : prazoFinal;
+        // Recalcula prazo sempre pela fórmula correta (último dia 2 meses após mês CNEFE)
+        const _pf = new Date(_ac, _mc + 2, 0);
         _cnefeSetoresList.push({
           setor: k, pesquisa: 'PNAD-C',
           agente_id: manual?.agente_id || '', agente_nome: manual?.agente_nome || '',
@@ -10299,9 +10298,8 @@ async function carregarCnefeSetores() {
         // Prefere mês importado dos Indicadores Gerenciais quando disponível
         const _mc2 = (manual?.mes_cnefe > 0) ? manual.mes_cnefe : mesCnefe;
         const _ac2 = (manual?.mes_cnefe > 0) ? (manual.ano_cnefe || anoCnefe) : anoCnefe;
-        const _pf2 = (manual?.mes_cnefe > 0 && manual.prazo_final)
-          ? (manual.prazo_final.seconds ? new Date(manual.prazo_final.seconds*1000) : new Date(manual.prazo_final))
-          : prazoFinal;
+        // Recalcula prazo sempre pela fórmula correta (último dia 2 meses após mês CNEFE)
+        const _pf2 = new Date(_ac2, _mc2 + 2, 0);
         _cnefeSetoresList.push({
           setor: upa, pesquisa: 'PNAD-C',
           agente_id: manual?.agente_id || '', agente_nome: manual?.agente_nome || '',
@@ -10321,13 +10319,14 @@ async function carregarCnefeSetores() {
     //  que usam r.upa / d.upa como chave)
     const setoresJaVistos = new Set(_cnefeSetoresList.map(s => s.setor));
     _cnefeSetoresCache.filter(s => /pnad/i.test(s.pesquisa) && !setoresJaVistos.has(s.setor)).forEach(s => {
-      const pf = s.prazo_final
-        ? (s.prazo_final.seconds ? new Date(s.prazo_final.seconds * 1000) : new Date(s.prazo_final))
-        : null;
+      const _mes4 = s.mes_cnefe || 0;
+      const _ano4 = s.ano_cnefe || hoje.getFullYear();
+      // Recalcula prazo pela fórmula correta; não confia no valor armazenado (pode estar desatualizado)
+      const pf = _mes4 > 0 ? new Date(_ano4, _mes4 + 2, 0) : null;
       _cnefeSetoresList.push({
         setor: s.setor, pesquisa: 'PNAD-C',
         agente_id: s.agente_id || '', agente_nome: s.agente_nome || '',
-        mesCnefe: s.mes_cnefe || 0, anoCnefe: s.ano_cnefe || hoje.getFullYear(),
+        mesCnefe: _mes4, anoCnefe: _ano4,
         prazoFinal: pf, mesPnad: 0, anoPnad: 0,
         concluido: s.concluido || false,
         upa_id: s.upa_id || '',
@@ -10571,7 +10570,7 @@ window.importarIndicadoresGerenciais = (input) => {
           const _y = parseInt(partes[1]) || 0;
           if (_m && _y) {
             mesCnefe = _m; anoCnefe = _y;
-            prazoFinal = new Date(_y, _m, 0); // último dia do mês CNEFE
+            prazoFinal = new Date(_y, _m + 2, 0); // último dia 2 meses após mês CNEFE (prazo antes da PNAD)
           }
         }
 
