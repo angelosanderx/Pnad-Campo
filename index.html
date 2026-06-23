@@ -11605,7 +11605,7 @@ async function carregarCnefeQualidade() {
 
     // Qualidade CNEFE: domicílios em etapa 1 agora = CNEFE feito no trimestre anterior.
     // Usamos status_atual diretamente — sem depender de historico_especies.
-    const STATUS_ERRO_CNEFE = new Set(['vago', 'uso_ocasional', 'inapto', 'fechado', 'demolido', 'inexistente']);
+    const STATUS_ERRO_CNEFE = new Set(['vago', 'uso_ocasional', 'inapto', 'demolido', 'inexistente']);
     const STATUS_SEM_DADO   = new Set(['nao_visitado', 'agendado']);
     const LABEL_STATUS = { vago:'Vago', uso_ocasional:'Uso ocasional', inapto:'Inapto',
       fechado:'Fechado', demolido:'Demolido', inexistente:'Inexistente' };
