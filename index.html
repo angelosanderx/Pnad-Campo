@@ -1613,10 +1613,15 @@
                 📥 Indicadores Gerenciais
                 <input type="file" accept=".csv" style="display:none" onchange="importarIndicadoresGerenciais(this)">
               </label>
+              <label class="btn-acao secundario" style="cursor:pointer;margin:0" title="Selecione vários CSVs — o setor é identificado automaticamente pelo nome do arquivo">
+                📂 Importar CSVs em lote
+                <input type="file" accept=".csv" multiple style="display:none" onchange="importarMultiplosCnefeCSV(this)">
+              </label>
               <button class="btn-acao" onclick="abrirModalCnefeSetorNovo()">+ Adicionar setor</button>
             </div>
           </div>
           <div id="cnefe-setores-tabela"><div class="loader">Carregando...</div></div>
+          <input type="file" accept=".csv" id="cnefe-csv-direto-input" style="display:none" onchange="importarCnefeCSVDireto(this)">
         </div>
       </div>
 
@@ -10204,6 +10209,11 @@ window.carregarCnefe = async () => {
   carregarCnefeSetores();
 };
 
+// ── localStorage: rastreia setores com CSV importado ─────────────────────────
+function _csvSetoresLocal() { try { return JSON.parse(localStorage.getItem('cnefe_csv_setores') || '{}'); } catch { return {}; } }
+function _marcarCsvLocal(setor) { const d = _csvSetoresLocal(); d[setor] = true; localStorage.setItem('cnefe_csv_setores', JSON.stringify(d)); }
+function _limparCsvLocal(setor) { const d = _csvSetoresLocal(); delete d[setor]; localStorage.setItem('cnefe_csv_setores', JSON.stringify(d)); }
+
 // ── ABA SETORES ───────────────────────────────────────────────────────────────
 
 async function carregarCnefeSetores() {
@@ -10261,6 +10271,7 @@ async function carregarCnefeSetores() {
           status_listagem_ibge:  manual?.status_listagem_ibge  || '',
           status_avaliacao_ibge: manual?.status_avaliacao_ibge || '',
           origem: 'pnad', docId: manual?.id || null,
+          tem_csv: manual?.tem_csv || false,
         });
       }
     }
@@ -10311,6 +10322,7 @@ async function carregarCnefeSetores() {
           status_listagem_ibge:  manual?.status_listagem_ibge  || '',
           status_avaliacao_ibge: manual?.status_avaliacao_ibge || '',
           origem: 'pnad', docId: manual?.id || null,
+          tem_csv: manual?.tem_csv || false,
         });
         vistosDom.add(upa);
       }
@@ -10336,6 +10348,7 @@ async function carregarCnefeSetores() {
         status_listagem_ibge:  s.status_listagem_ibge  || '',
         status_avaliacao_ibge: s.status_avaliacao_ibge || '',
         origem: 'indicadores', docId: s.id,
+        tem_csv: s.tem_csv || false,
       });
     });
 
@@ -10355,6 +10368,7 @@ async function carregarCnefeSetores() {
         status_listagem_ibge:  s.status_listagem_ibge  || '',
         status_avaliacao_ibge: s.status_avaliacao_ibge || '',
         origem: 'manual', docId: s.id,
+        tem_csv: s.tem_csv || false,
       });
     });
 
@@ -10366,7 +10380,31 @@ async function carregarCnefeSetores() {
         .sort((a, b) => a[0].localeCompare(b[0]))
     )].map(([k, s]) => ({ key: k, mes: s.mesCnefe, ano: s.anoCnefe }));
 
+    // Aplica flags do localStorage (leitura instantânea)
+    const _csvLocal = _csvSetoresLocal();
+    for (const s of _cnefeSetoresList) {
+      if (_csvLocal[s.setor]) s.tem_csv = true;
+    }
+
+    // Migração única: na primeira vez detecta dados já existentes no Firestore
+    // e popula o localStorage para as próximas vezes serem instantâneas.
+    if (!localStorage.getItem('cnefe_csv_migrado')) {
+      const semFlag = _cnefeSetoresList.filter(s => !s.tem_csv);
+      if (semFlag.length) {
+        const checks = await Promise.all(semFlag.map(s =>
+          getDocs(query(collection(db, 'cnefe_enderecos'), where('setor', '==', s.setor), limit(1)))
+            .then(snap => ({ s, temDados: !snap.empty }))
+            .catch(() => ({ s, temDados: false }))
+        ));
+        for (const { s, temDados } of checks) {
+          if (temDados) { s.tem_csv = true; _marcarCsvLocal(s.setor); }
+        }
+      }
+      localStorage.setItem('cnefe_csv_migrado', '1');
+    }
+
     renderCnefeSetores();
+
   } catch(e) {
     console.error(e);
     document.getElementById('cnefe-setores-tabela').innerHTML =
@@ -10479,7 +10517,7 @@ window.renderCnefeSetores = () => {
       const agNome = s.agente_nome || (_cnefeAgentesCache?.find(a => a.id === s.agente_id)?.nome) || '—';
       const locVal = (s.localidade || '').replace(/'/g, '&#39;');
       tbody += `<tr>
-        <td><code style="font-size:0.78rem">${s.setor}</code></td>
+        <td><code style="font-size:0.78rem;cursor:pointer;color:var(--azul-medio);text-decoration:underline dotted" onclick="abrirCnefeListagem('${s.setor}')" title="Abrir listagem de campo">${s.setor}</code></td>
         <td style="font-size:0.82rem">${s.pesquisa}</td>
         <td style="font-size:0.82rem">${primeiroNome(agNome)}</td>
         <td style="font-size:0.82rem;min-width:130px;cursor:pointer" onclick="cnefeEditarLocalidade(this,'${s.setor}','${s.docId||''}')">
@@ -10495,11 +10533,10 @@ window.renderCnefeSetores = () => {
           </span>
         </td>
         <td>
-          <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-            <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
-              onclick="abrirCnefeListagem('${s.setor}')">📋</button>
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">
             <button class="btn-acao secundario" style="font-size:0.75rem;padding:0.25rem 0.6rem"
               onclick="editarCnefeSetor('${s.setor}','${s.docId||''}','${s.agente_id||''}',${s.concluido},'${s.upa_id||''}')">✏️</button>
+            ${(() => { const tc = s.tem_csv || (_cnefeEnderecoCache[s.setor] instanceof Array && _cnefeEnderecoCache[s.setor].length > 0); return `<button title="${tc ? 'CSV importado — clique para reimportar' : 'Importar CSV da listagem'}" onclick="window._cnefeCSVDiretoSetor='${s.setor}';document.getElementById('cnefe-csv-direto-input').click()" style="font-size:0.7rem;padding:0.18rem 0.38rem;background:none;border:1px solid ${tc ? 'var(--verde)' : 'var(--borda)'};border-radius:4px;color:${tc ? 'var(--verde)' : 'var(--cinza)'};cursor:pointer;line-height:1.3;transition:all 0.15s">csv</button>`; })()}
           </div>
         </td>
       </tr>`;
@@ -10865,6 +10902,147 @@ window.filtrarCnefeListagem = () => {
   _renderCnefeTabela(_cnefeEnderecoCache[setor] || []);
 };
 
+// ── Helper compartilhado: parseia e faz upload do CSV para um setor ─────────
+async function _cnefeUploadCSV(setor, texto) {
+  const linhas = texto.split(/\r?\n/);
+  const cabIdx = linhas.findIndex(l => l.toUpperCase().includes('LOGRADOURO'));
+  if (cabIdx < 0) throw new Error('Cabeçalho LOGRADOURO não encontrado');
+  const sep = linhas[cabIdx].includes(';') ? ';' : ',';
+  const cab = linhas[cabIdx].split(sep).map(c => c.trim().replace(/^"|"$/g,'').toUpperCase());
+  const ix = n => cab.indexOf(n);
+  const iCU=ix('CODIGO UNICO'), iQ=ix('QUADRA'), iF=ix('FACE'), iUV=ix('UV');
+  const iCE=ix('CODIGO ENDERECO'), iLg=ix('LOGRADOURO'), iNm=ix('NUMERO');
+  const iLc=ix('LOCALIDADE'), iPR=ix('PONTO DE REFERENCIA'), iCep=ix('CEP');
+  const iLat=ix('LATITUDE'), iLng=ix('LONGITUDE'), iEsp=ix('ESPECIE');
+  const iRsp=ix('NOME DO RESPONSAVEL'), iTel=ix('TELEFONE'), iEst=ix('ESTABELECIMENTO');
+  const iSt=ix('STATUS DO ENDERECO'), iDt=ix('DATA'), iSel=ix('SELECIONADO');
+  const batch = [];
+  for (let i = cabIdx + 1; i < linhas.length; i++) {
+    const l = linhas[i].trim(); if (!l) continue;
+    const c = l.split(sep).map(x => x.trim().replace(/^"|"$/g,''));
+    const v = ii => ii >= 0 ? (c[ii] || '') : '';
+    batch.push({
+      setor, codigo_unico:v(iCU), quadra:v(iQ), face:v(iF), uv:v(iUV),
+      codigo_endereco:v(iCE), logradouro:v(iLg), numero:v(iNm),
+      localidade:v(iLc), ponto_referencia:v(iPR), cep:v(iCep),
+      latitude:v(iLat), longitude:v(iLng), especie:v(iEsp),
+      responsavel:v(iRsp), telefone:v(iTel), estabelecimento:v(iEst),
+      status_endereco:v(iSt), data:v(iDt), selecionado:v(iSel),
+      pnad_atual: false, observacao: '', atualizadoEm: serverTimestamp(),
+    });
+  }
+  if (!batch.length) throw new Error('Nenhum endereço encontrado');
+  const snapOld = await getDocs(query(collection(db, 'cnefe_enderecos'), where('setor', '==', setor)));
+  for (let i = 0; i < snapOld.docs.length; i += 400) {
+    const b = writeBatch(db); snapOld.docs.slice(i, i+400).forEach(d => b.delete(d.ref)); await b.commit();
+  }
+  for (let i = 0; i < batch.length; i += 400) {
+    const b = writeBatch(db); batch.slice(i, i+400).forEach(r => b.set(doc(collection(db, 'cnefe_enderecos')), r)); await b.commit();
+  }
+  _cnefeEnderecoCache[setor] = null;
+  // Persiste flag tem_csv
+  const existing = (_cnefeSetoresCache || []).find(s => s.setor === setor);
+  if (existing?.id) {
+    await setDoc(doc(db, 'cnefe_setores', existing.id), { tem_csv: true }, { merge: true });
+  } else {
+    const novoRef = await addDoc(collection(db, 'cnefe_setores'), { setor, tem_csv: true, pesquisa: 'PNAD-C' });
+    if (!_cnefeSetoresCache) _cnefeSetoresCache = [];
+    _cnefeSetoresCache.push({ id: novoRef.id, setor, tem_csv: true, pesquisa: 'PNAD-C' });
+  }
+  const entry = _cnefeSetoresList.find(s => s.setor === setor);
+  if (entry) entry.tem_csv = true;
+  _marcarCsvLocal(setor);
+  return batch.length;
+}
+
+// ── Matching: extrai código do nome do arquivo e localiza o setor ────────────
+function _cnefeMatchSetor(nomeArquivo) {
+  const codigos = (nomeArquivo.replace(/\.csv$/i,'').match(/\d+/g) || [])
+    .sort((a, b) => b.length - a.length); // mais longo primeiro
+  for (const cod of codigos) {
+    const s = _cnefeSetoresList.find(s =>
+      s.setor === cod ||
+      cod.startsWith(s.setor) ||
+      s.setor.startsWith(cod)
+    );
+    if (s) return s.setor;
+  }
+  return null;
+}
+
+// ── Exclusão manual dos dados de listagem de um setor ────────────────────────
+window.excluirDadosCnefeSetor = async (setor, docId) => {
+  if (!confirm(`Excluir todos os endereços da listagem do setor ${setor}?\nEsta ação não pode ser desfeita.`)) return;
+  try {
+    mostrarToast('Excluindo…', '');
+    const snap = await getDocs(query(collection(db, 'cnefe_enderecos'), where('setor', '==', setor)));
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const b = writeBatch(db); snap.docs.slice(i, i+400).forEach(d => b.delete(d.ref)); await b.commit();
+    }
+    _cnefeEnderecoCache[setor] = [];
+    // Remove flag tem_csv
+    const id = docId || (_cnefeSetoresCache||[]).find(s => s.setor === setor)?.id;
+    if (id) await setDoc(doc(db, 'cnefe_setores', id), { tem_csv: false }, { merge: true });
+    const entry = _cnefeSetoresList.find(s => s.setor === setor);
+    if (entry) entry.tem_csv = false;
+    _limparCsvLocal(setor);
+    mostrarToast(`Listagem do setor ${setor} excluída`, 'sucesso');
+    renderCnefeSetores();
+  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+};
+
+// ── Botão "csv" por linha — importação direta de um setor ───────────────────
+window._cnefeCSVDiretoSetor = '';
+
+window.importarCnefeCSVDireto = (input) => {
+  const file = input.files[0]; if (!file) return;
+  const setor = window._cnefeCSVDiretoSetor;
+  input.value = '';
+  if (!setor) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      mostrarToast(`Importando setor ${setor}…`, '');
+      const n = await _cnefeUploadCSV(setor, e.target.result);
+      mostrarToast(`${n} endereços importados — ${setor}`, 'sucesso');
+      renderCnefeSetores();
+    } catch(err) { mostrarToast('Erro: ' + err.message, 'erro'); }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+// ── Importação em lote — múltiplos CSVs com auto-matching pelo nome ──────────
+window.importarMultiplosCnefeCSV = async (input) => {
+  const files = Array.from(input.files); input.value = '';
+  if (!files.length) return;
+
+  const matched   = files.map(f => ({ file: f, setor: _cnefeMatchSetor(f.name) }));
+  const naoEncontrados = matched.filter(m => !m.setor).map(m => m.file.name);
+
+  if (naoEncontrados.length) {
+    const msg = `${naoEncontrados.length} arquivo(s) sem setor correspondente:\n${naoEncontrados.join('\n')}`;
+    if (!matched.some(m => m.setor)) { mostrarToast('Nenhum arquivo correspondeu a um setor', 'erro'); console.warn(msg); return; }
+    console.warn(msg);
+  }
+
+  const paraImportar = matched.filter(m => m.setor);
+  mostrarToast(`Importando ${paraImportar.length} setor(es)…`, '');
+
+  let ok = 0, erros = 0;
+  for (const { file, setor } of paraImportar) {
+    try {
+      const texto = await file.text();
+      await _cnefeUploadCSV(setor, texto);
+      ok++;
+    } catch(e) { console.error(`Erro em ${file.name}:`, e); erros++; }
+  }
+
+  renderCnefeSetores();
+  const resumo = `${ok} setor(es) importados${erros ? ` · ${erros} erro(s)` : ''}${naoEncontrados.length ? ` · ${naoEncontrados.length} não identificado(s)` : ''}`;
+  mostrarToast(resumo, erros || naoEncontrados.length ? 'aviso' : 'sucesso');
+};
+
+// ── Importação na aba Listagem de Campo (setor já selecionado na UI) ─────────
 window.importarCnefeCSV = (input) => {
   const file = input.files[0]; if (!file) return;
   const setor = document.getElementById('cnefe-listagem-setor-val').value;
@@ -10873,58 +11051,11 @@ window.importarCnefeCSV = (input) => {
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
-      const linhas = e.target.result.split(/\r?\n/);
-      // CSV tem 2 linhas antes do cabeçalho real — procura a linha com LOGRADOURO
-      const cabIdx = linhas.findIndex(l => l.toUpperCase().includes('LOGRADOURO'));
-      if (cabIdx < 0) { mostrarToast('Cabeçalho LOGRADOURO não encontrado no CSV', 'erro'); return; }
-      const sep = linhas[cabIdx].includes(';') ? ';' : ',';
-      const cab = linhas[cabIdx].split(sep).map(c => c.trim().replace(/^"|"$/g,'').toUpperCase());
-      const ix = n => cab.indexOf(n);
-
-      const iCU=ix('CODIGO UNICO'), iQ=ix('QUADRA'), iF=ix('FACE'), iUV=ix('UV');
-      const iCE=ix('CODIGO ENDERECO'), iLg=ix('LOGRADOURO'), iNm=ix('NUMERO');
-      const iLc=ix('LOCALIDADE'), iPR=ix('PONTO DE REFERENCIA'), iCep=ix('CEP');
-      const iLat=ix('LATITUDE'), iLng=ix('LONGITUDE'), iEsp=ix('ESPECIE');
-      const iRsp=ix('NOME DO RESPONSAVEL'), iTel=ix('TELEFONE'), iEst=ix('ESTABELECIMENTO');
-      const iSt=ix('STATUS DO ENDERECO'), iDt=ix('DATA'), iSel=ix('SELECIONADO');
-
-      const batch = [];
-      for (let i = cabIdx + 1; i < linhas.length; i++) {
-        const l = linhas[i].trim(); if (!l) continue;
-        const c = l.split(sep).map(x => x.trim().replace(/^"|"$/g,''));
-        const v = ii => ii >= 0 ? (c[ii] || '') : '';
-        batch.push({
-          setor, codigo_unico:v(iCU), quadra:v(iQ), face:v(iF), uv:v(iUV),
-          codigo_endereco:v(iCE), logradouro:v(iLg), numero:v(iNm),
-          localidade:v(iLc), ponto_referencia:v(iPR), cep:v(iCep),
-          latitude:v(iLat), longitude:v(iLng), especie:v(iEsp),
-          responsavel:v(iRsp), telefone:v(iTel), estabelecimento:v(iEst),
-          status_endereco:v(iSt), data:v(iDt), selecionado:v(iSel),
-          pnad_atual: false, observacao: '', atualizadoEm: serverTimestamp(),
-        });
-      }
-      if (!batch.length) { mostrarToast('Nenhum endereço encontrado no CSV', 'erro'); return; }
-
       mostrarToast('Importando…', '');
-      const snapOld = await getDocs(query(collection(db, 'cnefe_enderecos'), where('setor', '==', setor)));
-      // Deleta em lotes de 400
-      const oldDocs = snapOld.docs;
-      for (let i = 0; i < oldDocs.length; i += 400) {
-        const b = writeBatch(db);
-        oldDocs.slice(i, i + 400).forEach(d => b.delete(d.ref));
-        await b.commit();
-      }
-      // Insere em lotes de 400
-      for (let i = 0; i < batch.length; i += 400) {
-        const b = writeBatch(db);
-        batch.slice(i, i + 400).forEach(r => b.set(doc(collection(db, 'cnefe_enderecos')), r));
-        await b.commit();
-      }
-
-      _cnefeEnderecoCache[setor] = null;
-      mostrarToast(`Importado: ${batch.length} endereços no setor ${setor}`, 'sucesso');
+      const n = await _cnefeUploadCSV(setor, e.target.result);
+      mostrarToast(`Importado: ${n} endereços no setor ${setor}`, 'sucesso');
       carregarCnefeListagem(setor);
-    } catch(err) { console.error(err); mostrarToast('Erro: ' + err.message, 'erro'); }
+    } catch(err) { mostrarToast('Erro: ' + err.message, 'erro'); }
   };
   reader.readAsText(file, 'UTF-8');
 };
