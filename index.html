@@ -11880,48 +11880,74 @@ async function carregarCnefeQualidade() {
 
       html += '</tbody></table></div>';
 
-      // ── Tabela de controle por UPA ───────────────────────────────────────────
+      // ── Tabela de controle por UPA (estilo controle de pendências) ──────────
       const htmlControle = (() => {
         if (!upaSummaries.length) return '';
+        const TH = 'padding:6px 10px;text-align:center;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7';
+        const THL = 'padding:6px 10px;text-align:left;font-weight:600;color:#444441;border-bottom:0.5px solid #D3D1C7';
+        const TD  = 'padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:center';
+        const TDL = 'padding:6px 10px;border-bottom:0.5px solid #EEEDE8;text-align:left';
+
+        let somaTotal = 0, somaVisit = 0, somaErros = 0, somaDppoma = 0;
         const rows = upaSummaries.map(u => {
-          const pctCor = u.pct === null ? 'var(--texto-secundario)'
-            : u.pct >= 90 ? 'var(--verde)' : u.pct >= 70 ? 'var(--amarelo)' : 'var(--vermelho)';
+          somaTotal  += u.total;
+          somaVisit  += u.visitados;
+          somaErros  += u.erros;
+          somaDppoma += u.dppoma;
+
+          const pctCor = u.pct === null ? '#444441'
+            : u.pct >= 90 ? '#2C7A4B' : u.pct >= 70 ? '#8A5100' : '#A02020';
           const icone = u.pct === null ? '⬜' : u.pct >= 90 ? '🟢' : u.pct >= 70 ? '🟡' : '🔴';
-          const erroCol = u.erros > 0
-            ? `<span style="color:var(--vermelho);font-weight:700">${u.erros}</span>`
-            : `<span style="color:var(--verde)">0</span>`;
-          const dppCol = u.dppoma > 0
-            ? `<span style="color:var(--laranja);font-weight:700">${u.dppoma}</span>`
-            : `<span style="color:var(--texto-secundario)">0</span>`;
-          const mesBadge = u.mesCnefe
-            ? `<span class="badge badge-azul" style="font-size:0.68rem">${_CNEFE_MESES[u.mesCnefe-1]}/${u.anoCnefe}</span>`
-            : '<span style="color:var(--texto-secundario)">—</span>';
-          const primeiroNome = u.agente.split(' ')[0];
+          const pctTxt = u.pct !== null ? u.pct + '%' : '—';
+          const erroTxt = u.erros > 0
+            ? `<span style="color:#A02020;font-weight:600">${u.erros}</span>`
+            : '<span style="color:#2C7A4B">0</span>';
+          const dppTxt = u.dppoma > 0
+            ? `<span style="color:#8A5100;font-weight:600">${u.dppoma}</span>`
+            : '0';
+          const mesStr = u.mesCnefe ? `${_CNEFE_MESES[u.mesCnefe-1]}/${u.anoCnefe}` : '—';
           return `<tr>
-            <td style="font-size:0.8rem;font-weight:600">${icone} ${u.upaId}</td>
-            <td style="text-align:center">${mesBadge}</td>
-            <td style="font-size:0.8rem">${primeiroNome}</td>
-            <td style="text-align:center;font-weight:600">${u.total}</td>
-            <td style="text-align:center">${u.visitados}</td>
-            <td style="text-align:center">${erroCol}</td>
-            <td style="text-align:center">${dppCol}</td>
-            <td style="text-align:center;font-weight:700;color:${pctCor}">${u.pct !== null ? u.pct + '%' : '—'}</td>
+            <td style="${TDL}">${icone} ${u.upaId}</td>
+            <td style="${TD}">${mesStr}</td>
+            <td style="${TD}">${u.agente.split(' ')[0]}</td>
+            <td style="${TD}">${u.total}</td>
+            <td style="${TD}">${u.visitados}</td>
+            <td style="${TD}">${erroTxt}</td>
+            <td style="${TD}">${dppTxt}</td>
+            <td style="${TD};color:${pctCor};font-weight:600">${pctTxt}</td>
           </tr>`;
         }).join('');
-        return `<div class="card-tabela-header" style="margin-bottom:0.5rem"><h3>📊 Controle por UPA</h3></div>
-        <div style="overflow-x:auto;margin-bottom:1.5rem"><table style="min-width:620px">
-          <thead><tr>
-            <th>UPA</th>
-            <th style="text-align:center">Mês CNEFE</th>
-            <th>Agente</th>
-            <th style="text-align:center" title="Total de domicílios no setor">Total</th>
-            <th style="text-align:center" title="Etapa 1 já visitados">Etapa 1</th>
-            <th style="text-align:center" title="Erros CNEFE (endereço inválido)">Erros</th>
-            <th style="text-align:center" title="Sem moradores cadastrados">DPPOMA</th>
-            <th style="text-align:center">% Acerto</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>`;
+
+        const pctTotal = somaVisit > 0 ? Math.round((somaVisit - somaErros) / somaVisit * 100) + '%' : '—';
+        const pctTotalCor = somaVisit > 0
+          ? (((somaVisit - somaErros) / somaVisit * 100) >= 90 ? '#2C7A4B' : '#A02020')
+          : '#444441';
+
+        return `<div style="border:0.5px solid #D3D1C7;border-radius:8px;overflow:hidden;margin-bottom:1.5rem">
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr style="background:#EEEDE8">
+              <th style="${THL}">UPA</th>
+              <th style="${TH}">Mês CNEFE</th>
+              <th style="${TH}">Agente</th>
+              <th style="${TH}" title="Total de domicílios">Total</th>
+              <th style="${TH}" title="Etapa 1 já visitados">Etapa 1</th>
+              <th style="${TH}" title="Erros CNEFE (endereço inválido)">Erros CNEFE</th>
+              <th style="${TH}" title="Sem moradores cadastrados">DPPOMA</th>
+              <th style="${TH}">% Acerto</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr style="background:#EEEDE8;border-top:0.5px solid #D3D1C7;font-weight:600">
+              <td style="${TDL}">Total</td>
+              <td style="${TD}">—</td>
+              <td style="${TD}">—</td>
+              <td style="${TD}">${somaTotal}</td>
+              <td style="${TD}">${somaVisit}</td>
+              <td style="${TD};color:${somaErros>0?'#A02020':'#2C7A4B'}">${somaErros}</td>
+              <td style="${TD};color:${somaDppoma>0?'#8A5100':'#444441'}">${somaDppoma}</td>
+              <td style="${TD};color:${pctTotalCor}">${pctTotal}</td>
+            </tr></tfoot>
+          </table>
+        </div>`;
       })();
       html = htmlControle + html;
     }
