@@ -1,4 +1,4 @@
-const CACHE_APP = 'pontos-app-v1';
+const CACHE_APP = 'pontos-app-v2';
 const CACHE_TILES = 'pontos-tiles-v1';
 
 const APP_ASSETS = [
@@ -38,7 +38,7 @@ self.addEventListener('fetch', e => {
   const url = e.request.url;
 
   // Tiles de mapa: cache-first, guarda para offline
-  if (url.includes('cartocdn.com') || url.includes('tile.openstreetmap')) {
+  if (url.includes('cartocdn.com') || url.includes('tile.openstreetmap') || url.includes('arcgisonline.com')) {
     e.respondWith(
       caches.open(CACHE_TILES).then(cache =>
         cache.match(e.request).then(cached => {
