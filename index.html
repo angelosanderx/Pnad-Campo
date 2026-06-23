@@ -1741,6 +1741,15 @@
             <option value="3">Semana 3</option>
             <option value="4">Semana 4</option>
           </select>
+          <select id="um-tipo" onchange="filtrarUltimoMovimento()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:150px">
+            <option value="">Todos os tipos</option>
+          </select>
+          <select id="um-posicao" onchange="filtrarUltimoMovimento()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:160px">
+            <option value="">Todas as posições</option>
+          </select>
+          <select id="um-entrevistador" onchange="filtrarUltimoMovimento()" style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:180px">
+            <option value="">Todos os entrevistadores</option>
+          </select>
           <input type="text" id="um-busca" placeholder="Buscar em qualquer campo..." style="padding:0.4rem 0.7rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--cinza-claro);flex:1;min-width:160px" oninput="filtrarUltimoMovimento()">
           <button class="btn-acao secundario" onclick="limparFiltrosUM()">Limpar</button>
         </div>
@@ -3324,14 +3333,21 @@ window.salvarEditorEnderecos = async () => {
 let umSort = { col: '', dir: 1 };
 
 function _atualizarDropdownsUM() {
-  const upaAtual = document.getElementById('um-upa')?.value || '';
+  const upaAtual   = document.getElementById('um-upa')?.value || '';
   const setorAtual = document.getElementById('um-setor')?.value || '';
+  const tipoAtual  = document.getElementById('um-tipo')?.value || '';
+  const posAtual   = document.getElementById('um-posicao')?.value || '';
+  const entrAtual  = document.getElementById('um-entrevistador')?.value || '';
+
+  // UPA
   const upas = [...new Set(todosdomicilios.map(d => d.upa).filter(Boolean))].sort((a,b) => a.localeCompare(b));
   const selUpa = document.getElementById('um-upa');
   if (!selUpa) return;
   selUpa.innerHTML = '<option value="">Todas as UPAs (' + upas.length + ')</option>';
   upas.forEach(u => { const opt = document.createElement('option'); opt.value = u; opt.textContent = 'UPA ' + u; selUpa.appendChild(opt); });
   selUpa.value = upas.includes(upaAtual) ? upaAtual : '';
+
+  // Setor (cascateado por UPA)
   const upaEfetiva = selUpa.value;
   const setores = [...new Set(
     todosdomicilios.filter(d => !upaEfetiva || d.upa === upaEfetiva)
@@ -3342,6 +3358,33 @@ function _atualizarDropdownsUM() {
   selSetor.innerHTML = '<option value="">Todos os setores (' + setores.length + ')</option>';
   setores.forEach(s => { const opt = document.createElement('option'); opt.value = s; opt.textContent = 'Setor ' + s; selSetor.appendChild(opt); });
   selSetor.value = setores.includes(setorAtual) ? setorAtual : '';
+
+  // Tipo de entrevista
+  const tipos = [...new Set(todosdomicilios.map(d => d.tipo_entrevista).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const selTipo = document.getElementById('um-tipo');
+  if (selTipo) {
+    selTipo.innerHTML = '<option value="">Todos os tipos (' + tipos.length + ')</option>';
+    tipos.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.textContent = t; selTipo.appendChild(opt); });
+    selTipo.value = tipos.includes(tipoAtual) ? tipoAtual : '';
+  }
+
+  // Última posição
+  const posicoes = [...new Set(todosdomicilios.map(d => d.ultima_posicao).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const selPos = document.getElementById('um-posicao');
+  if (selPos) {
+    selPos.innerHTML = '<option value="">Todas as posições (' + posicoes.length + ')</option>';
+    posicoes.forEach(p => { const opt = document.createElement('option'); opt.value = p; opt.textContent = p; selPos.appendChild(opt); });
+    selPos.value = posicoes.includes(posAtual) ? posAtual : '';
+  }
+
+  // Entrevistador
+  const entrevistadores = [...new Set(todosdomicilios.map(d => d.entrevistador_nome).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const selEntr = document.getElementById('um-entrevistador');
+  if (selEntr) {
+    selEntr.innerHTML = '<option value="">Todos os entrevistadores (' + entrevistadores.length + ')</option>';
+    entrevistadores.forEach(e => { const opt = document.createElement('option'); opt.value = e; opt.textContent = e; selEntr.appendChild(opt); });
+    selEntr.value = entrevistadores.includes(entrAtual) ? entrAtual : '';
+  }
 }
 
 window.umOrdenar = (col) => {
@@ -3375,11 +3418,18 @@ window.filtrarUltimoMovimento = () => {
   const setor = document.getElementById('um-setor')?.value || '';
   const semana = document.getElementById('um-semana')?.value || '';
   const q = (document.getElementById('um-busca')?.value || '').toLowerCase();
+  const tipo  = document.getElementById('um-tipo')?.value || '';
+  const pos   = document.getElementById('um-posicao')?.value || '';
+  const entr  = document.getElementById('um-entrevistador')?.value || '';
+
   const filtrados = todosdomicilios.filter(d => {
     const setorDom = d.controle ? d.controle.slice(0,-1) : d.upa;
     if (upa && d.upa !== upa) return false;
     if (setor && setorDom !== setor) return false;
     if (semana && String(d.semana || '') !== semana) return false;
+    if (tipo && (d.tipo_entrevista||'') !== tipo) return false;
+    if (pos  && (d.ultima_posicao||'') !== pos) return false;
+    if (entr && (d.entrevistador_nome||'') !== entr) return false;
     if (q) {
       const hay = [d.upa, d.controle, String(d.domicilio_num||''), d.tipo_entrevista,
                    d.ultima_posicao, d.observacao_ibge, d.data_ibge, d.entrevistador_nome]
@@ -3422,9 +3472,9 @@ window.filtrarUltimoMovimento = () => {
   }
 
   renderizarUltimoMovimento(filtrados);
-  const _temFiltro = !!(upa || setor || semana || q);
+  const _temFiltro = !!(upa || setor || semana || tipo || pos || entr || q);
   _indicarFiltroAtivo('card-um', _temFiltro);
-  ['um-upa','um-setor','um-semana'].forEach(id => {
+  ['um-upa','um-setor','um-semana','um-tipo','um-posicao','um-entrevistador'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('filtro-ativo-ctrl', !!el.value);
   });
   const _b = document.getElementById('um-busca');
@@ -3432,7 +3482,7 @@ window.filtrarUltimoMovimento = () => {
 };
 
 window.limparFiltrosUM = () => {
-  ['um-upa','um-setor','um-semana'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['um-upa','um-setor','um-semana','um-tipo','um-posicao','um-entrevistador'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const b = document.getElementById('um-busca'); if (b) b.value = '';
   filtrarUltimoMovimento();
 };
