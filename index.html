@@ -3586,7 +3586,9 @@ window.gerarEtiquetas = async (idsOverride, tableId) => {
     const upa = (d.upa || d.controle || '').replace(/[A-Za-z]/g,'');
     const ultimos4 = upa.slice(-4);
     const domNum = String(d.domicilio_num || d.numero_sequencial || '');
-    return (ultimos4 && domNum) ? ultimos4 + '/' + domNum : '';
+    const base = (ultimos4 && domNum) ? ultimos4 + '/' + domNum : '';
+    const inicial = (d.entrevistador_nome || '').trim().charAt(0).toUpperCase();
+    return (base && inicial) ? base + '-' + inicial : base;
   };
   const montarEtiqueta = (d) => {
     const cidade = cidadePorCodigo(d);
