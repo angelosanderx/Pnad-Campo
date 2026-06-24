@@ -469,7 +469,7 @@ onAuthStateChanged(auth, async user => {
 async function mostrarPickerUsuario() {
   mostrarTela('tela-usuario');
   try {
-    const snap = await getDocs(query(collection(db, 'usuarios'), where('role', '==', 'entrevistador')));
+    const snap = await getDocs(query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador')));
     const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(u => u.nome)
       .sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
