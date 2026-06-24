@@ -278,13 +278,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
   <!-- Legenda -->
   <div id="legenda">
-    <div class="leg-item"><span class="leg-dot" style="background:#94a3b8"></span>Não visitado</div>
-    <div class="leg-item"><span class="leg-dot" style="background:#60a5fa"></span>Agendado</div>
-    <div class="leg-item"><span class="leg-dot" style="background:#fbbf24"></span>Ausente</div>
-    <div class="leg-item"><span class="leg-dot" style="background:#22c55e"></span>Realizada</div>
-    <div class="leg-item"><span class="leg-dot" style="background:#ef4444"></span>Recusa</div>
-    <div class="leg-item"><span class="leg-dot" style="background:#f97316"></span>Carta</div>
-    <div class="leg-item"><span class="leg-dot" style="background:#a855f7"></span>Supervisão</div>
+    <div id="legenda-entr"></div>
+    <div style="border-top:1px solid #e2e8f0;margin:4px 0"></div>
+    <div class="leg-item"><span class="leg-dot" style="background:#fff;border:2.5px solid #22c55e"></span>Realizada</div>
+    <div class="leg-item"><span class="leg-dot" style="background:#fff;border:2.5px solid #ef4444"></span>Recusa</div>
+    <div class="leg-item"><span class="leg-dot" style="background:#fff;border:2.5px solid #fbbf24"></span>Ausente</div>
+    <div class="leg-item"><span class="leg-dot" style="background:#fff;border:2.5px solid #a855f7"></span>Supervisão</div>
+    <div class="leg-item"><span class="leg-dot" style="background:#fff;border:2.5px solid #f97316"></span>Carta</div>
+    <div class="leg-item"><span class="leg-dot" style="background:#fff;border:2.5px solid #cbd5e1"></span>Não visitado</div>
   </div>
 </div>
 
@@ -382,6 +383,51 @@ let mySectors  = [];     // [{ upa, localidade, doms[], _dist? }]
 let gpsPos     = null;   // { lat, lng }
 let layers     = { contorno: null, faces: null, doms: null, gps: null };
 const Lp       = _carregarLeaflet();
+
+/* ── COR POR ENTREVISTADOR (igual ao painel principal) ── */
+const CORES_ENTREVISTADORES = {
+  'ARTHUR SILVA MOCO':                   '#FCD34D',
+  'ARTHUR':                              '#FCD34D',
+  'BRENO BITTENCOURT DE QUEIROZ VIEIRA': '#FB923C',
+  'BRENO':                               '#FB923C',
+  'DIEGO DA HORA OLEGARIO PESSANHA':     '#B91C1C',
+  'DIEGO':                               '#B91C1C',
+  'FELLIPE REIS DE CARVALHO PINTO':      '#9CA3AF',
+  'FELLIPE':                             '#9CA3AF',
+  'IGOR BATISTA DA SILVA':               '#1F2937',
+  'IGOR':                                '#1F2937',
+  'JOSE MATEUS FRANCO NUNES PESSANHA':   '#38BDF8',
+  'JOSE MATEUS':                         '#38BDF8',
+  'JOSE':                                '#38BDF8',
+  'MATHEUS DE SOUZA MONTEIRO':           '#4ADE80',
+  'MATHEUS':                             '#4ADE80',
+  'PAULO RENATO ALMEIDA CELESTINO':      '#1D4ED8',
+  'PAULO':                               '#1D4ED8',
+};
+
+function corEntrevistador(nome) {
+  if (!nome) return '#94A3B8';
+  const n = nome.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  for (const [key, cor] of Object.entries(CORES_ENTREVISTADORES)) {
+    if (n.includes(key)) return cor;
+  }
+  // fallback: hash do nome → cor fixa
+  let h = 0;
+  for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
+  const PALETA = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#8b5cf6','#ef4444','#10b981','#3b82f6'];
+  return PALETA[h % PALETA.length];
+}
+
+// Cor da borda pelo status
+const COR_BORDA_STATUS = {
+  realizada:        '#22c55e',
+  recusa:           '#ef4444',
+  ausente:          '#fbbf24',
+  supervisao:       '#a855f7',
+  carta_solicitada: '#f97316',
+  agendado:         '#60a5fa',
+};
+const bordaStatus = s => COR_BORDA_STATUS[s] || '#cbd5e1';
 
 /* ── STATUS ───────────────────────────────────────────── */
 const STATUS_INFO = {
@@ -738,12 +784,17 @@ function renderDoms(L) {
   if (!layers.doms) layers.doms = L.layerGroup([]);
   layers.doms.clearLayers();
 
+  const entrsVisiveis = new Map(); // nome → cor
+
   domicilios.filter(d => d.latitude_kml && d.longitude_kml).forEach(d => {
     const lat = parseFloat(d.latitude_kml), lng = parseFloat(d.longitude_kml);
     if (isNaN(lat)||isNaN(lng)) return;
-    const cor = corS(d.status_atual || 'nao_visitado');
+    const nome = d.entrevistador_nome || '';
+    const fill = corEntrevistador(nome);
+    const borda = bordaStatus(d.status_atual);
+    if (nome) entrsVisiveis.set(nome, fill);
     const m = L.circleMarker([lat,lng], {
-      radius:7, color:'#fff', weight:1.8, fillColor:cor, fillOpacity:.9,
+      radius:7, color:borda, weight:2.5, fillColor:fill, fillOpacity:.92,
     });
     m.on('click', () => abrirBS(d));
     layers.doms.addLayer(m);
@@ -751,6 +802,14 @@ function renderDoms(L) {
 
   if ($('lyr-doms').checked && !mapaInst.hasLayer(layers.doms))
     layers.doms.addTo(mapaInst);
+
+  // Legenda dinâmica por entrevistador
+  const el = $('legenda-entr');
+  if (el) {
+    el.innerHTML = [...entrsVisiveis.entries()].map(([nome, cor]) =>
+      `<div class="leg-item"><span class="leg-dot" style="background:${cor}"></span>${nome.split(' ')[0]}</div>`
+    ).join('') || '<div class="leg-item" style="color:var(--cinza)">Sem atribuição</div>';
+  }
 }
 
 function atualizarStats() {
