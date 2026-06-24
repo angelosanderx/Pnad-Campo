@@ -69,9 +69,20 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .set-toggle{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:.74rem;font-weight:700;padding:4px 12px;border-radius:12px;cursor:pointer;font-family:inherit;transition:background .12s}
 .set-toggle.ativo{background:rgba(255,255,255,.3)}
 /* TABS */
-.set-tabs{display:flex;background:var(--azul);padding:0 1rem .7rem;gap:6px}
-.set-tab{flex:1;border:none;border-radius:10px;padding:.48rem .3rem;font-size:.82rem;font-weight:700;font-family:inherit;cursor:pointer;transition:background .12s,color .12s;color:rgba(255,255,255,.65);background:rgba(255,255,255,.13)}
+.set-tabs{display:flex;background:var(--azul);padding:0 1rem .7rem;gap:5px}
+.set-tab{flex:1;border:none;border-radius:10px;padding:.45rem .2rem;font-size:.7rem;font-weight:700;font-family:inherit;cursor:pointer;transition:background .12s,color .12s;color:rgba(255,255,255,.65);background:rgba(255,255,255,.13);line-height:1.25}
 .set-tab.ativo{background:#fff;color:var(--azul)}
+/* SOLICITAÇÕES TAB */
+#lista-solicitacoes{flex:1;overflow-y:auto;padding:.65rem}
+.sol-list-card{background:#fff;border-radius:11px;padding:.8rem 1rem;margin-bottom:.5rem;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;border-left:4px solid var(--borda);transition:box-shadow .12s}
+.sol-list-card:active{box-shadow:0 2px 10px rgba(37,99,235,.15)}
+.sol-list-card.supervisao{border-left-color:#a855f7}
+.sol-list-card.carta{border-left-color:#f97316}
+.sol-list-cabec{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:3px}
+.sol-list-tipo{font-size:.87rem;font-weight:800;color:var(--texto)}
+.sol-list-dom{font-size:.72rem;color:var(--cinza);margin-bottom:3px}
+.sol-list-obs{font-size:.82rem;color:var(--texto);line-height:1.4;margin-bottom:3px}
+.sol-list-autor{font-size:.68rem;color:var(--cinza)}
 /* PENDÊNCIAS */
 #lista-pendencias{flex:1;overflow-y:auto;padding:0}
 .pend-card{background:#fff;border-radius:11px;padding:.8rem 1rem;margin-bottom:.5rem;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;transition:box-shadow .12s;border-left:3px solid transparent}
@@ -399,10 +410,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
   <div class="set-tabs">
     <button class="set-tab ativo" id="tab-setores" onclick="switchTab('setores')">🗂️ Setores</button>
     <button class="set-tab" id="tab-pendencias" onclick="switchTab('pendencias')">⏳ Pendências</button>
+    <button class="set-tab" id="tab-solicitacoes" onclick="switchTab('solicitacoes')">✉️ Solicitações<span class="tab-badge" id="badge-sols"></span></button>
     <button class="set-tab" id="tab-avisos" onclick="switchTab('avisos')">📢 Avisos<span class="tab-badge" id="badge-avisos"></span></button>
   </div>
   <div id="lista-setores"></div>
   <div id="lista-pendencias" class="hidden" style="flex:1;overflow-y:auto"></div>
+  <div id="lista-solicitacoes" class="hidden"></div>
   <div id="lista-avisos" class="hidden" style="flex:1;overflow-y:auto;padding:.65rem"></div>
 </div>
 
@@ -878,6 +891,7 @@ async function carregarSetores() {
     locSnap?.docs.forEach(d => { locs[d.id] = d.data().localidade || ''; });
 
     mySectors = Object.values(upaMap).map(s => ({ ...s, localidade: locs[s.upa] || '' }));
+    atualizarBadgeSols();
 
     // GPS
     const pos = await obterGPS().catch(() => null);
@@ -1097,14 +1111,13 @@ window.abrirMapaGeral = async () => {
 
 window.switchTab = tab => {
   abaAtual = tab;
-  $('tab-setores').classList.toggle('ativo', tab === 'setores');
-  $('tab-pendencias').classList.toggle('ativo', tab === 'pendencias');
-  $('tab-avisos').classList.toggle('ativo', tab === 'avisos');
-  $('lista-setores').classList.toggle('hidden', tab !== 'setores');
-  $('lista-pendencias').classList.toggle('hidden', tab !== 'pendencias');
-  $('lista-avisos').classList.toggle('hidden', tab !== 'avisos');
-  if (tab === 'pendencias') renderPendencias(mySectors);
-  if (tab === 'avisos') renderAvisos(ultimosAvisos);
+  ['setores','pendencias','solicitacoes','avisos'].forEach(t => {
+    $('tab-'+t).classList.toggle('ativo', t === tab);
+    $('lista-'+t).classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'pendencias')    renderPendencias(mySectors);
+  if (tab === 'solicitacoes')  renderSolicitacoes();
+  if (tab === 'avisos')        renderAvisos(ultimosAvisos);
 };
 
 function renderPendencias(setores) {
@@ -1170,6 +1183,51 @@ window.abrirDomPendente = async (domId, upa) => {
   if (s) await abrirSetor(upa, s.doms);
 };
 
+/* ── SOLICITAÇÕES (tab) ───────────────────────────────── */
+function renderSolicitacoes() {
+  const el = $('lista-solicitacoes');
+  if (!el) return;
+  // Coleta todas as solicitações ativas de todos os domicílios
+  const itens = [];
+  mySectors.forEach(s => s.doms.forEach(d => {
+    const upa = d.upa || d.controle?.slice(0,-1) || '?';
+    (d.solicitacoes||[]).filter(x => !x.resolvido).forEach(x => {
+      itens.push({ sol: x, dom: d, upa });
+    });
+  }));
+  if (!itens.length) {
+    el.innerHTML = '<div class="vazio"><div class="vazio-ico">✅</div>Nenhuma solicitação ativa.</div>';
+    return;
+  }
+  // Ordena: mais recente primeiro
+  itens.sort((a,b) => (b.sol.criado_em_ts||0) - (a.sol.criado_em_ts||0));
+  const fmtTs = ts => ts ? new Date(ts).toLocaleDateString('pt-BR') : '';
+  el.innerHTML = itens.map(({ sol, dom, upa }) => {
+    const tipo = SOL_TIPOS.find(t => t.id === sol.tipo);
+    const end  = dom.endereco || dom.logradouro_kml || '';
+    const isSuper = tipo?.status === 'supervisao';
+    const daSup   = sol.criado_por_nome && sol.criado_por_nome !== usuarioNome;
+    return `<div class="sol-list-card${isSuper?' supervisao':tipo?.status==='carta_solicitada'?' carta':''}"
+      onclick="abrirDomPendente('${dom.id}','${upa}')">
+      <div class="sol-list-cabec">
+        <span class="sol-list-tipo">${tipo?.ico||'📋'} ${tipo?.label||sol.tipo}</span>
+        ${daSup ? `<span style="font-size:.65rem;background:#f3e8ff;color:#7c3aed;padding:2px 7px;border-radius:8px;font-weight:700">Da supervisão</span>` : ''}
+      </div>
+      <div class="sol-list-dom">Dom. ${dom.domicilio_num||'?'} · ${dom.controle||'?'} · UPA ${upa}${end?` · ${end}`:''}</div>
+      ${sol.obs ? `<div class="sol-list-obs">${sol.obs}</div>` : ''}
+      <div class="sol-list-autor">${sol.criado_por_nome||''} ${fmtTs(sol.criado_em_ts)?'· '+fmtTs(sol.criado_em_ts):''}</div>
+    </div>`;
+  }).join('');
+}
+
+function atualizarBadgeSols() {
+  const cnt = mySectors.flatMap(s=>s.doms).reduce((n,d)=>n+(d.solicitacoes||[]).filter(x=>!x.resolvido).length, 0);
+  const badge = $('badge-sols');
+  if (!badge) return;
+  badge.textContent = cnt || '';
+  badge.classList.toggle('show', cnt > 0);
+}
+
 window.voltarSetores = () => {
   if (unsub) { unsub(); unsub = null; }
   if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
@@ -1180,12 +1238,11 @@ window.voltarSetores = () => {
   $('set-titulo').textContent = 'Meus setores';
   // Restore tab
   abaAtual = 'setores';
-  $('tab-setores')?.classList.add('ativo');
-  $('tab-pendencias')?.classList.remove('ativo');
-  $('tab-avisos')?.classList.remove('ativo');
-  $('lista-setores')?.classList.remove('hidden');
-  $('lista-pendencias')?.classList.add('hidden');
-  $('lista-avisos')?.classList.add('hidden');
+  ['setores','pendencias','solicitacoes','avisos'].forEach(t => {
+    $('tab-'+t)?.classList.toggle('ativo', t === 'setores');
+    $('lista-'+t)?.classList.toggle('hidden', t !== 'setores');
+  });
+  atualizarBadgeSols();
   renderListaSetores(gpsPos, mySectors);
 };
 
