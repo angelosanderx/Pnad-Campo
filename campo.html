@@ -478,7 +478,8 @@ const db   = getFirestore(fbApp);
 await setPersistence(auth, browserLocalPersistence);
 
 /* ── ESTADO ───────────────────────────────────────────── */
-let usuarioNome = '';    // nome escolhido no picker
+let usuarioNome   = '';  // nome escolhido no picker
+let usuarioPerfil = '';  // 'entrevistador' | 'supervisor' | 'administrador'
 let setorAtual = null;   // código UPA string
 let domicilios = [];     // doms carregados do setor atual
 let domAtivo   = null;   // dom selecionado no mapa
@@ -594,7 +595,8 @@ onAuthStateChanged(auth, async user => {
   }
   const nome = localStorage.getItem('campo_usuario');
   if (nome) {
-    usuarioNome = nome;
+    usuarioNome   = nome;
+    usuarioPerfil = localStorage.getItem('campo_perfil') || 'entrevistador';
     await carregarSetores();
   } else {
     await mostrarPickerUsuario();
@@ -604,22 +606,23 @@ onAuthStateChanged(auth, async user => {
 async function mostrarPickerUsuario() {
   mostrarTela('tela-usuario');
   try {
-    const snap = await getDocs(query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador')));
+    const snap = await getDocs(collection(db, 'usuarios'));
     const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => u.nome)
+      .filter(u => u.nome && ['entrevistador','supervisor','administrador'].includes(u.perfil))
       .sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
     if (lista.length === 0) {
-      $('usr-lista').innerHTML = '<div class="vazio"><div class="vazio-ico">👥</div>Nenhum entrevistador cadastrado.</div>';
+      $('usr-lista').innerHTML = '<div class="vazio"><div class="vazio-ico">👥</div>Nenhum usuário cadastrado.</div>';
       return;
     }
+    const labelPerfil = { entrevistador:'Entrevistador', supervisor:'Supervisor', administrador:'Administrador' };
     $('usr-lista').innerHTML = lista.map(u => {
       const cor = corEntrevistador(u.nome);
       const ini = u.nome.trim().split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
-      return `<div class="usr-item" onclick="escolherUsuario('${u.nome.replace(/'/g,"\\'")}')">
+      return `<div class="usr-item" onclick="escolherUsuario('${u.nome.replace(/'/g,"\\'")}','${u.perfil||'entrevistador'}')">
         <div class="usr-avatar" style="background:${cor}">${ini}</div>
         <div>
           <div class="usr-nome">${u.nome}</div>
-          <div class="usr-role">Entrevistador</div>
+          <div class="usr-role">${labelPerfil[u.perfil]||u.perfil}</div>
         </div>
       </div>`;
     }).join('');
@@ -628,9 +631,11 @@ async function mostrarPickerUsuario() {
   }
 }
 
-window.escolherUsuario = async nome => {
+window.escolherUsuario = async (nome, perfil = 'entrevistador') => {
   localStorage.setItem('campo_usuario', nome);
-  usuarioNome = nome;
+  localStorage.setItem('campo_perfil', perfil);
+  usuarioNome   = nome;
+  usuarioPerfil = perfil;
   await carregarSetores();
 };
 
@@ -1255,7 +1260,11 @@ window.confirmarStatus = async () => {
 window.abrirPanelSolicitar = () => {
   if (!domAtivo) return;
   solSel = null;
-  $('sol-grid').innerHTML = SOL_TIPOS.map(t =>
+  const isEntrev = !usuarioPerfil || usuarioPerfil === 'entrevistador';
+  const tiposVisiveis = isEntrev
+    ? SOL_TIPOS.filter(t => t.status === 'carta_solicitada')
+    : SOL_TIPOS;
+  $('sol-grid').innerHTML = tiposVisiveis.map(t =>
     `<button class="sol-btn" id="sol-${t.id}" onclick="selSol('${t.id}')">
        <span class="sol-ico">${t.ico}</span>${t.label}
      </button>`
