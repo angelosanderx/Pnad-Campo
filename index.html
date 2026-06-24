@@ -7056,20 +7056,25 @@ window.cronOpenCell = async (el) => {
   const nomes = (!gk || gk==='—') ? [] : gk.split('|');
   let hora='', data_fim='', upas=[], textosLivres=[];
   if (missions.length && dia) {
-    const {liIdx, eqIdx} = missions[0];
-    hora = _cronLinhas[liIdx]?.hora || '';
-    data_fim = _cronLinhas[liIdx]?.data_fim || '';
-    const eq = _cronLinhas[liIdx]?.equipes?.[eqIdx];
-    if (eq) {
-      const rawUpas = eq.upas || [];
-      const rawTipos = eq.tipos || [];
-      const rawLocs  = eq.localidades || [];
-      rawUpas.forEach((u, i) => {
-        if (!u) return;
-        if (rawTipos[i] === 'livre') textosLivres.push(rawLocs[i] || '');
-        else upas.push(u);
-      });
-    }
+    // Mescla dados de TODAS as missões encontradas para esta equipe+dia (cobre o caso de
+    // entradas duplicadas — ex: criadas via ＋Dia para uma equipe/dia que já tinha uma entrada —
+    // para que nenhuma informação fique escondida/perdida ao editar.
+    missions.forEach(({liIdx, eqIdx}) => {
+      const ln = _cronLinhas[liIdx];
+      if (!hora && ln?.hora) hora = ln.hora;
+      if (!data_fim && ln?.data_fim) data_fim = ln.data_fim;
+      const eq = ln?.equipes?.[eqIdx];
+      if (eq) {
+        const rawUpas = eq.upas || [];
+        const rawTipos = eq.tipos || [];
+        const rawLocs  = eq.localidades || [];
+        rawUpas.forEach((u, i) => {
+          if (!u) return;
+          if (rawTipos[i] === 'livre') { if (!textosLivres.includes(rawLocs[i]||'')) textosLivres.push(rawLocs[i] || ''); }
+          else if (!upas.includes(u)) upas.push(u);
+        });
+      }
+    });
   }
 
   _cronPopState = { gk, dia, data_fim, hora, nomes:[...nomes], upas:[...upas], textosLivres, missions };
@@ -7379,26 +7384,76 @@ window.cronSavePopover = async () => {
     locs.push(txt);
     tipos.push('livre');
   });
-  if (!upas.length) { upas.push(''); locs.push(''); tipos.push(''); }
 
   if (isNameEdit) {
     s.missions.forEach(({liIdx, eqIdx}) => {
       const eq = _cronLinhas[liIdx]?.equipes?.[eqIdx];
       if (eq) eq.entrevistadores = entrevsStr;
     });
-  } else if (s.missions.length) {
-    const {liIdx, eqIdx} = s.missions[0];
-    const ln = _cronLinhas[liIdx];
-    if (ln) {
-      ln.hora = s.hora;
-      if (s.data_fim && s.data_fim > s.dia) ln.data_fim = s.data_fim; else delete ln.data_fim;
-      const eq = ln.equipes[eqIdx];
-      if (eq) { eq.entrevistadores = entrevsStr; eq.upas = upas; eq.localidades = locs; eq.tipos = tipos; }
-    }
   } else {
-    const newLn = { data: s.dia, hora: s.hora, equipes: [{ entrevistadores: entrevsStr, upas, localidades: locs, tipos }] };
-    if (s.data_fim && s.data_fim > s.dia) newLn.data_fim = s.data_fim;
-    _cronLinhas.push(newLn);
+    // Descobre TODAS as missões desta equipe que se sobrepõem ao período sendo salvo — incluindo
+    // as já conhecidas (s.missions) e qualquer outra encontrada agora (ex: quando ＋Dia é usado
+    // para uma equipe/dia que já tinha uma entrada). Evita criar uma entrada duplicada/empilhada
+    // e impossível de apagar; a primeira é atualizada (mesclando os setores das demais, para não
+    // perder nada) e as demais são removidas.
+    const novoEndD = (s.data_fim && s.data_fim > s.dia) ? s.data_fim : s.dia;
+    const gkAtual = [...s.nomes].sort().join('|') || '—';
+    const conhecidas = new Set(s.missions.map(m => `${m.liIdx}-${m.eqIdx}`));
+    const todasMissoes = new Map();
+    s.missions.forEach(m => todasMissoes.set(`${m.liIdx}-${m.eqIdx}`, m));
+    _cronLinhas.forEach((ln, liIdx) => {
+      const startD = ln.data || '';
+      if (!startD) return;
+      const endD = (ln.data_fim && ln.data_fim > startD) ? ln.data_fim : startD;
+      if (novoEndD < startD || s.dia > endD) return;
+      (ln.equipes || []).forEach((eq, eqIdx) => {
+        const ns = (eq.entrevistadores||'').split(',').map(x=>x.trim()).filter(Boolean);
+        if (([...ns].sort().join('|')||'—') === gkAtual) todasMissoes.set(`${liIdx}-${eqIdx}`, { liIdx, eqIdx });
+      });
+    });
+    const missoes = [...todasMissoes.values()];
+
+    // mescla setores de missões "novas" (não vistas quando o popover foi aberto) para não perder dados
+    missoes.forEach(({liIdx, eqIdx}) => {
+      const key = `${liIdx}-${eqIdx}`;
+      if (conhecidas.has(key)) return;
+      const eqExtra = _cronLinhas[liIdx]?.equipes?.[eqIdx];
+      if (!eqExtra) return;
+      (eqExtra.upas || []).forEach((u, i) => {
+        if (!u || upas.includes(u)) return;
+        upas.push(u);
+        locs.push(eqExtra.localidades?.[i] || '');
+        tipos.push(eqExtra.tipos?.[i] || '');
+      });
+    });
+    if (!upas.length) { upas.push(''); locs.push(''); tipos.push(''); }
+
+    if (missoes.length) {
+      const {liIdx, eqIdx} = missoes[0];
+      const ln = _cronLinhas[liIdx];
+      if (ln) {
+        ln.data = s.dia;
+        ln.hora = s.hora;
+        if (s.data_fim && s.data_fim > s.dia) ln.data_fim = s.data_fim; else delete ln.data_fim;
+        const eq = ln.equipes[eqIdx];
+        if (eq) { eq.entrevistadores = entrevsStr; eq.upas = upas; eq.localidades = locs; eq.tipos = tipos; }
+      }
+      const byLine = new Map();
+      missoes.slice(1).forEach(({liIdx, eqIdx}) => {
+        if (!byLine.has(liIdx)) byLine.set(liIdx, []);
+        byLine.get(liIdx).push(eqIdx);
+      });
+      byLine.forEach((eqIdxs, li) => {
+        const l = _cronLinhas[li];
+        if (!l) return;
+        eqIdxs.sort((a,b) => b-a).forEach(eqIdx => l.equipes.splice(eqIdx, 1));
+      });
+      _cronLinhas = _cronLinhas.filter(l => l.equipes && l.equipes.length);
+    } else {
+      const newLn = { data: s.dia, hora: s.hora, equipes: [{ entrevistadores: entrevsStr, upas, localidades: locs, tipos }] };
+      if (s.data_fim && s.data_fim > s.dia) newLn.data_fim = s.data_fim;
+      _cronLinhas.push(newLn);
+    }
   }
 
   const btn = document.querySelector('.cron-pop-save');
