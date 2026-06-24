@@ -359,7 +359,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     <div style="display:flex;align-items:center;justify-content:space-between">
       <h2 id="set-titulo">Meus setores</h2>
       <div style="display:flex;gap:6px;align-items:center">
-        <button id="btn-ver-todos" class="set-toggle" onclick="toggleVerTodos()">Ver todos</button>
+        <button class="set-toggle" onclick="abrirMapaGeral()">🗺️ Mapa geral</button>
         <button onclick="trocarUsuario()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:.75rem;padding:4px 10px;border-radius:12px;cursor:pointer;font-family:inherit">Trocar</button>
       </div>
     </div>
@@ -613,9 +613,8 @@ let unsub      = null;   // onSnapshot unsubscribe
 let statusSel  = null;
 let solSel     = null;
 let mySectors  = [];     // [{ upa, localidade, doms[], _dist? }]
-let todosSetores = [];   // setores de todos os entrevistadores (carregado sob demanda)
-let mostrarTodos = false;
 let abaAtual     = 'setores';
+let mapaGeral    = false;  // true quando o mapa está no modo "todos os setores"
 let domParaAbrir = null;  // auto-abre BS ao entrar no mapa via lista de pendências
 let gpsPos     = null;   // { lat, lng }
 let layers     = { contorno: null, faces: null, doms: null, gps: null };
@@ -871,7 +870,7 @@ function _htmlSetorCard(s) {
   const dist = s._dist != null && s._dist < Infinity
     ? (s._dist < 1000 ? `📍 ${Math.round(s._dist)}m` : `📍 ${(s._dist/1000).toFixed(1)}km`)
     : '';
-  const entr = mostrarTodos && s.doms[0]?.entrevistador_nome ? `<div class="sc-dist">👤 ${s.doms[0].entrevistador_nome}</div>` : '';
+  const entr = '';
   return `<div class="setor-card${concluido?' concluido':''}" onclick="selecionarSetor('${s.upa}')">
     ${concluido ? `<div class="sc-check">✅</div>` : ''}
     <div class="sc-code">${s.upa}</div>
@@ -884,7 +883,7 @@ function _htmlSetorCard(s) {
 
 function renderListaSetores(pos, setores) {
   mostrarTela('tela-setores');
-  $('set-sub').textContent = mostrarTodos ? 'Todos os setores da equipe' : (usuarioNome || 'Selecione o setor que vai trabalhar hoje');
+  $('set-sub').textContent = usuarioNome || 'Selecione o setor que vai trabalhar hoje';
   const lista = [...(setores || mySectors)];
   if (pos) {
     lista.forEach(s => {
@@ -919,43 +918,49 @@ function renderListaSetores(pos, setores) {
 }
 
 window.selecionarSetor = async upa => {
-  const s = mySectors.find(x => x.upa === upa) || todosSetores.find(x => x.upa === upa);
+  const s = mySectors.find(x => x.upa === upa);
   if (s) await abrirSetor(upa, s.doms);
 };
 
-window.toggleVerTodos = async () => {
-  mostrarTodos = !mostrarTodos;
-  const btn = $('btn-ver-todos');
-  btn.textContent = mostrarTodos ? 'Só meus' : 'Ver todos';
-  btn.classList.toggle('ativo', mostrarTodos);
-  $('set-titulo').textContent = mostrarTodos ? 'Todos os setores' : 'Meus setores';
-  if (mostrarTodos && todosSetores.length === 0) {
-    $('lista-setores').innerHTML = '<div class="vazio"><div class="vazio-ico">⏳</div>Carregando todos os setores…</div>';
-    try {
-      const snap = await getDocs(collection(db, 'domicilios'));
-      const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const locSnap = await getDocs(collection(db, 'localidades_upa')).catch(() => null);
-      const locs = {};
-      locSnap?.docs.forEach(d => { locs[d.id] = d.data().localidade || ''; });
-      const upaMap = {};
-      todos.forEach(d => {
-        const k = d.upa || d.controle?.slice(0,-1) || '?';
-        if (!upaMap[k]) upaMap[k] = { upa: k, doms: [], localidade: locs[k] || '' };
-        upaMap[k].doms.push(d);
-      });
-      todosSetores = Object.values(upaMap);
-    } catch(e) {
-      toast('Erro ao carregar todos os setores: ' + e.message, 'erro');
-      mostrarTodos = false;
-      btn.textContent = 'Ver todos';
-      btn.classList.remove('ativo');
-      $('set-titulo').textContent = 'Meus setores';
-      return;
-    }
+window.abrirMapaGeral = async () => {
+  mapaGeral = true;
+  const todosOsMeus = mySectors.flatMap(s => s.doms);
+  if (!todosOsMeus.length) { toast('Nenhum domicílio carregado', 'erro'); return; }
+  mostrarTela('tela-mapa');
+  $('topbar-setor').textContent = 'Mapa geral';
+  $('topbar-localidade').textContent = usuarioNome + ' — todos os setores';
+  fecharTudo();
+  const L = await Lp;
+  if (mapaInst) { try { mapaInst.remove(); } catch(_){} mapaInst = null; }
+  layers = { contorno: null, faces: null, doms: null, gps: null };
+  gpsMarker = null; gpsCircle = null;
+  mapaInst = L.map($('mapa'), { zoomControl: false, attributionControl: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(mapaInst);
+  L.control.attribution({ position:'bottomleft', prefix:'© OSM' }).addTo(mapaInst);
+  L.control.zoom({ position:'bottomright' }).addTo(mapaInst);
+  domicilios = todosOsMeus;
+  const comCoord = domicilios.filter(d => d.latitude_kml && d.longitude_kml);
+  if (comCoord.length) {
+    try { mapaInst.fitBounds(comCoord.map(d=>[parseFloat(d.latitude_kml),parseFloat(d.longitude_kml)]), { padding:[30,30], maxZoom:16 }); } catch(_){}
   }
-  const src = mostrarTodos ? todosSetores : mySectors;
-  if (abaAtual === 'pendencias') renderPendencias(src);
-  else renderListaSetores(gpsPos, src);
+  renderDoms(L);
+  atualizarStats();
+  iniciarGPSWatch(L);
+  // Real-time: escuta por entrevistador_nome (todos os UPAs de uma vez)
+  if (unsub) unsub();
+  unsub = onSnapshot(
+    query(collection(db, 'domicilios'), where('entrevistador_nome', '==', usuarioNome)),
+    snap => {
+      domicilios = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderDoms(L);
+      atualizarStats();
+      if (domAtivo) {
+        const d = domicilios.find(x => x.id === domAtivo.id);
+        if (d) { domAtivo = d; atualizarBSAberto(d); }
+      }
+    },
+    e => console.error('onSnapshot:', e)
+  );
 };
 
 window.switchTab = tab => {
@@ -964,7 +969,7 @@ window.switchTab = tab => {
   $('tab-pendencias').classList.toggle('ativo', tab === 'pendencias');
   $('lista-setores').classList.toggle('hidden', tab !== 'setores');
   $('lista-pendencias').classList.toggle('hidden', tab !== 'pendencias');
-  if (tab === 'pendencias') renderPendencias(mostrarTodos ? todosSetores : mySectors);
+  if (tab === 'pendencias') renderPendencias(mySectors);
 };
 
 function renderPendencias(setores) {
@@ -1008,7 +1013,7 @@ function renderPendencias(setores) {
         return `<div class="pend-tent sol">${tipo?.ico||'📋'} ${tipo?.label||x.tipo}${obs}</div>`;
       }).join('');
 
-      const entr = mostrarTodos && d.entrevistador_nome ? `<span> · ${d.entrevistador_nome}</span>` : '';
+      const entr = '';
       return `<div class="pend-card" onclick="abrirDomPendente('${d.id}','${upa}')">
         <div class="pend-cabec">
           <span class="pend-id">Dom. ${d.domicilio_num||'?'} · ${d.controle||'?'}</span>
@@ -1025,7 +1030,7 @@ function renderPendencias(setores) {
 
 window.abrirDomPendente = async (domId, upa) => {
   domParaAbrir = domId;
-  const s = mySectors.find(x=>x.upa===upa) || todosSetores.find(x=>x.upa===upa);
+  const s = mySectors.find(x=>x.upa===upa);
   if (s) await abrirSetor(upa, s.doms);
 };
 
@@ -1035,9 +1040,7 @@ window.voltarSetores = () => {
   gpsMarker = null; gpsCircle = null;
   fecharTudo();
   // Reset state
-  mostrarTodos = false; domParaAbrir = null;
-  const btn = $('btn-ver-todos');
-  if (btn) { btn.textContent = 'Ver todos'; btn.classList.remove('ativo'); }
+  mapaGeral = false; domParaAbrir = null;
   $('set-titulo').textContent = 'Meus setores';
   // Restore tab
   abaAtual = 'setores';
