@@ -745,7 +745,9 @@
   .cron-nav-btn:hover { border-color:var(--azul);color:var(--azul); }
   .cron-week-nav { display:flex;align-items:center;gap:0.5rem; }
   .cron-grid { display:grid;font-size:10px;width:100%;column-gap:3px;row-gap:0; }
-  .cron-grid-hd { background:var(--azul);color:#fff;font-weight:700;font-size:10px;padding:4px 6px;text-align:center;white-space:nowrap;letter-spacing:0.03em;border-right:1px solid rgba(255,255,255,0.15); }
+  .cron-grid-hd { position:relative;background:var(--azul);color:#fff;font-weight:700;font-size:10px;padding:4px 6px;text-align:center;white-space:nowrap;letter-spacing:0.03em;border-right:1px solid rgba(255,255,255,0.15); }
+  .cron-day-del-btn { position:absolute;top:0;right:1px;background:none;border:none;color:rgba(255,255,255,0.65);font-size:12px;line-height:1;cursor:pointer;padding:1px 3px; }
+  .cron-day-del-btn:hover { color:#fff; }
   .cron-group-block { display:contents; }
   .cron-group-sep { grid-column:1/-1;height:6px;background:#eef0f3; }
   .cron-names-cell { padding:4px 6px;display:flex;flex-direction:column;gap:3px;align-items:flex-start;box-sizing:border-box;cursor:pointer; }
@@ -6884,7 +6886,8 @@ function _buildCronGrid() {
     const dt = new Date(d + 'T12:00:00');
     const dow = _DIAS_ABR[dt.getDay()];
     const dm  = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
-    return `<div class="cron-grid-hd">${dow}<br><span style="font-weight:400;opacity:0.85;font-size:9px">${dm}</span></div>`;
+    const dEsc = d.replace(/'/g,"\\'");
+    return `<div class="cron-grid-hd"><button class="cron-day-del-btn" title="Excluir este dia" onclick="cronDeleteDia('${dEsc}')">×</button>${dow}<br><span style="font-weight:400;opacity:0.85;font-size:9px">${dm}</span></div>`;
   }).join('');
 
   let groupsHtml = '';
@@ -7206,6 +7209,54 @@ window.cronClosePopover = () => {
   document.getElementById('cron-pop')?.remove();
   document.removeEventListener('mousedown', _cronPopOutside);
   _cronPopState = null;
+};
+
+function _cronDiaAdd(diaStr, delta) {
+  const d = new Date(diaStr + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  return d.toISOString().slice(0,10);
+}
+
+window.cronDeleteDia = async (dia) => {
+  const dt = new Date(dia + 'T12:00:00');
+  const label = `${_DIAS_ABR[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+  if (!confirm(`Excluir o dia ${label} e todas as atividades dele?\nEsta ação não pode ser desfeita.`)) return;
+
+  const novasLinhas = [];
+  _cronLinhas.forEach(ln => {
+    const startD = ln.data || '';
+    if (!startD) { novasLinhas.push(ln); return; }
+    const endD = (ln.data_fim && ln.data_fim > startD) ? ln.data_fim : startD;
+    if (dia < startD || dia > endD) { novasLinhas.push(ln); return; }
+
+    if (startD === endD) return; // linha de um único dia, exatamente o dia excluído
+
+    if (dia === startD) {
+      ln.data = _cronDiaAdd(startD, 1);
+      if (ln.data === endD) delete ln.data_fim;
+      novasLinhas.push(ln);
+    } else if (dia === endD) {
+      ln.data_fim = _cronDiaAdd(endD, -1);
+      if (ln.data_fim === ln.data) delete ln.data_fim;
+      novasLinhas.push(ln);
+    } else {
+      // dia no meio do intervalo: divide em duas linhas
+      const antes = { ...ln, data: startD, data_fim: _cronDiaAdd(dia, -1) };
+      if (antes.data_fim === antes.data) delete antes.data_fim;
+      const depois = { ...ln, equipes: JSON.parse(JSON.stringify(ln.equipes)), data: _cronDiaAdd(dia, 1), data_fim: endD };
+      if (depois.data_fim === depois.data) delete depois.data_fim;
+      novasLinhas.push(antes, depois);
+    }
+  });
+  _cronLinhas = novasLinhas;
+
+  try {
+    await setDoc(doc(db, 'cronograma', `${_cronMes}_${_cronSemana}`), { linhas: _cronLinhas });
+    _buildCronSetores(_cronMes, _cronSemana);
+    document.getElementById('cron-tabela-wrap').innerHTML = _buildCronGrid();
+  } catch(e) {
+    mostrarToast('Erro ao excluir dia', 'erro');
+  }
 };
 
 window.cronDeleteEquipe = async () => {
