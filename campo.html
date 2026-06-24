@@ -201,6 +201,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .sol-card-desfazer{background:none;border:1px solid #fed7aa;border-radius:7px;padding:3px 8px;font-size:.68rem;font-weight:700;color:#c2410c;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-top:1px;font-family:inherit}
 .sol-card-desfazer:active{background:#fed7aa}
 .etapa5-alerta{background:#fef2f2;border:1px solid #fca5a5;border-radius:9px;padding:.6rem .75rem;margin-bottom:.55rem;font-size:.82rem;color:#b91c1c;font-weight:600}
+/* SUPERVISOR ALERT */
+.bs-super-alerta{margin:.1rem 1rem .5rem;background:#fef3c7;border:1px solid #fcd34d;border-left:4px solid #d97706;border-radius:9px;padding:.55rem .75rem;display:none}
+.bs-super-titulo{font-size:.68rem;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.bs-super-item{font-size:.8rem;color:#78350f;line-height:1.45;padding:1px 0}
+.bs-super-autor{font-size:.65rem;opacity:.7}
+@keyframes pulse-super{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+#topbar-super-badge{background:#d97706;color:#fff;font-size:.65rem;font-weight:800;min-width:20px;height:20px;border-radius:10px;padding:0 5px;display:none;align-items:center;justify-content:center;flex-shrink:0;cursor:default;white-space:nowrap}
+#topbar-super-badge.show{display:flex}
 .pf-actions{
   position:absolute;bottom:0;left:0;right:0;
   padding:.65rem .9rem calc(env(safe-area-inset-bottom) + .65rem);
@@ -338,6 +346,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
       <span id="topbar-localidade">Carregando…</span>
     </div>
     <span id="topbar-stats"></span>
+    <div id="topbar-super-badge" title="Domicílios com mensagem da supervisão"></div>
     <button class="tb-btn" id="btn-layers" onclick="toggleLayerPanel()" title="Camadas">☰</button>
   </div>
   <div id="mapa"></div>
@@ -383,6 +392,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     <div class="bs-linha"><span class="ic">📍</span><span id="bs-end">—</span></div>
     <div class="bs-linha"><span class="ic">👤</span><span id="bs-entr">—</span></div>
     <div class="bs-linha" id="bs-etapa5-linha" style="display:none;color:#b91c1c;font-weight:600">⚠️ Etapa 5 — sai da amostra no próximo trimestre</div>
+  </div>
+  <div id="bs-super-alerta" class="bs-super-alerta">
+    <div class="bs-super-titulo">📢 Mensagem da supervisão</div>
+    <div id="bs-super-conteudo"></div>
   </div>
   <div class="bs-btns">
     <button class="bs-btn" onclick="abrirFichaCompleta()"><span class="bi">📋</span>Ficha</button>
@@ -945,11 +958,13 @@ function renderDoms(L) {
     const est   = estadoDom(d.status_atual);
     const check = est === 'realizada' ? '✓' : est === 'andamento' ? '…' : '';
     const borda = est === 'realizada' ? '#15803d' : est === 'andamento' ? '#f97316' : '#fff';
+    const temSuperAlert = (d.solicitacoes||[]).some(x => !x.resolvido && x.criado_por_nome && x.criado_por_nome !== usuarioNome);
     const ico = L.divIcon({
       className: '',
       html: `<div style="position:relative;width:32px;height:32px">
         <div style="width:32px;height:32px;border-radius:50%;background:${fill};border:3px solid ${borda};display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);box-shadow:0 2px 6px rgba(0,0,0,.28);font-family:sans-serif">${num}</div>
         ${check ? `<div style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:${est==='realizada'?'#22c55e':'#f97316'};border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;color:#fff">${check}</div>` : ''}
+        ${temSuperAlert ? `<div style="position:absolute;top:-5px;left:-5px;width:15px;height:15px;border-radius:50%;background:#d97706;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:8px;animation:pulse-super 1.5s infinite">📢</div>` : ''}
       </div>`,
       iconSize: [32,32],
       iconAnchor: [16,16],
@@ -976,6 +991,14 @@ function atualizarStats() {
   const real = domicilios.filter(d => d.status_atual === 'realizada').length;
   const pend = domicilios.filter(d => ['nao_visitado','ausente','agendado'].includes(d.status_atual||'nao_visitado')).length;
   $('topbar-stats').textContent = `${real}/${tot} · ${pend} pend.`;
+  const superCnt = domicilios.filter(d =>
+    (d.solicitacoes||[]).some(x => !x.resolvido && x.criado_por_nome && x.criado_por_nome !== usuarioNome)
+  ).length;
+  const badge = $('topbar-super-badge');
+  if (badge) {
+    badge.textContent = superCnt ? `📢 ${superCnt}` : '';
+    badge.classList.toggle('show', superCnt > 0);
+  }
 }
 
 /* ── GPS WATCH ────────────────────────────────────────── */
@@ -1032,6 +1055,20 @@ function abrirBS(d) {
   const pill = $('bs-pill');
   pill.textContent = lblS(s);
   pill.style.cssText = `background:${corS(s)}22;color:${corS(s)};border:1px solid ${corS(s)}55`;
+  // Solicitations from others (supervisor notes)
+  const solsSuper = (d.solicitacoes||[]).filter(x => !x.resolvido && x.criado_por_nome && x.criado_por_nome !== usuarioNome);
+  const alertEl = $('bs-super-alerta');
+  if (solsSuper.length) {
+    $('bs-super-conteudo').innerHTML = solsSuper.map(x => {
+      const tipo = SOL_TIPOS.find(t => t.id === x.tipo);
+      const label = tipo ? `${tipo.ico} ${tipo.label}` : x.tipo;
+      const obs = x.obs ? ` — ${x.obs}` : '';
+      return `<div class="bs-super-item">${label}${obs} <span class="bs-super-autor">por ${x.criado_por_nome}</span></div>`;
+    }).join('');
+    alertEl.style.display = '';
+  } else {
+    alertEl.style.display = 'none';
+  }
   $('bottom-sheet').classList.add('aberto');
   $('overlay').classList.add('show');
   $('fab-nav').classList.toggle('visivel', !!(d.latitude_kml && d.longitude_kml));
