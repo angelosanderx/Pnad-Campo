@@ -794,7 +794,7 @@ function renderDoms(L) {
     const borda = bordaStatus(d.status_atual);
     if (nome) entrsVisiveis.set(nome, fill);
     const m = L.circleMarker([lat,lng], {
-      radius:7, color:borda, weight:2.5, fillColor:fill, fillOpacity:.92,
+      radius:13, color:borda, weight:3, fillColor:fill, fillOpacity:.95,
     });
     m.on('click', () => abrirBS(d));
     layers.doms.addLayer(m);
