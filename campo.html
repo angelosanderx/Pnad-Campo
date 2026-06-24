@@ -1215,7 +1215,20 @@ window.desfazerSolicitar = async (solId) => {
   if (!confirm('Desfazer esta solicitação?')) return;
   try {
     const novas = (domAtivo.solicitacoes || []).filter(x => x.id !== solId);
-    await updateDoc(doc(db, 'domicilios', domAtivo.id), { solicitacoes: novas });
+    const update = { solicitacoes: novas };
+    // Recalculate status from remaining active solicitations
+    const statusRestantes = novas
+      .filter(x => !x.resolvido)
+      .map(x => SOL_TIPOS.find(t => t.id === x.tipo)?.status)
+      .filter(Boolean);
+    if (statusRestantes.length) {
+      // Highest priority: supervisao > carta_solicitada
+      update.status_atual = ['supervisao','carta_solicitada'].find(s => statusRestantes.includes(s)) || statusRestantes[0];
+    } else {
+      // No more solicitations — restore previous status
+      update.status_atual = domAtivo.status_anterior || 'nao_visitado';
+    }
+    await updateDoc(doc(db, 'domicilios', domAtivo.id), update);
     domAtivo.solicitacoes = novas;
     renderSolsFeed(domAtivo);
     // atualiza ficha se aberta
@@ -1497,7 +1510,10 @@ async function _gravarSolicitar(nomeMorador = '') {
       criado_por_nome: usuarioNome,
     };
     const update = { solicitacoes: arrayUnion(novaSol), ultima_visita: serverTimestamp() };
-    if (tipo?.status) update.status_atual = tipo.status;
+    if (tipo?.status) {
+      update.status_anterior = domAtivo.status_atual || 'nao_visitado';
+      update.status_atual = tipo.status;
+    }
     await updateDoc(doc(db, 'domicilios', domAtivo.id), update);
     await addDoc(collection(db, 'visitas'), {
       domicilio_id:       domAtivo.id,
