@@ -793,9 +793,14 @@ function renderDoms(L) {
     const fill = corEntrevistador(nome);
     const borda = bordaStatus(d.status_atual);
     if (nome) entrsVisiveis.set(nome, fill);
-    const m = L.circleMarker([lat,lng], {
-      radius:13, color:borda, weight:3, fillColor:fill, fillOpacity:.95,
+    const num = d.domicilio_num || '?';
+    const ico = L.divIcon({
+      className: '',
+      html: `<div style="width:30px;height:30px;border-radius:50%;background:${fill};border:3px solid ${borda};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);box-shadow:0 2px 6px rgba(0,0,0,.3);font-family:sans-serif">${num}</div>`,
+      iconSize: [30,30],
+      iconAnchor: [15,15],
     });
+    const m = L.marker([lat,lng], { icon: ico });
     m.on('click', () => abrirBS(d));
     layers.doms.addLayer(m);
   });
