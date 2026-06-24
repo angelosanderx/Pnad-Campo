@@ -260,9 +260,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .mcm-icon{font-size:3rem;margin-bottom:.5rem}
 .mcm-aviso{font-size:.78rem;font-weight:700;color:var(--vermelho);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem}
 .mcm-nome{font-size:1.3rem;font-weight:800;color:var(--texto);margin:.6rem 0 .9rem;line-height:1.2;word-break:break-word}
-.mcm-label{display:flex;align-items:center;gap:.6rem;background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:.85rem 1rem;cursor:pointer;text-align:left;margin-bottom:1rem}
-.mcm-label input[type=checkbox]{width:22px;height:22px;flex-shrink:0;cursor:pointer;accent-color:var(--vermelho)}
-.mcm-label span{font-size:.88rem;font-weight:600;color:#b91c1c;line-height:1.35}
+.mcm-opcao{display:flex;align-items:center;gap:.75rem;border:2px solid var(--borda);border-radius:12px;padding:.85rem 1rem;cursor:pointer;text-align:left;margin-bottom:.6rem;transition:border-color .15s,background .15s}
+.mcm-opcao.sel{border-color:var(--vermelho);background:#fef2f2}
+.mcm-opcao input[type=radio]{width:20px;height:20px;flex-shrink:0;cursor:pointer;accent-color:var(--vermelho)}
+.mcm-opcao-txt{font-size:.86rem;font-weight:600;color:var(--texto);line-height:1.35}
+.mcm-opcao.nao-sei{border-color:var(--borda);background:#f8fafc}
+.mcm-opcao.nao-sei.sel{border-color:#f59e0b;background:#fffbeb}
+.mcm-opcao.nao-sei input{accent-color:#f59e0b}
+.mcm-opcao.nao-sei .mcm-opcao-txt{color:var(--cinza)}
 .mcm-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mcm-btn{padding:.8rem;border-radius:11px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;border:none;transition:opacity .1s}
 .mcm-btn:active{opacity:.8}
@@ -483,14 +488,21 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 <div id="modal-confirm-morador" class="hidden">
   <div class="mcm-box">
     <div class="mcm-icon">⚠️</div>
-    <div class="mcm-aviso">Atenção — confirme antes de solicitar</div>
-    <div style="font-size:.83rem;color:var(--cinza);margin-bottom:.3rem">O nome do morador principal é:</div>
+    <div class="mcm-aviso">Confirme o nome do morador</div>
+    <div style="font-size:.83rem;color:var(--cinza);margin-bottom:.3rem">O nome cadastrado é:</div>
     <div class="mcm-nome" id="mcm-nome-morador">—</div>
-    <label class="mcm-label">
-      <input type="checkbox" id="mcm-check" onchange="mcmAtualizarBtn()">
-      <span>Confirmo que o nome do morador está <strong>correto e atualizado</strong> no sistema</span>
+
+    <label class="mcm-opcao" id="mcm-opt-confirmar" onclick="mcmSelecionar('confirmar')">
+      <input type="radio" name="mcm-opcao" id="mcm-radio-confirmar">
+      <span class="mcm-opcao-txt">✅ Confirmo que o nome está <strong>correto e atualizado</strong></span>
     </label>
-    <div class="mcm-btns">
+
+    <label class="mcm-opcao nao-sei" id="mcm-opt-naosabe" onclick="mcmSelecionar('naosabe')">
+      <input type="radio" name="mcm-opcao" id="mcm-radio-naosabe">
+      <span class="mcm-opcao-txt">🤷 Pode colocar <strong>Sr(a) Morador(a)</strong></span>
+    </label>
+
+    <div class="mcm-btns" style="margin-top:.4rem">
       <button class="mcm-btn cancelar" onclick="fecharConfirmMorador()">Cancelar</button>
       <button class="mcm-btn confirmar" id="mcm-btn-confirmar" disabled onclick="mcmConfirmar()">Solicitar carta</button>
     </div>
@@ -1345,24 +1357,34 @@ window.confirmarSolicitar = () => {
   _gravarSolicitar();
 };
 
+let mcmOpcaoSel = null; // 'confirmar' | 'naosabe'
+
 window.fecharConfirmMorador = () => {
   $('modal-confirm-morador').classList.add('hidden');
+  mcmOpcaoSel = null;
 };
 
-window.mcmAtualizarBtn = () => {
-  $('mcm-btn-confirmar').disabled = !$('mcm-check').checked;
+window.mcmSelecionar = (opcao) => {
+  mcmOpcaoSel = opcao;
+  $('mcm-opt-confirmar').classList.toggle('sel', opcao === 'confirmar');
+  $('mcm-opt-naosabe').classList.toggle('sel', opcao === 'naosabe');
+  $('mcm-radio-confirmar').checked = opcao === 'confirmar';
+  $('mcm-radio-naosabe').checked   = opcao === 'naosabe';
+  $('mcm-btn-confirmar').disabled  = false;
 };
 
 window.mcmConfirmar = () => {
   $('modal-confirm-morador').classList.add('hidden');
-  _gravarSolicitar();
+  _gravarSolicitar(mcmOpcaoSel === 'naosabe');
+  mcmOpcaoSel = null;
 };
 
-async function _gravarSolicitar() {
+async function _gravarSolicitar(usarMoradorGenerico = false) {
   const btn = $('btn-conf-sol');
   btn.disabled = true; btn.textContent = 'Salvando…';
   try {
-    const obs  = $('sol-obs').value.trim();
+    let obs  = $('sol-obs').value.trim();
+    if (usarMoradorGenerico) obs = obs ? `Sr(a) Morador(a) — ${obs}` : 'Sr(a) Morador(a)';
     const tipo = SOL_TIPOS.find(t => t.id === solSel);
     const novaSol = {
       id:              Date.now().toString(36) + Math.random().toString(36).slice(2,6),
