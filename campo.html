@@ -371,6 +371,45 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 /* VAZIO */
 .vazio{padding:2rem;text-align:center;color:var(--cinza);font-size:.88rem;line-height:1.6}
 .vazio-ico{font-size:2rem;margin-bottom:.5rem}
+
+/* CRONOGRAMA (somente leitura) */
+.cron-week-nav-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:.25rem 0 .85rem}
+.cron-week-nav{display:flex;align-items:center;gap:.6rem}
+.cron-nav-btn{border:1.5px solid var(--borda);border-radius:6px;background:#fff;cursor:pointer;padding:.3rem .8rem;font-size:1rem;color:var(--texto);font-family:inherit}
+.cron-nav-btn:active{border-color:var(--azul);color:var(--azul)}
+#cron-week-label{font-size:.84rem;font-weight:700;color:var(--texto);white-space:nowrap;text-align:center}
+.cron-sem-row{display:flex;gap:6px}
+.cron-sem-chip{border:1.5px solid var(--borda);border-radius:8px;background:#fff;padding:.3rem .7rem;font-size:.78rem;font-weight:700;color:var(--texto);cursor:pointer;font-family:inherit}
+.cron-sem-chip.ativo{background:var(--azul);border-color:var(--azul);color:#fff}
+
+.cron-grid{display:grid;font-size:11px;width:100%;column-gap:3px;row-gap:0}
+.cron-grid-hd{position:relative;background:var(--azul);color:#fff;font-weight:700;font-size:11px;padding:4px 6px;text-align:center;white-space:nowrap;letter-spacing:.03em;border-right:1px solid rgba(255,255,255,.15)}
+.cron-col-resize{position:absolute;top:0;right:-3px;width:8px;height:100%;cursor:col-resize;z-index:2}
+.cron-col-resize:active{background:rgba(255,255,255,.35)}
+.cron-group-block{display:contents}
+.cron-group-sep{grid-column:1/-1;height:6px;background:#eef0f3}
+.cron-names-cell{padding:4px 6px;display:flex;flex-direction:column;gap:3px;align-items:flex-start;box-sizing:border-box}
+.cron-avatar{display:flex;align-items:center;gap:3px}
+.cron-avatar-circ{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.cron-card{padding:4px 6px;box-sizing:border-box;min-height:34px}
+.cron-day-empty{min-height:34px;box-sizing:border-box}
+.cron-card-hdr{font-size:10px;margin-bottom:2px;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.cron-hd-span{color:#888}
+.cron-hd-hora{font-weight:600;color:#555;white-space:normal;overflow-wrap:break-word}
+.cron-setor-item{display:flex;align-items:center;gap:3px;background:rgba(255,255,255,.6);border-radius:3px;padding:2px 4px;margin-bottom:2px}
+.cron-setor-code{font-family:monospace;font-size:9px;color:#666;flex-shrink:0;white-space:nowrap}
+.cron-setor-nome{font-size:10px;font-weight:700;min-width:0;flex:1;white-space:normal;overflow-wrap:break-word;line-height:1.25}
+.cron-day-mobile-hdr{display:none}
+
+@media (max-width:600px){
+  .cron-grid{display:block!important}
+  .cron-group-block{display:block;border-radius:6px;overflow:hidden;margin-bottom:8px;border:1px solid #d1d9e0}
+  .cron-group-sep{display:none!important}
+  .cron-names-cell{flex-direction:row;flex-wrap:wrap;gap:6px;border-bottom:2px solid;padding:6px 8px}
+  .cron-day-empty{display:none!important}
+  .cron-day-mobile-hdr{display:block;font-weight:600;color:#888;margin-bottom:3px}
+  .cron-grid-hd{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -412,11 +451,28 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     <button class="set-tab" id="tab-pendencias" onclick="switchTab('pendencias')">⏳ Pendências</button>
     <button class="set-tab" id="tab-solicitacoes" onclick="switchTab('solicitacoes')">✉️ Solicitações<span class="tab-badge" id="badge-sols"></span></button>
     <button class="set-tab" id="tab-avisos" onclick="switchTab('avisos')">📢 Avisos<span class="tab-badge" id="badge-avisos"></span></button>
+    <button class="set-tab" id="tab-cronograma" onclick="switchTab('cronograma')">📅 Cronograma</button>
   </div>
   <div id="lista-setores"></div>
   <div id="lista-pendencias" class="hidden" style="flex:1;overflow-y:auto"></div>
   <div id="lista-solicitacoes" class="hidden"></div>
   <div id="lista-avisos" class="hidden" style="flex:1;overflow-y:auto;padding:.65rem"></div>
+  <div id="lista-cronograma" class="hidden" style="flex:1;overflow-y:auto;padding:.65rem">
+    <div class="cron-week-nav-wrap">
+      <div class="cron-week-nav">
+        <button class="cron-nav-btn" onclick="cronNavWeek(-1)">←</button>
+        <span id="cron-week-label">—</span>
+        <button class="cron-nav-btn" onclick="cronNavWeek(1)">→</button>
+      </div>
+      <div class="cron-sem-row">
+        <button class="cron-sem-chip" data-sem="1" onclick="cronSelSemana(1)">S1</button>
+        <button class="cron-sem-chip" data-sem="2" onclick="cronSelSemana(2)">S2</button>
+        <button class="cron-sem-chip" data-sem="3" onclick="cronSelSemana(3)">S3</button>
+        <button class="cron-sem-chip" data-sem="4" onclick="cronSelSemana(4)">S4</button>
+      </div>
+    </div>
+    <div id="cron-tabela-wrap"></div>
+  </div>
 </div>
 
 <!-- POPUP: novo aviso da supervisão -->
@@ -722,6 +778,253 @@ function corEntrevistador(nome) {
   for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
   const PALETA = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#8b5cf6','#ef4444','#10b981','#3b82f6'];
   return PALETA[h % PALETA.length];
+}
+
+/* ── CRONOGRAMA DA SEMANA (somente leitura) ─────────────── */
+let _cronMes       = null;
+let _cronSemana    = null;
+let _cronLinhas    = [];
+let _cronLoadedKey = '';
+
+const _CRON_PALETAS = [
+  { bg:'#F0F4F8', borda:'#94B4CC', cor:'#2C4A5E' },
+  { bg:'#F0F4F0', borda:'#8EAF8E', cor:'#2A422A' },
+  { bg:'#F5F0EB', borda:'#C4A882', cor:'#4A3A2A' },
+  { bg:'#F2F0F6', borda:'#A898C8', cor:'#3A2A5A' },
+  { bg:'#F2F2F2', borda:'#A0A0A0', cor:'#303030' },
+];
+const _DIAS_ABR  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const _NOMES_MES = {6:'Junho',7:'Julho',8:'Agosto',9:'Setembro',10:'Outubro',11:'Novembro',12:'Dezembro'};
+const _SEMANAS_CAL = {
+  6:  { 1:{de:'06/06',ate:'12/06'}, 2:{de:'13/06',ate:'19/06'}, 3:{de:'21/06',ate:'27/06'}, 4:{de:'28/06',ate:'04/07'} },
+  7:  { 1:{de:'05/07',ate:'11/07'}, 2:{de:'12/07',ate:'18/07'}, 3:{de:'19/07',ate:'25/07'}, 4:{de:'26/07',ate:'01/08'} },
+  8:  { 1:{de:'09/08',ate:'15/08'}, 2:{de:'16/08',ate:'22/08'}, 3:{de:'23/08',ate:'29/08'}, 4:{de:'30/08',ate:'05/09'} },
+  9:  { 1:{de:'06/09',ate:'12/09'}, 2:{de:'13/09',ate:'19/09'}, 3:{de:'20/09',ate:'26/09'}, 4:{de:'27/09',ate:'03/10'} },
+  10: { 1:{de:'11/10',ate:'17/10'}, 2:{de:'18/10',ate:'24/10'}, 3:{de:'25/10',ate:'31/10'}, 4:{de:'01/11',ate:'07/11'} },
+  11: { 1:{de:'08/11',ate:'14/11'}, 2:{de:'15/11',ate:'21/11'}, 3:{de:'22/11',ate:'28/11'}, 4:{de:'29/11',ate:'05/12'} },
+  12: { 1:{de:'06/12',ate:'12/12'}, 2:{de:'13/12',ate:'19/12'}, 3:{de:'20/12',ate:'26/12'}, 4:{de:'27/12',ate:'02/01'} },
+};
+
+window.cronNavWeek = (dir) => {
+  const MESES = [6,7,8,9,10,11,12];
+  let mi = MESES.indexOf(_cronMes ?? 6);
+  if (mi < 0) mi = 0;
+  let sem = (_cronSemana ?? 1) + dir;
+  if (sem < 1) { mi = Math.max(0, mi - 1); sem = 4; }
+  else if (sem > 4) { mi = Math.min(MESES.length - 1, mi + 1); sem = 1; }
+  _cronMes    = MESES[mi];
+  _cronSemana = sem;
+  _cronSyncUI();
+  renderCronogramaTab();
+};
+
+window.cronSelSemana = (sem) => {
+  _cronSemana = sem;
+  _cronSyncUI();
+  renderCronogramaTab();
+};
+
+function _cronSyncUI() {
+  document.querySelectorAll('.cron-sem-chip').forEach(b => {
+    b.classList.toggle('ativo', parseInt(b.dataset.sem) === _cronSemana);
+  });
+  const inf     = _SEMANAS_CAL[_cronMes]?.[_cronSemana];
+  const mesNome = _NOMES_MES[_cronMes] || ('Mês ' + _cronMes);
+  const lbl     = $('cron-week-label');
+  if (lbl) lbl.textContent = inf
+    ? `${mesNome} — Semana ${_cronSemana} · ${inf.de} a ${inf.ate}`
+    : (mesNome + (_cronSemana ? ` — Semana ${_cronSemana}` : ''));
+  if (_cronMes)    localStorage.setItem('pnad_cron_mes',    _cronMes);
+  if (_cronSemana) localStorage.setItem('pnad_cron_semana', _cronSemana);
+}
+
+function _cronNormalizar(ln) {
+  if (!ln || typeof ln !== 'object') return null;
+  if (ln.tipo_card === 'periodo_livre') return null;
+  if (ln.equipes) return ln;
+  return {
+    data: ln.data || '',
+    hora: ln.hora || '',
+    equipes: [{
+      entrevistadores: ln.entrevistadores || '',
+      upas:        ln.upas        || (ln.upa        !== undefined ? [ln.upa]        : ['']),
+      localidades: ln.localidades || (ln.localidade !== undefined ? [ln.localidade] : ['']),
+      tipos:       ln.tipos       || (ln.tipo        !== undefined ? [ln.tipo]       : ['']),
+    }]
+  };
+}
+
+async function renderCronogramaTab() {
+  _cronSyncUI();
+  const el = $('cron-tabela-wrap');
+  if (!el) return;
+  if (!_cronMes || !_cronSemana) return;
+
+  const key = `${_cronMes}_${_cronSemana}`;
+  if (_cronLoadedKey !== key) {
+    el.innerHTML = '<div class="vazio">Carregando…</div>';
+    try {
+      const snap = await getDoc(doc(db, 'cronograma', key));
+      const raw  = snap.exists() ? (snap.data().linhas || []) : [];
+      _cronLinhas    = raw.map(_cronNormalizar).filter(Boolean);
+      _cronLoadedKey = key;
+    } catch(e) {
+      el.innerHTML = '<div class="vazio">Erro ao carregar o cronograma.</div>';
+      return;
+    }
+  }
+  el.innerHTML = _buildCronGridReadOnly();
+}
+
+const _CRON_COL_DEFAULT = [80, 110];
+function _cronGetColWidths(n) {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('campo_cron_col_widths') || '[]'); } catch(e) { saved = []; }
+  const widths = [];
+  for (let i = 0; i <= n; i++) {
+    const def = i === 0 ? _CRON_COL_DEFAULT[0] : _CRON_COL_DEFAULT[1];
+    const v = Number(saved[i]);
+    widths.push(Number.isFinite(v) && v >= 50 ? v : def);
+  }
+  return widths;
+}
+function _cronSaveColWidths(widths) {
+  try { localStorage.setItem('campo_cron_col_widths', JSON.stringify(widths.map(w => Math.round(w)))); } catch(e) {}
+}
+
+let _cronResizeState = null;
+window.cronColResizeStart = (e, idx) => {
+  e.preventDefault();
+  const grid = $('cron-grid-el');
+  if (!grid) return;
+  const widths = getComputedStyle(grid).gridTemplateColumns.split(' ').map(v => parseFloat(v));
+  _cronResizeState = { idx, startX: e.clientX, widths, grid };
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  document.addEventListener('mousemove', _cronColResizeMove);
+  document.addEventListener('mouseup', _cronColResizeEnd);
+};
+function _cronColResizeMove(e) {
+  const st = _cronResizeState;
+  if (!st) return;
+  const delta = e.clientX - st.startX;
+  st.widths[st.idx] = Math.max(50, Math.round(st.widths[st.idx] + delta));
+  st.startX = e.clientX;
+  st.grid.style.gridTemplateColumns = st.widths.map(w => `${w}px`).join(' ');
+}
+function _cronColResizeEnd() {
+  const st = _cronResizeState;
+  document.removeEventListener('mousemove', _cronColResizeMove);
+  document.removeEventListener('mouseup', _cronColResizeEnd);
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  if (st) _cronSaveColWidths(st.widths);
+  _cronResizeState = null;
+}
+
+function _buildCronGridReadOnly() {
+  const linhas = _cronLinhas;
+  if (!linhas.length) return '<div class="vazio">Nenhuma atividade cadastrada para esta semana.</div>';
+
+  const diasSet = new Set();
+  linhas.forEach(ln => {
+    if (!ln.data) return;
+    diasSet.add(ln.data);
+    if (ln.data_fim && ln.data_fim > ln.data) {
+      let cur = new Date(ln.data + 'T12:00:00');
+      const end = new Date(ln.data_fim + 'T12:00:00');
+      while (cur <= end) { diasSet.add(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+    }
+  });
+  const dias = [...diasSet].sort();
+  if (!dias.length) return '<div class="vazio">Nenhuma atividade cadastrada para esta semana.</div>';
+
+  const groupMap = new Map();
+  linhas.forEach((ln, liIdx) => {
+    (ln.equipes || []).forEach((eq, eqIdx) => {
+      const nomes = (eq.entrevistadores || '').split(',').map(s => s.trim()).filter(Boolean);
+      const key = [...nomes].sort().join('|') || '—';
+      if (!groupMap.has(key)) groupMap.set(key, { nomes, cells: new Map() });
+      const g = groupMap.get(key);
+      const startD = ln.data || '';
+      const endD   = (ln.data_fim && ln.data_fim >= startD) ? ln.data_fim : startD;
+      dias.forEach(d => {
+        if (d < startD || d > endD) return;
+        if (!g.cells.has(d)) g.cells.set(d, []);
+        g.cells.get(d).push({ hora: ln.hora, upas: eq.upas || [''], locs: eq.localidades || [''], tipos: eq.tipos || [''], liIdx, eqIdx, startD, endD });
+      });
+    });
+  });
+
+  const groups = [...groupMap.values()];
+  const colWidths = _cronGetColWidths(dias.length);
+  const gridCols  = colWidths.map(w => `${w}px`).join(' ');
+
+  const hdrCells = dias.map((d, di) => {
+    const dt = new Date(d + 'T12:00:00');
+    const dow = _DIAS_ABR[dt.getDay()];
+    const dm  = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+    return `<div class="cron-grid-hd">${dow}<br><span style="font-weight:400;opacity:.85;font-size:9px">${dm}</span><div class="cron-col-resize" onmousedown="cronColResizeStart(event,${di+1})"></div></div>`;
+  }).join('');
+
+  let groupsHtml = '';
+  let firstGroup = true;
+  let palIdx = 0;
+
+  for (const g of groups) {
+    const pal = _CRON_PALETAS[palIdx % _CRON_PALETAS.length];
+    palIdx++;
+
+    const avatarHtml = g.nomes.map(n => {
+      const cor = corEntrevistador(n);
+      const ini = n.trim().charAt(0).toUpperCase();
+      return `<div class="cron-avatar"><div class="cron-avatar-circ" style="background:${cor}22;border:1.5px solid ${cor};color:${cor}">${ini}</div><span style="font-size:9px;font-weight:600;color:${pal.cor};max-width:70px;white-space:normal;overflow-wrap:break-word;line-height:1.2">${n.split(' ')[0]}</span></div>`;
+    }).join('');
+    const namesCell = `<div class="cron-names-cell" style="background:${pal.bg};border-right:2px solid ${pal.borda}">${avatarHtml || '<span style="color:var(--cinza);font-size:.75rem">—</span>'}</div>`;
+
+    const covered = new Set();
+    const dayCells = dias.map((d, di) => {
+      if (covered.has(d)) return '';
+      const missions = g.cells.get(d);
+      if (!missions) return `<div class="cron-day-empty" style="background:${pal.bg}88"></div>`;
+
+      const m0 = missions.find(m => m.startD === d) || missions[0];
+      let span = 1;
+      if (m0.endD > d) {
+        for (let j = di+1; j < dias.length && dias[j] <= m0.endD; j++) { span++; covered.add(dias[j]); }
+      }
+
+      const dt = new Date(d + 'T12:00:00');
+      const dayLabel = `${_DIAS_ABR[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+
+      let inner = '';
+      const seenMission = new Set();
+      missions.filter(m => { const k=`${m.liIdx}-${m.eqIdx}`; if(seenMission.has(k)) return false; seenMission.add(k); return true; })
+        .forEach(m => {
+          if (m.hora) {
+            const horaFixa = /^\d{1,2}:\d{2}$/.test(m.hora.trim());
+            const horaStyle = horaFixa ? '' : ' style="color:var(--vermelho)"';
+            inner += `<div class="cron-card-hdr"><span class="cron-hd-hora"${horaStyle}>${m.hora}</span>${span>1?`<span class="cron-hd-span"> · ${span}d</span>`:''}</div>`;
+          }
+          m.upas.forEach((upa, si) => {
+            if (!upa) return;
+            const isLivre = m.tipos[si] === 'livre';
+            const loc  = m.locs[si] || '';
+            const codeHtml = isLivre ? '<span class="cron-setor-code">✎</span>' : `<span class="cron-setor-code">${String(upa).slice(-4)}</span>`;
+            inner += `<div class="cron-setor-item">${codeHtml}<span class="cron-setor-nome">${loc||(isLivre?'':upa)}</span></div>`;
+          });
+        });
+
+      const spanStyle = span > 1 ? `grid-column:span ${span};` : '';
+      return `<div class="cron-card" style="${spanStyle}background:${pal.bg};border-left:1px solid ${pal.borda}55"><div class="cron-day-mobile-hdr">${dayLabel}</div>${inner}</div>`;
+    }).join('');
+
+    if (!firstGroup) groupsHtml += '<div class="cron-group-sep"></div>';
+    firstGroup = false;
+    groupsHtml += `<div class="cron-group-block">${namesCell}${dayCells}</div>`;
+  }
+
+  return `<div style="overflow-x:auto;width:100%"><div class="cron-grid" id="cron-grid-el" style="grid-template-columns:${gridCols}"><div class="cron-names-cell cron-grid-hd" style="justify-content:center">Equipe<div class="cron-col-resize" onmousedown="cronColResizeStart(event,0)"></div></div>${hdrCells}${groupsHtml}</div></div>`;
 }
 
 // Três estados de visita
@@ -1123,14 +1426,28 @@ window.abrirMapaGeral = async () => {
 
 window.switchTab = tab => {
   abaAtual = tab;
-  ['setores','pendencias','solicitacoes','avisos'].forEach(t => {
+  ['setores','pendencias','solicitacoes','avisos','cronograma'].forEach(t => {
     $('tab-'+t).classList.toggle('ativo', t === tab);
     $('lista-'+t).classList.toggle('hidden', t !== tab);
   });
   if (tab === 'pendencias')    renderPendencias(mySectors);
   if (tab === 'solicitacoes')  renderSolicitacoes();
   if (tab === 'avisos')        renderAvisos(ultimosAvisos);
+  if (tab === 'cronograma')    carregarCronogramaTab();
 };
+
+async function carregarCronogramaTab() {
+  if (!_cronMes) {
+    const sv  = parseInt(localStorage.getItem('pnad_cron_mes'));
+    const now = new Date().getMonth() + 1;
+    _cronMes  = (sv >= 6 && sv <= 12) ? sv : (now >= 6 && now <= 12 ? now : 6);
+  }
+  if (!_cronSemana) {
+    const sv    = parseInt(localStorage.getItem('pnad_cron_semana'));
+    _cronSemana = (sv >= 1 && sv <= 4) ? sv : 1;
+  }
+  await renderCronogramaTab();
+}
 
 function renderPendencias(setores) {
   const PEND_STATUS = new Set(['nao_visitado','ausente','agendado','carta_solicitada','supervisao']);
