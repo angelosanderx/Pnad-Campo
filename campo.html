@@ -648,7 +648,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged,
          browserLocalPersistence, setPersistence }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDoc, getDocs, query,
-         where, orderBy, limit, onSnapshot, updateDoc, addDoc, serverTimestamp, arrayUnion }
+         where, orderBy, limit, onSnapshot, updateDoc, addDoc, deleteDoc, serverTimestamp, arrayUnion }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 /* ── FIREBASE ─────────────────────────────────────────── */
@@ -968,11 +968,15 @@ function renderAvisos(avisos) {
     el.innerHTML = '<div class="vazio"><div class="vazio-ico">📢</div>Nenhum aviso publicado.</div>';
     return;
   }
+  const podeApagar = ['supervisor','administrador'].includes(usuarioPerfil);
   el.innerHTML = avisos.map(a => {
     const lido = avisosLidos.has(a.id);
     const data = a.criado_em?.toDate?.()?.toLocaleDateString('pt-BR') || '';
     return `<div class="aviso-card${lido ? '' : ' nao-lido'}">
-      <div class="aviso-titulo">${lido ? '' : '<span class="aviso-nao-lido-dot"></span>'}${a.titulo}</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem">
+        <div class="aviso-titulo" style="flex:1">${lido ? '' : '<span class="aviso-nao-lido-dot"></span>'}${a.titulo}</div>
+        ${podeApagar ? `<button onclick="apagarAviso('${a.id}')" style="background:none;border:none;color:var(--cinza);font-size:1.1rem;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0" title="Apagar aviso">🗑️</button>` : ''}
+      </div>
       ${a.mensagem ? `<div class="aviso-corpo">${a.mensagem.replace(/\n/g,'<br>')}</div>` : ''}
       ${data ? `<div class="aviso-data">${data}</div>` : ''}
     </div>`;
@@ -982,6 +986,14 @@ function renderAvisos(avisos) {
   localStorage.setItem('campo_avisos_lidos', JSON.stringify([...avisosLidos]));
   atualizarBadgeAvisos();
 }
+
+window.apagarAviso = async (id) => {
+  if (!confirm('Apagar este aviso?')) return;
+  try {
+    await deleteDoc(doc(db, 'avisos', id));
+    toast('Aviso apagado', 'ok');
+  } catch(e) { toast('Erro: ' + e.message, 'erro'); }
+};
 
 function obterGPS() {
   return new Promise((res, rej) => {
