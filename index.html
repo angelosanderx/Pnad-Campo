@@ -7188,11 +7188,12 @@ function _cronShowPopover(anchorEl) {
   document.body.appendChild(pop);
 
   const r = anchorEl.getBoundingClientRect();
-  const pw = 290, ph = Math.min(480, window.innerHeight * 0.88);
+  const pw = 290, ph = pop.offsetHeight;
   let left = r.left, top = r.bottom + 4;
   if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
   if (left < 8) left = 8;
   if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 4);
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
   pop.style.left = left + 'px';
   pop.style.top  = top + 'px';
 
