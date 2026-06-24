@@ -178,6 +178,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .pf-row:last-child{margin-bottom:0}
 .pf-lbl{font-size:.68rem;color:var(--cinza);margin-bottom:1px}
 .pf-val{font-size:.87rem;color:var(--texto);font-weight:500}
+.pf-loading{font-size:.78rem;color:var(--cinza);padding:.3rem 0}
+.mor-row{display:flex;align-items:baseline;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--borda);font-size:.82rem}
+.mor-row:last-child{border-bottom:none}
+.mor-cod{font-size:.68rem;font-weight:700;color:var(--azul-med);min-width:22px}
+.mor-nome{font-weight:600;color:var(--texto);flex:1}
+.mor-det{font-size:.72rem;color:var(--cinza)}
+.rot-row{display:flex;gap:.5rem;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid var(--borda);font-size:.8rem}
+.rot-row:last-child{border-bottom:none}
+.rot-row.alvo{background:#eff6ff;border-radius:8px;padding:.5rem .55rem;margin:2px -4px;border-bottom:none}
+.rot-seq{font-weight:700;color:var(--cinza);min-width:28px;font-size:.72rem}
+.rot-end{flex:1;color:var(--texto);line-height:1.35}
+.rot-mor{font-size:.7rem;color:var(--cinza)}
 .etapa-card{background:var(--cinza-claro);border-radius:9px;padding:.6rem .75rem;margin-bottom:.4rem}
 .etapa-num{font-size:.68rem;font-weight:700;color:var(--cinza);margin-bottom:3px}
 .etapa-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:700}
@@ -375,6 +387,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     <div class="pf-card" id="pf-hist-card" style="display:none">
       <div class="pf-card-titulo">Histórico de entrevistas</div>
       <div id="pf-historico"></div>
+    </div>
+
+    <!-- Moradores PNAD -->
+    <div class="pf-card" id="pf-mor-card">
+      <div class="pf-card-titulo">Moradores PNAD</div>
+      <div id="pf-moradores"><div class="pf-loading">Carregando…</div></div>
+    </div>
+
+    <!-- Roteiro de campo -->
+    <div class="pf-card" id="pf-rot-card">
+      <div class="pf-card-titulo">Roteiro de campo (CNEFE)</div>
+      <div id="pf-roteiro"><div class="pf-loading">Carregando…</div></div>
     </div>
 
     <!-- Solicitações -->
@@ -951,7 +975,75 @@ window.fecharBS = () => {
 window.abrirFichaCompleta = () => {
   preencherFicha(domAtivo);
   $('panel-ficha').classList.add('aberto');
+  carregarMoradoresFicha(domAtivo);
+  carregarRoteiroFicha(domAtivo);
 };
+
+async function carregarMoradoresFicha(d) {
+  const el = $('pf-moradores');
+  el.innerHTML = '<div class="pf-loading">Carregando…</div>';
+  try {
+    const snap = await getDocs(collection(db, 'domicilios', d.id, 'moradores'));
+    const lista = snap.docs.map(x => x.data()).sort((a,b) => (a.codigo||'').localeCompare(b.codigo||''));
+    if (lista.length === 0) {
+      el.innerHTML = '<div class="pf-loading">Nenhum morador cadastrado.</div>';
+      return;
+    }
+    el.innerHTML = lista.map(m => {
+      const nasc = m.nascimento ? m.nascimento.split('-').reverse().join('/') : '';
+      const det  = [m.sexo, m.idade != null ? m.idade + ' anos' : nasc, m.condicao].filter(Boolean).join(' · ');
+      return `<div class="mor-row">
+        <span class="mor-cod">${m.codigo||'—'}</span>
+        <span class="mor-nome">${m.nome||'—'}</span>
+        ${det ? `<span class="mor-det">${det}</span>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="pf-loading" style="color:var(--vermelho)">Erro ao carregar moradores.</div>`;
+  }
+}
+
+async function carregarRoteiroFicha(d) {
+  const el = $('pf-roteiro');
+  el.innerHTML = '<div class="pf-loading">Carregando…</div>';
+  const setor = d.upa || (d.controle ? d.controle.slice(0,-1) : null);
+  if (!setor) { el.innerHTML = '<div class="pf-loading">Setor não identificado.</div>'; return; }
+  try {
+    const snap = await getDoc(doc(db, 'enderecos_setor', setor));
+    if (!snap.exists()) {
+      el.innerHTML = '<div class="pf-loading">Roteiro não importado para este setor.</div>';
+      return;
+    }
+    const lista = snap.data().registros || [];
+    const domNum = parseInt(d.domicilio_num || d.numero_sequencial);
+    let idx = lista.findIndex(x => x.dom !== '' && parseInt(x.dom) === domNum);
+    if (idx < 0) idx = lista.findIndex(x => parseInt(x.seq_visita) === domNum);
+
+    if (idx < 0) {
+      el.innerHTML = '<div class="pf-loading">Domicílio não encontrado no roteiro.</div>';
+      return;
+    }
+
+    const start = Math.max(0, idx - 3);
+    const end   = Math.min(lista.length, idx + 4);
+    const janela = lista.slice(start, end);
+
+    el.innerHTML = janela.map((item, i) => {
+      const pos = start + i;
+      const isAlvo = pos === idx;
+      return `<div class="rot-row${isAlvo ? ' alvo' : ''}">
+        <span class="rot-seq">${item.seq_visita}</span>
+        <span class="rot-end">
+          ${isAlvo ? `<strong style="color:var(--azul-med)">🎯 </strong>` : (pos < idx ? '← ' : '→ ')}${item.endereco||'—'}
+          ${item.complemento ? `<br><span class="rot-mor">${item.complemento}</span>` : ''}
+          ${item.morador ? `<br><span class="rot-mor">👤 ${item.morador}</span>` : ''}
+        </span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="pf-loading" style="color:var(--vermelho)">Erro ao carregar roteiro.</div>`;
+  }
+}
 
 function renderObsFeed(d) {
   const obs = (d.observacoes || []);
