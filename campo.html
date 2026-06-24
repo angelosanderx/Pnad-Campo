@@ -397,7 +397,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     <h3>Observações da equipe</h3>
     <button class="panel-close" onclick="fecharPanelObs()">✕</button>
   </div>
-  <div id="panel-obs-conteudo"></div>
+  <div id="panel-obs-feed" style="margin-bottom:.75rem;max-height:45vh;overflow-y:auto"></div>
+  <div style="display:flex;gap:8px;align-items:flex-end">
+    <textarea id="obs-input" class="campo-obs" style="height:60px;margin-bottom:0;flex:1" placeholder="Adicionar observação…"></textarea>
+    <button class="btn-confirmar" style="width:auto;padding:.6rem 1rem" onclick="salvarObsEquipe()">Enviar</button>
+  </div>
 </div>
 
 <!-- PANEL: status -->
@@ -949,41 +953,28 @@ window.abrirFichaCompleta = () => {
   $('panel-ficha').classList.add('aberto');
 };
 
+function renderObsFeed(d) {
+  const obs = (d.observacoes || []);
+  if (obs.length === 0) {
+    $('panel-obs-feed').innerHTML = '<div style="font-size:.83rem;color:var(--cinza);font-style:italic;padding:.4rem 0">Nenhuma observação registrada.</div>';
+    return;
+  }
+  $('panel-obs-feed').innerHTML = obs.map(o => `
+    <div style="background:var(--cinza-claro);border-radius:8px;padding:.55rem .75rem;margin-bottom:.35rem;border-left:3px solid var(--azul-med)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span style="font-size:.7rem;font-weight:700;color:var(--azul-med)">${o.autor_nome||'Anônimo'}</span>
+        <span style="font-size:.67rem;color:var(--cinza)">${o.data_iso?new Date(o.data_iso).toLocaleDateString('pt-BR'):''}</span>
+      </div>
+      <div style="font-size:.82rem;color:var(--texto);line-height:1.4">${(o.texto||'').replace(/\n/g,'<br>')}</div>
+    </div>
+  `).join('');
+  $('panel-obs-feed').scrollTop = $('panel-obs-feed').scrollHeight;
+}
+
 window.abrirPanelObs = () => {
-  const d = domAtivo;
-  if (!d) return;
-  const obs  = (d.observacoes || []).filter(o => o.texto);
-  const sols = (d.solicitacoes || []).filter(x => !x.resolvido);
-  const tels = (d.historico_telefones || []).filter(t => t.observacao);
-  let html = '';
-  if (obs.length === 0 && sols.length === 0 && tels.length === 0) {
-    html = '<div class="vazio" style="padding:1.5rem"><div class="vazio-ico">💬</div>Nenhuma observação registrada.</div>';
-  }
-  if (obs.length) {
-    html += obs.map(o => `<div style="background:#f8fafc;border-radius:9px;padding:.6rem .85rem;margin-bottom:.4rem;font-size:.83rem;color:var(--texto);line-height:1.45">
-      ${o.texto}
-      ${o.autor ? `<div style="font-size:.68rem;color:var(--cinza);margin-top:3px">— ${o.autor}</div>` : ''}
-    </div>`).join('');
-  }
-  if (tels.length) {
-    html += `<div style="font-size:.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:.5px;margin:.7rem 0 .4rem">Observações de visita</div>`;
-    html += tels.map(t => `<div style="background:#f0f9ff;border-radius:9px;padding:.6rem .85rem;margin-bottom:.4rem;font-size:.83rem;color:var(--texto);line-height:1.45">
-      ${t.observacao}
-      <div style="font-size:.68rem;color:var(--cinza);margin-top:3px">Entrevista ${t.entrevista}</div>
-    </div>`).join('');
-  }
-  if (sols.length) {
-    html += `<div style="font-size:.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:.5px;margin:.7rem 0 .4rem">Solicitações ativas</div>`;
-    html += sols.map(x => {
-      const tipo = SOL_TIPOS.find(t => t.id === x.tipo);
-      return `<div class="sol-card">
-        <div class="sol-card-tipo">${tipo?.ico||'📋'} ${tipo?.label||x.tipo}</div>
-        ${x.obs?`<div class="sol-card-obs">${x.obs}</div>`:''}
-        ${x.criado_por_nome?`<div class="sol-card-obs">— ${x.criado_por_nome}</div>`:''}
-      </div>`;
-    }).join('');
-  }
-  $('panel-obs-conteudo').innerHTML = html;
+  if (!domAtivo) return;
+  renderObsFeed(domAtivo);
+  $('obs-input').value = '';
   $('panel-obs').classList.remove('hidden');
   $('overlay').classList.add('show');
 };
@@ -991,6 +982,27 @@ window.abrirPanelObs = () => {
 window.fecharPanelObs = () => {
   $('panel-obs').classList.add('hidden');
   $('overlay').classList.remove('show');
+};
+
+window.salvarObsEquipe = async () => {
+  const texto = ($('obs-input').value || '').trim();
+  if (!texto || !domAtivo) return;
+  const btn = document.querySelector('#panel-obs .btn-confirmar');
+  btn.disabled = true;
+  try {
+    const nova = {
+      texto,
+      autor_nome: usuarioNome || 'Campo',
+      data_iso: new Date().toISOString(),
+    };
+    const novas = [...(domAtivo.observacoes || []), nova];
+    await updateDoc(doc(db, 'domicilios', domAtivo.id), { observacoes: novas });
+    domAtivo.observacoes = novas;
+    $('obs-input').value = '';
+    renderObsFeed(domAtivo);
+    toast('Observação salva', 'ok');
+  } catch(e) { toast('Erro: ' + e.message, 'erro'); }
+  finally { btn.disabled = false; }
 };
 
 /* ── FICHA INLINE ─────────────────────────────────────── */
