@@ -2011,13 +2011,31 @@ window.abrirModalDisciplina = (id = null) => {
   abrirModal('modal-disciplina');
 };
 
+// Cria o bloco #1 (genérico, totalmente editável) na trilha de uma disciplina nova —
+// mesmo formato do bloco criado por "+ Adicionar bloco" no Roteiro de Estudo.
+async function _criarBlocoGenericoTrilha(discId, disciplinaNome) {
+  const novoId = `${discId}_t001`;
+  const blocoGenerico = {
+    disciplinaId: discId, disciplinaNome,
+    num_tarefa: 1, tipo: 'TEORIA', aula: '', parte: null,
+    descricao: '', link: '', concluida: false, data_conclusao: null,
+    texto_apoio: '', caderno_questoes: '', personalizado: true,
+  };
+  await setDoc(doc(db, 'concurso_trilha_aulas', novoId), blocoGenerico);
+  trilhaAulasCache[novoId] = { id: novoId, ...blocoGenerico };
+}
+
 window.salvarDisciplina = async () => {
   const id = document.getElementById('disciplina-edit-id').value;
   const nome = document.getElementById('disciplina-edit-nome').value.trim();
   if (!nome) { mostrarToast('Informe o nome da disciplina', 'aviso'); return; }
   try {
-    if (id) { await updateDoc(doc(db, 'concurso_disciplinas', id), { nome }); }
-    else { await addDoc(collection(db, 'concurso_disciplinas'), { nome, criadoEm: serverTimestamp() }); }
+    if (id) {
+      await updateDoc(doc(db, 'concurso_disciplinas', id), { nome });
+    } else {
+      const novoDoc = await addDoc(collection(db, 'concurso_disciplinas'), { nome, criadoEm: serverTimestamp() });
+      await _criarBlocoGenericoTrilha(novoDoc.id, nome);
+    }
     fecharModal('modal-disciplina');
     mostrarToast('Disciplina salva!', 'sucesso');
     await carregarDisciplinas();
@@ -3494,13 +3512,12 @@ async function seedTrilhaAulas() {
 
 function renderizarTrilhaAulas() {
   const el = document.getElementById('trilha-aulas-lista');
-  const docs = Object.values(trilhaAulasCache);
-  if (!docs.length) { el.innerHTML = '<div class="vazio">Nenhuma tarefa na trilha. As disciplinas cadastradas têm trilha disponível?</div>'; return; }
-  const discIds = [...new Set(docs.map(d => d.disciplinaId))];
+  if (!disciplinasCache.length) { el.innerHTML = '<div class="vazio">Nenhuma disciplina cadastrada ainda.</div>'; return; }
   let html = '<div class="ta-disc-grid">';
-  for (const discId of discIds) {
-    const lista = docs.filter(d => d.disciplinaId === discId);
-    const discNome = lista[0].disciplinaNome;
+  for (const disc of disciplinasCache) {
+    const discId = disc.id;
+    const lista = Object.values(trilhaAulasCache).filter(d => d.disciplinaId === discId);
+    const discNome = disc.nome;
     const cor = _corDisc(discNome);
     const conc = lista.filter(x => x.concluida).length;
     const total = lista.length;
@@ -3508,7 +3525,7 @@ function renderizarTrilhaAulas() {
     html += `<div class="ta-disc-card" onclick="abrirDetalheTrilha('${discId}')">
       <div class="ta-disc-card-barra" style="background:${cor}"></div>
       <div class="ta-disc-card-nome">${esc(discNome)}</div>
-      <div class="ta-disc-card-stats" id="ta-stats-${discId}">${conc}/${total} concluídas · ${pct}%</div>
+      <div class="ta-disc-card-stats" id="ta-stats-${discId}">${total ? conc + '/' + total + ' concluídas · ' + pct + '%' : 'Nenhum bloco ainda'}</div>
       <div class="ta-disc-card-pbar"><div class="ta-disc-card-pfill" id="ta-pbar-${discId}" style="width:${pct}%;background:${cor}"></div></div>
     </div>`;
   }
@@ -3519,16 +3536,19 @@ function renderizarTrilhaAulas() {
 window.abrirDetalheTrilha = (discId) => {
   const el = document.getElementById('trilha-aulas-lista');
   const docs = Object.values(trilhaAulasCache).filter(d => d.disciplinaId === discId).sort((a,b) => a.num_tarefa - b.num_tarefa);
-  if (!docs.length) return;
-  const discNome = docs[0].disciplinaNome;
+  const disc = disciplinasCache.find(d => d.id === discId);
+  const discNome = docs[0]?.disciplinaNome || disc?.nome || '—';
   const cor = _corDisc(discNome);
-  const link = docs[0].link;
+  const link = docs[0]?.link;
   let html = `<div class="ta-detalhe-header">
     <button class="ta-detalhe-back" onclick="renderizarTrilhaAulas()">← Voltar</button>
     <div class="ta-dot" style="background:${cor};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div>
     <div class="ta-detalhe-titulo">${esc(discNome)}</div>
     ${link ? `<a class="tarefa-link" href="${esc(link)}" target="_blank" rel="noopener" style="font-size:.8rem;margin-left:auto">↗ Abrir curso</a>` : ''}
   </div>`;
+  if (!docs.length) {
+    html += '<div class="vazio">Nenhum bloco cadastrado ainda nesta matéria. Use o botão abaixo para criar o primeiro.</div>';
+  }
   docs.forEach((t, idx) => {
     const tc = TIPO_COR[t.tipo] || '#64748b';
     const tl = TIPO_LABEL[t.tipo] || t.tipo;
@@ -3575,14 +3595,16 @@ window.abrirDetalheTrilha = (discId) => {
 
 window.adicionarBlocoTrilha = async (discId) => {
   const docs = Object.values(trilhaAulasCache).filter(d => d.disciplinaId === discId).sort((a,b) => a.num_tarefa - b.num_tarefa);
-  if (!docs.length) return;
+  const disc = disciplinasCache.find(d => d.id === discId);
   const ultimo = docs[docs.length - 1];
-  const novoNum = ultimo.num_tarefa + 1;
+  const disciplinaNome = ultimo?.disciplinaNome || disc?.nome;
+  if (!disciplinaNome) return;
+  const novoNum = ultimo ? ultimo.num_tarefa + 1 : 1;
   const novoId = `${discId}_t${String(novoNum).padStart(3,'0')}`;
   const novaTarefa = {
-    disciplinaId: discId, disciplinaNome: ultimo.disciplinaNome,
+    disciplinaId: discId, disciplinaNome,
     num_tarefa: novoNum, tipo: 'TEORIA', aula: '', parte: null,
-    descricao: '', link: ultimo.link || '', concluida: false, data_conclusao: null,
+    descricao: '', link: ultimo?.link || '', concluida: false, data_conclusao: null,
     texto_apoio: '', caderno_questoes: '', personalizado: true,
   };
   try {
@@ -3601,9 +3623,7 @@ window.apagarBlocoTrilha = async (id) => {
   try {
     await deleteDoc(doc(db, 'concurso_trilha_aulas', id));
     delete trilhaAulasCache[id];
-    const restantes = Object.values(trilhaAulasCache).filter(d => d.disciplinaId === discId);
-    if (restantes.length) abrirDetalheTrilha(discId);
-    else renderizarTrilhaAulas();
+    abrirDetalheTrilha(discId);
     mostrarToast('Bloco apagado', 'sucesso');
   } catch (e) { console.error(e); mostrarToast('Erro ao apagar bloco', 'erro'); }
 };
