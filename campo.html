@@ -1938,10 +1938,16 @@ window.abrirDomPendente = async (domId, upa) => {
 };
 
 /* ── SOLICITAÇÕES (tab) ───────────────────────────────── */
+const _ETAPA_CFG = {
+  pendente:     { label:'Pendente',     cor:'#64748b', bg:'#f1f5f9', ico:'⏳', bordaCarta:'#f97316' },
+  aceita:       { label:'Aceita',       cor:'#2563eb', bg:'#eff6ff', ico:'👀', bordaCarta:'#2563eb' },
+  em_andamento: { label:'Em andamento', cor:'#d97706', bg:'#fffbeb', ico:'🔧', bordaCarta:'#d97706' },
+  pronta:       { label:'Pronta',       cor:'#16a34a', bg:'#f0fdf4', ico:'✅', bordaCarta:'#16a34a' },
+};
+
 function renderSolicitacoes() {
   const el = $('lista-solicitacoes');
   if (!el) return;
-  // Coleta todas as solicitações ativas de todos os domicílios
   const itens = [];
   mySectors.forEach(s => s.doms.forEach(d => {
     const upa = d.upa || d.controle?.slice(0,-1) || '?';
@@ -1953,32 +1959,58 @@ function renderSolicitacoes() {
     el.innerHTML = '<div class="vazio"><div class="vazio-ico">✅</div>Nenhuma solicitação ativa.</div>';
     return;
   }
-  // Ordena: mais recente primeiro
-  itens.sort((a,b) => (b.sol.criado_em_ts||0) - (a.sol.criado_em_ts||0));
+  // Etapas avançadas primeiro, depois mais recente
+  const _etapaOrdem = { pronta:0, em_andamento:1, aceita:2, pendente:3 };
+  itens.sort((a,b) => {
+    const oa = _etapaOrdem[a.sol.etapa||'pendente'] ?? 3;
+    const ob = _etapaOrdem[b.sol.etapa||'pendente'] ?? 3;
+    if (oa !== ob) return oa - ob;
+    return (b.sol.criado_em_ts||0) - (a.sol.criado_em_ts||0);
+  });
   const fmtTs = ts => ts ? new Date(ts).toLocaleDateString('pt-BR') : '';
   el.innerHTML = itens.map(({ sol, dom, upa }) => {
-    const tipo = SOL_TIPOS.find(t => t.id === sol.tipo);
-    const end  = dom.endereco || dom.logradouro_kml || '';
+    const tipo    = SOL_TIPOS.find(t => t.id === sol.tipo);
+    const end     = dom.endereco || dom.logradouro_kml || '';
     const isSuper = tipo?.status === 'supervisao';
     const daSup   = sol.criado_por_nome && !mesmoNome(sol.criado_por_nome, usuarioNome);
-    return `<div class="sol-list-card${isSuper?' supervisao':tipo?.status==='carta_solicitada'?' carta':''}"
+    const etapa   = sol.etapa || 'pendente';
+    const ec      = _ETAPA_CFG[etapa] || _ETAPA_CFG.pendente;
+    const etapaAvancou = etapa !== 'pendente';
+    // Borda esquerda: cor da etapa quando avançou, senão cor padrão do tipo
+    const bordaCor = etapaAvancou ? ec.bordaCarta : (isSuper ? '#a855f7' : tipo?.status==='carta_solicitada' ? '#f97316' : 'var(--borda)');
+    const etapaBadge = `<span style="font-size:.7rem;font-weight:800;color:${ec.cor};background:${ec.bg};border-radius:8px;padding:2px 8px;border:1.5px solid ${ec.cor}">${ec.ico} ${ec.label}</span>`;
+    const avisoSup = etapaAvancou
+      ? `<div style="font-size:.72rem;font-weight:700;color:${ec.cor};margin-top:4px">Supervisor atualizou o status desta solicitação.</div>`
+      : '';
+    return `<div class="sol-list-card" style="border-left:4px solid ${bordaCor}${etapaAvancou?`;background:${ec.bg}`:''}"
       onclick="abrirDomPendente('${dom.id}','${upa}')">
       <div class="sol-list-cabec">
         <span class="sol-list-tipo">${tipo?.ico||'📋'} ${tipo?.label||sol.tipo}</span>
-        ${daSup ? `<span style="font-size:.65rem;background:#f3e8ff;color:#7c3aed;padding:2px 7px;border-radius:8px;font-weight:700">Da supervisão</span>` : ''}
+        ${etapaBadge}
       </div>
       <div class="sol-list-dom">Dom. ${dom.domicilio_num||'?'} · ${dom.controle||'?'} · UPA ${upa}${end?` · ${end}`:''}</div>
       ${sol.obs ? `<div class="sol-list-obs">${sol.obs}</div>` : ''}
-      <div class="sol-list-autor">${sol.criado_por_nome||''} ${fmtTs(sol.criado_em_ts)?'· '+fmtTs(sol.criado_em_ts):''}</div>
+      ${avisoSup}
+      <div class="sol-list-autor">${daSup ? '👤 Da supervisão · ' : ''}${sol.criado_por_nome||''} ${fmtTs(sol.criado_em_ts)?'· '+fmtTs(sol.criado_em_ts):''}</div>
     </div>`;
   }).join('');
 }
 
 function atualizarBadgeSols() {
-  const cnt = mySectors.flatMap(s=>s.doms).reduce((n,d)=>n+(d.solicitacoes||[]).filter(x=>!x.resolvido).length, 0);
+  const _etapaOrdem = ['pronta','em_andamento','aceita','pendente'];
+  let cnt = 0, melhorEtapa = 'pendente';
+  mySectors.flatMap(s=>s.doms).forEach(d => {
+    (d.solicitacoes||[]).filter(x=>!x.resolvido).forEach(x => {
+      cnt++;
+      const et = x.etapa || 'pendente';
+      if (_etapaOrdem.indexOf(et) < _etapaOrdem.indexOf(melhorEtapa)) melhorEtapa = et;
+    });
+  });
   const badge = $('badge-sols');
   if (!badge) return;
-  badge.textContent = cnt || '';
+  const ec = _ETAPA_CFG[melhorEtapa] || _ETAPA_CFG.pendente;
+  badge.textContent = cnt ? `${ec.ico} ${cnt}` : '';
+  badge.style.background = cnt && melhorEtapa !== 'pendente' ? ec.cor : '';
   badge.classList.toggle('show', cnt > 0);
 }
 
