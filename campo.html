@@ -60,6 +60,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .sc-barra{height:4px;border-radius:2px;background:#e2e8f0;margin-top:6px;overflow:hidden}
 .sc-barra-fill{height:100%;border-radius:2px;background:var(--verde);transition:width .3s}
 .sc-check{position:absolute;top:.75rem;right:.85rem;font-size:1.3rem;line-height:1}
+.sc-offline-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:8px;padding-top:7px;border-top:1px solid var(--borda)}
+.sc-offline-status{font-size:.68rem;color:var(--cinza)}
+.sc-offline-status.atualizado{color:var(--verde);font-weight:600}
+.sc-offline-btn{background:#eff6ff;color:var(--azul-med);border:1px solid #bfdbfe;border-radius:8px;padding:4px 10px;font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0}
+.sc-offline-btn:active{background:#dbeafe}
+.sc-offline-btn:disabled{opacity:.6;pointer-events:none}
 .setor-card{position:relative}
 .setor-card.concluido{border-color:#bbf7d0;background:#f0fdf4}
 /* WEEK GROUPS */
@@ -379,6 +385,20 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
   pointer-events:none;
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#sync-badge{
+  position:fixed;top:calc(env(safe-area-inset-top) + 52px);
+  left:50%;transform:translateX(-50%) translateY(-8px);
+  background:#1e293b;color:#fff;
+  padding:6px 14px;border-radius:14px;
+  font-size:.7rem;font-weight:700;z-index:10000;white-space:nowrap;
+  opacity:0;transition:opacity .25s,transform .25s;
+  pointer-events:none;
+  box-shadow:0 2px 10px rgba(0,0,0,.3);
+}
+#sync-badge.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#sync-badge.pendente{background:#92400e}
+#sync-badge.ok{background:#15803d}
 
 /* VAZIO */
 .vazio{padding:2rem;text-align:center;color:var(--cinza);font-size:.88rem;line-height:1.6}
@@ -783,13 +803,15 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 <!-- TOAST -->
 <div id="toast"></div>
+<div id="sync-badge"></div>
 
 <script type="module">
 import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, signInAnonymously, onAuthStateChanged,
          browserLocalPersistence, setPersistence }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, doc, getDoc, getDocs, query,
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager,
+         collection, doc, getDoc, getDocs, query,
          where, orderBy, limit, onSnapshot, updateDoc, addDoc, deleteDoc, serverTimestamp, arrayUnion }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -803,8 +825,51 @@ const fbApp = initializeApp({
   appId:             '1:816527372751:web:b7b251d0060663a384e2ba',
 });
 const auth = getAuth(fbApp);
-const db   = getFirestore(fbApp);
+// Persistência offline nativa (IndexedDB): mantém em cache local tudo que já foi lido
+// pelo menos uma vez (domicílios, moradores, KML, roteiro) e enfileira escritas feitas
+// sem conexão para sincronizar automaticamente quando o sinal voltar. Cai para o modo
+// padrão (só memória) se o navegador não suportar (ex.: aba anônima/privada).
+let db;
+try {
+  db = initializeFirestore(fbApp, {
+    localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
+  });
+} catch(e) {
+  console.warn('Persistência offline indisponível, usando apenas memória:', e);
+  db = getFirestore(fbApp);
+}
 await setPersistence(auth, browserLocalPersistence);
+
+/* ── Sincronização pendente ───────────────────────────────
+   Com a persistência offline, updateDoc()/addDoc() resolvem só quando o servidor
+   confirma — o que pode demorar (ou nunca acontecer enquanto sem conexão). Por isso,
+   as ações do usuário (registrar visita, solicitar apoio, observação) não esperam essa
+   confirmação para atualizar a tela; em vez disso, a escrita é "registrada" aqui para
+   alimentar o indicador de pendência (#sync-badge) e ser tratada se falhar de verdade. */
+let _pendentesSync = 0;
+
+function _registrarEscritaPendente(promise) {
+  _pendentesSync++;
+  _atualizarBadgeSync();
+  promise.finally(() => {
+    _pendentesSync = Math.max(0, _pendentesSync - 1);
+    _atualizarBadgeSync();
+  }).catch(() => {}); // o erro em si já é tratado pelo .catch() de quem chamou _registrarEscritaPendente
+  return promise;
+}
+
+function _atualizarBadgeSync() {
+  const el = document.getElementById('sync-badge');
+  if (!el) return;
+  if (_pendentesSync > 0) {
+    el.textContent = `🔄 Sincronizando ${_pendentesSync} alteraç${_pendentesSync>1?'ões':'ão'}…`;
+    el.className = 'show pendente';
+  } else {
+    el.textContent = '✅ Tudo sincronizado';
+    el.className = 'show ok';
+    setTimeout(() => { if (_pendentesSync === 0) el.classList.remove('show'); }, 2500);
+  }
+}
 
 /* ── ESTADO ───────────────────────────────────────────── */
 let usuarioNome   = '';  // nome escolhido no picker
@@ -1569,6 +1634,54 @@ function _semanaDo(s) {
   return Object.entries(freq).sort((a,b)=>b[1]-a[1])[0]?.[0] || '?';
 }
 
+/* ── Download por setor para uso offline ─────────────────
+   "Baixa" um setor = força a leitura (e o cache local automático do Firestore)
+   de tudo que as telas desse setor usam: domicílios, moradores, roteiro (CNEFE)
+   e contorno/pontos KML. Depois disso, abrir o mesmo setor sem conexão usa os
+   dados já salvos localmente em vez de falhar. */
+function _htmlStatusOffline(upa) {
+  const ts = parseInt(localStorage.getItem('campo_setor_offline_' + upa));
+  if (!ts) return `<span class="sc-offline-status" id="sc-off-${upa}">📥 Nunca baixado</span>`;
+  const diffMin = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  let txt;
+  if (diffMin < 1)        txt = 'agora mesmo';
+  else if (diffMin < 60)  txt = `há ${diffMin} min`;
+  else if (diffMin < 1440) txt = `há ${Math.round(diffMin / 60)}h`;
+  else                    txt = `há ${Math.round(diffMin / 1440)}d`;
+  return `<span class="sc-offline-status atualizado" id="sc-off-${upa}">✅ Atualizado ${txt}</span>`;
+}
+
+async function _prefetchSetorOffline(upa) {
+  const snap = await getDocs(query(collection(db, 'domicilios'), where('upa', '==', upa)));
+  const doms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  await Promise.all([
+    ...doms.map(d => getDocs(collection(db, 'domicilios', d.id, 'moradores')).catch(() => null)),
+    getDoc(doc(db, 'enderecos_setor', upa)).catch(() => null),
+    getDocs(query(collection(db, 'cnefe_kml'), where('setor', '==', upa))).catch(() => null),
+  ]);
+}
+
+window.baixarSetorOffline = async (ev, upa) => {
+  ev.stopPropagation();
+  const btn = ev.currentTarget;
+  const txtOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Baixando…';
+  try {
+    await _prefetchSetorOffline(upa);
+    localStorage.setItem('campo_setor_offline_' + upa, String(Date.now()));
+    toast(`Setor ${upa} salvo para uso offline`, 'ok');
+  } catch(e) {
+    console.error('Falha ao baixar setor para offline', upa, e);
+    toast('Erro ao baixar setor para offline', 'erro');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = txtOriginal;
+    const statusEl = $('sc-off-' + upa);
+    if (statusEl) statusEl.outerHTML = _htmlStatusOffline(upa);
+  }
+};
+
 function _htmlSetorCard(s) {
   const tot  = s.doms.length;
   const real = s.doms.filter(d => d.status_atual === 'realizada').length;
@@ -1590,6 +1703,10 @@ function _htmlSetorCard(s) {
     <div class="sc-stats">${tot} domicílios · ${real} realizadas${pend>0?` · <strong style="color:var(--vermelho)">${pend} pend.</strong>`:' · <strong style="color:var(--verde)">sem pendências</strong>'}</div>
     ${entr}${dist ? `<div class="sc-dist">${dist}</div>` : ''}
     <div class="sc-barra"><div class="sc-barra-fill" style="width:${pct}%"></div></div>
+    <div class="sc-offline-row">
+      ${_htmlStatusOffline(s.upa)}
+      <button class="sc-offline-btn" onclick="baixarSetorOffline(event, '${s.upa}')">⬇️ Baixar offline</button>
+    </div>
   </div>`;
 }
 
@@ -1630,6 +1747,9 @@ function renderListaSetores(pos, setores) {
 }
 
 window.selecionarSetor = async upa => {
+  if (navigator.onLine === false && !localStorage.getItem('campo_setor_offline_' + upa)) {
+    toast('Sem conexão e este setor não foi baixado antes — os dados podem estar incompletos', 'erro');
+  }
   const s = mySectors.find(x => x.upa === upa);
   if (s) await abrirSetor(upa, s.doms);
 };
@@ -2205,24 +2325,29 @@ function renderSolsFeed(d) {
     : '<div style="font-size:.83rem;color:var(--cinza);font-style:italic;padding:.4rem 0">Nenhuma solicitação ativa.</div>';
 }
 
-window.desfazerSolicitar = async (solId) => {
+window.desfazerSolicitar = (solId) => {
   if (!domAtivo || !solId) return;
   if (!confirm('Desfazer esta solicitação?')) return;
-  try {
-    const novas = (domAtivo.solicitacoes || []).filter(x => x.id !== solId);
-    // status_atual não é tocado — solicitações são independentes do status da visita
-    await updateDoc(doc(db, 'domicilios', domAtivo.id), { solicitacoes: novas });
-    domAtivo.solicitacoes = novas;
-    renderSolsFeed(domAtivo);
-    // atualiza ficha se aberta
-    const solsCard = $('pf-sols-card');
-    if (solsCard && !$('panel-ficha').classList.contains('aberto') === false) {
-      const sols = novas.filter(x => !x.resolvido);
-      if (sols.length) { $('pf-solicitacoes').innerHTML = sols.map(_htmlSolCard).join(''); }
-      else { solsCard.style.display = 'none'; }
-    }
-    toast('Solicitação desfeita', 'ok');
-  } catch(e) { toast('Erro: ' + e.message, 'erro'); }
+  const novas = (domAtivo.solicitacoes || []).filter(x => x.id !== solId);
+  const domId = domAtivo.id;
+  const offline = navigator.onLine === false;
+
+  // Atualiza local e a tela imediatamente — não espera a confirmação do servidor,
+  // que pode demorar (ou ficar pendente até a conexão voltar).
+  // status_atual não é tocado — solicitações são independentes do status da visita
+  domAtivo.solicitacoes = novas;
+  renderSolsFeed(domAtivo);
+  const solsCard = $('pf-sols-card');
+  if (solsCard && $('panel-ficha').classList.contains('aberto')) {
+    const sols = novas.filter(x => !x.resolvido);
+    if (sols.length) { $('pf-solicitacoes').innerHTML = sols.map(_htmlSolCard).join(''); }
+    else { solsCard.style.display = 'none'; }
+  }
+  toast(offline ? 'Solicitação desfeita — será sincronizada quando a conexão voltar' : 'Solicitação desfeita', 'ok');
+
+  _registrarEscritaPendente(
+    updateDoc(doc(db, 'domicilios', domId), { solicitacoes: novas })
+  ).catch(e => toast('Erro ao sincronizar: ' + e.message, 'erro'));
 };
 
 window.fecharPanelObs = () => {
@@ -2230,25 +2355,27 @@ window.fecharPanelObs = () => {
   $('overlay').classList.remove('show');
 };
 
-window.salvarObsEquipe = async () => {
+window.salvarObsEquipe = () => {
   const texto = ($('obs-input').value || '').trim();
   if (!texto || !domAtivo) return;
-  const btn = document.querySelector('#panel-obs .btn-confirmar');
-  btn.disabled = true;
-  try {
-    const nova = {
-      texto,
-      autor_nome: usuarioNome || 'Campo',
-      data_iso: new Date().toISOString(),
-    };
-    const novas = [...(domAtivo.observacoes || []), nova];
-    await updateDoc(doc(db, 'domicilios', domAtivo.id), { observacoes: novas });
-    domAtivo.observacoes = novas;
-    $('obs-input').value = '';
-    renderObsFeed(domAtivo);
-    toast('Observação salva', 'ok');
-  } catch(e) { toast('Erro: ' + e.message, 'erro'); }
-  finally { btn.disabled = false; }
+  const nova = {
+    texto,
+    autor_nome: usuarioNome || 'Campo',
+    data_iso: new Date().toISOString(),
+  };
+  const novas = [...(domAtivo.observacoes || []), nova];
+  const domId = domAtivo.id;
+  const offline = navigator.onLine === false;
+
+  // Atualiza local e a tela imediatamente, pelo mesmo motivo de desfazerSolicitar acima.
+  domAtivo.observacoes = novas;
+  $('obs-input').value = '';
+  renderObsFeed(domAtivo);
+  toast(offline ? 'Observação salva — será sincronizada quando a conexão voltar' : 'Observação salva', 'ok');
+
+  _registrarEscritaPendente(
+    updateDoc(doc(db, 'domicilios', domId), { observacoes: novas })
+  ).catch(e => toast('Erro ao sincronizar observação: ' + e.message, 'erro'));
 };
 
 /* ── FICHA INLINE ─────────────────────────────────────── */
@@ -2616,26 +2743,30 @@ window.fecharPanelStatus = () => {
   $('overlay').classList.remove('show');
 };
 
-window.confirmarStatus = async () => {
+window.confirmarStatus = () => {
   if (!statusSel||!domAtivo) { toast('Selecione um status'); return; }
-  const btn = $('btn-conf-status');
-  btn.disabled = true; btn.textContent = 'Salvando…';
-  try {
-    const obs = $('status-obs').value.trim();
-    await updateDoc(doc(db, 'domicilios', domAtivo.id), {
-      status_atual: statusSel, ultima_visita: serverTimestamp(),
-    });
-    await addDoc(collection(db, 'visitas'), {
-      domicilio_id:      domAtivo.id,
+  const obs = $('status-obs').value.trim();
+  const statusEscolhido = statusSel;
+  const domId = domAtivo.id;
+  const offline = navigator.onLine === false;
+
+  // Não espera a confirmação do servidor para fechar o painel e avisar o usuário —
+  // com a conexão caída, updateDoc()/addDoc() só resolvem quando o sinal voltar.
+  fecharPanelStatus();
+  toast(offline ? `${lblS(statusEscolhido)} salva — será enviada quando a conexão voltar` : `${lblS(statusEscolhido)} registrada!`, 'ok');
+
+  _registrarEscritaPendente(Promise.all([
+    updateDoc(doc(db, 'domicilios', domId), {
+      status_atual: statusEscolhido, ultima_visita: serverTimestamp(),
+    }),
+    addDoc(collection(db, 'visitas'), {
+      domicilio_id:      domId,
       entrevistador_nome: usuarioNome,
       data_visita:       serverTimestamp(),
-      status:            statusSel,
+      status:            statusEscolhido,
       observacao:        obs,
-    });
-    toast(`${lblS(statusSel)} registrada!`, 'ok');
-    fecharPanelStatus();
-  } catch(e) { toast('Erro: ' + e.message, 'erro'); }
-  finally { btn.disabled = false; btn.textContent = 'Registrar'; }
+    }),
+  ])).catch(e => toast('Erro ao sincronizar visita: ' + e.message, 'erro'));
 };
 
 /* ── PANEL SOLICITAR ──────────────────────────────────── */
@@ -2716,36 +2847,38 @@ window.mcmConfirmar = () => {
   mcmNomeFinal = '';
 };
 
-async function _gravarSolicitar(nomeMorador = '') {
-  const btn = $('btn-conf-sol');
-  btn.disabled = true; btn.textContent = 'Salvando…';
-  try {
-    const obsDigitada = $('sol-obs').value.trim();
-    let obs = obsDigitada;
-    if (nomeMorador) obs = `Para: ${nomeMorador}${obsDigitada ? ' — ' + obsDigitada : ''}`;
-    const tipo = SOL_TIPOS.find(t => t.id === solSel);
-    const novaSol = {
-      id:              Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-      tipo:            solSel,
-      obs:             obs || null,
-      criado_em_ts:    Date.now(),
-      criado_por_nome: usuarioNome,
-    };
-    const update = { solicitacoes: arrayUnion(novaSol), ultima_visita: serverTimestamp() };
-    // status_atual não é alterado — permanece o status real da visita (vindo do SIGC)
-    await updateDoc(doc(db, 'domicilios', domAtivo.id), update);
-    await addDoc(collection(db, 'visitas'), {
-      domicilio_id:       domAtivo.id,
+function _gravarSolicitar(nomeMorador = '') {
+  const obsDigitada = $('sol-obs').value.trim();
+  let obs = obsDigitada;
+  if (nomeMorador) obs = `Para: ${nomeMorador}${obsDigitada ? ' — ' + obsDigitada : ''}`;
+  const tipo = SOL_TIPOS.find(t => t.id === solSel);
+  const novaSol = {
+    id:              Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    tipo:            solSel,
+    obs:             obs || null,
+    criado_em_ts:    Date.now(),
+    criado_por_nome: usuarioNome,
+  };
+  const update = { solicitacoes: arrayUnion(novaSol), ultima_visita: serverTimestamp() };
+  // status_atual não é alterado — permanece o status real da visita (vindo do SIGC)
+  const domId = domAtivo.id;
+  const statusAtual = domAtivo.status_atual || 'nao_visitado';
+  const offline = navigator.onLine === false;
+
+  fecharPanelSolicitar();
+  toast(offline ? `${tipo?.label||'Solicitação'} salva — será enviada quando a conexão voltar` : `${tipo?.label||'Solicitação'} registrada!`, 'ok');
+
+  _registrarEscritaPendente(Promise.all([
+    updateDoc(doc(db, 'domicilios', domId), update),
+    addDoc(collection(db, 'visitas'), {
+      domicilio_id:       domId,
       entrevistador_nome: usuarioNome,
       data_visita:        serverTimestamp(),
-      status:             domAtivo.status_atual || 'nao_visitado',
+      status:             statusAtual,
       tipo_solicitacao:   solSel,
       observacao:         (tipo?.label||solSel) + (obs?' — '+obs:''),
-    });
-    toast(`${tipo?.label||'Solicitação'} registrada!`, 'ok');
-    fecharPanelSolicitar();
-  } catch(e) { toast('Erro: ' + e.message, 'erro'); }
-  finally { btn.disabled = false; btn.textContent = 'Confirmar'; }
+    }),
+  ])).catch(e => toast('Erro ao sincronizar solicitação: ' + e.message, 'erro'));
 }
 
 /* ── KEYBOARD ─────────────────────────────────────────── */
