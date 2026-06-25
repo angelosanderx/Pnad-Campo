@@ -1740,7 +1740,7 @@ window.baixarTudoOffline = async () => {
 function _htmlSetorCard(s) {
   const tot  = s.doms.length;
   const real = s.doms.filter(d => d.status_atual === 'realizada').length;
-  const pend = s.doms.filter(d => (['nao_visitado','ausente','agendado','carta_solicitada','supervisao'].includes(d.status_atual||'nao_visitado') || (d.solicitacoes||[]).some(x=>!x.resolvido))).length;
+  const pend = s.doms.filter(d => _ehPendente(d)).length;
   const pct  = tot > 0 ? Math.round(real/tot*100) : 0;
   const concluido = pend === 0;
   const dist = s._dist != null && s._dist < Infinity
@@ -1792,7 +1792,7 @@ function renderListaSetores(pos, setores) {
   $('lista-setores').innerHTML = semanas.map(sem => {
     const cards = porSemana[sem].map(_htmlSetorCard).join('');
     const label = sem === '?' ? 'Sem semana definida' : `Semana ${sem}`;
-    const conc  = porSemana[sem].every(s => s.doms.filter(d=>(['nao_visitado','ausente','agendado','carta_solicitada','supervisao'].includes(d.status_atual||'nao_visitado') || (d.solicitacoes||[]).some(x=>!x.resolvido))).length===0);
+    const conc  = porSemana[sem].every(s => s.doms.filter(d=>_ehPendente(d)).length===0);
     return `<div class="sem-grupo"><div class="sem-titulo">${label}${conc?' ✅':''}</div>${cards}</div>`;
   }).join('');
 }
@@ -1875,9 +1875,16 @@ async function carregarCronogramaTab() {
   await renderCronogramaTab();
 }
 
+// Solicitar carta num domicílio já realizado não o torna pendente
+const _ehPendente = d => {
+  const s = d.status_atual || 'nao_visitado';
+  if (['nao_visitado','ausente','agendado','carta_solicitada','supervisao'].includes(s)) return true;
+  if (s === 'realizada') return false;
+  return (d.solicitacoes||[]).some(x => !x.resolvido);
+};
+
 function renderPendencias(setores) {
-  const PEND_STATUS = new Set(['nao_visitado','ausente','agendado','carta_solicitada','supervisao']);
-  const isPendente = d => PEND_STATUS.has(d.status_atual||'nao_visitado') || (d.solicitacoes||[]).some(x=>!x.resolvido);
+  const isPendente = _ehPendente;
   const doms = (setores || mySectors).flatMap(s => s.doms.filter(isPendente));
   const el = $('lista-pendencias');
   if (!doms.length) {
@@ -2115,9 +2122,7 @@ async function carregarKML(upa, L) {
 /* ── MARCADORES ───────────────────────────────────────── */
 function ehMeuPendente(d) {
   if (!mesmoNome(d.entrevistador_nome, usuarioNome)) return false;
-  const pendente = ['nao_visitado','ausente','agendado','carta_solicitada','supervisao'].includes(d.status_atual||'nao_visitado')
-    || (d.solicitacoes||[]).some(x => !x.resolvido);
-  return pendente;
+  return _ehPendente(d);
 }
 
 window.toggleFiltroMeusPendentes = () => {
@@ -2184,7 +2189,7 @@ function renderDoms(L) {
 function atualizarStats() {
   const tot  = domicilios.length;
   const real = domicilios.filter(d => d.status_atual === 'realizada').length;
-  const pend = domicilios.filter(d => (['nao_visitado','ausente','agendado','carta_solicitada','supervisao'].includes(d.status_atual||'nao_visitado') || (d.solicitacoes||[]).some(x=>!x.resolvido))).length;
+  const pend = domicilios.filter(d => _ehPendente(d)).length;
   $('topbar-stats').textContent = `${real}/${tot} · ${pend} pend.`;
   const superCnt = domicilios.filter(d =>
     (d.solicitacoes||[]).some(x => !x.resolvido && x.criado_por_nome && !mesmoNome(x.criado_por_nome, usuarioNome))
