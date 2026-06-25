@@ -499,8 +499,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 <!-- LOADING -->
 <div id="tela-loading" class="tela">
-  <div class="spinner"></div>
-  <p style="color:rgba(255,255,255,.75);font-size:.82rem;margin-top:.5rem">Iniciando…</p>
+  <div class="spinner" id="loading-spinner"></div>
+  <p id="loading-msg" style="color:rgba(255,255,255,.75);font-size:.82rem;margin-top:.5rem">Iniciando…</p>
+  <button id="loading-retry" onclick="location.reload()" style="display:none;margin-top:1rem;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:.85rem;font-weight:700;padding:.55rem 1.4rem;border-radius:14px;cursor:pointer;font-family:inherit">Tentar novamente</button>
 </div>
 
 <!-- USUÁRIO -->
@@ -807,6 +808,23 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 <div id="toast"></div>
 <div id="sync-badge"></div>
 
+<script>
+// Fallback: se o módulo Firebase não carregar (ex: primeira abertura sem rede),
+// mostra erro após 12 segundos em vez de ficar preso no loading para sempre.
+setTimeout(function() {
+  var tela = document.getElementById('tela-loading');
+  if (!tela || tela.classList.contains('hidden')) return;
+  var p = document.getElementById('loading-msg');
+  if (p && p.textContent === 'Iniciando…') {
+    p.textContent = 'Não foi possível carregar o app. Verifique sua conexão e tente novamente.';
+    p.style.color = '#fca5a5';
+    var sp = document.getElementById('loading-spinner');
+    if (sp) sp.style.display = 'none';
+    var btn = document.getElementById('loading-retry');
+    if (btn) btn.style.display = '';
+  }
+}, 12000);
+</script>
 <script type="module">
 import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, signInAnonymously, onAuthStateChanged,
@@ -1257,10 +1275,23 @@ function toast(msg, tipo = 'info') {
 }
 
 /* ── AUTH ─────────────────────────────────────────────── */
+function _mostrarErroLoading(msg) {
+  const p = document.getElementById('loading-msg');
+  const btn = document.getElementById('loading-retry');
+  const sp = document.getElementById('loading-spinner');
+  if (p)   { p.textContent = msg; p.style.color = '#fca5a5'; }
+  if (sp)  sp.style.display = 'none';
+  if (btn) btn.style.display = '';
+}
+
 // Auth anônima automática — sem email/senha/PIN
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    await signInAnonymously(auth);
+    try {
+      await signInAnonymously(auth);
+    } catch(e) {
+      _mostrarErroLoading('Sem conexão com o servidor. Verifique sua internet e tente novamente.');
+    }
     return;
   }
   const nome = localStorage.getItem('campo_usuario');
