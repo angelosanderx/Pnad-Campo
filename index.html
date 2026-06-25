@@ -3610,7 +3610,7 @@ window.filtrarUltimoMovimento = () => {
     if (semana && String(d.semana || '') !== semana) return false;
     if (tipo && (d.tipo_entrevista||'') !== tipo) return false;
     if (pos  && (d.ultima_posicao||'') !== pos) return false;
-    if (entr && (d.entrevistador_nome||'') !== entr) return false;
+    if (entr && !_entrevistadorCorresponde(d.entrevistador_nome, entr)) return false;
     if (q) {
       const hay = [d.upa, d.controle, String(d.domicilio_num||''), d.tipo_entrevista,
                    d.ultima_posicao, d.observacao_ibge, d.data_ibge, d.entrevistador_nome]
@@ -4218,7 +4218,7 @@ window.gerarDiarioCampo = async (idsOverride, tableId) => {
     const s = (n || '').trim();
     if (!s) return '';
     const reg = _cacheCarta.find(u => nomesCorrespondem(u.nome, s));
-    return reg ? toTitleCase(reg.nome) : toTitleCase(s);
+    return reg ? toTitleCase(reg.nome) : toTitleCase(_chaveNomeGlobal(s) || s);
   };
   const entrCount = {};
   lista.forEach(d => {
@@ -4439,7 +4439,7 @@ window.gerarResumoPendencias = async (idsOverride, tableId) => {
   const _cache = entrevistadoresCache || [];
   lista.forEach(d => {
     const reg = _cache.find(u => nomesCorrespondem(u.nome, d.entrevistador_nome||''));
-    d._nomeCanonical = reg ? tc(reg.nome) : tc(d.entrevistador_nome||'');
+    d._nomeCanonical = reg ? tc(reg.nome) : toTitleCase(_chaveNomeGlobal(d.entrevistador_nome||'') || d.entrevistador_nome||'');
   });
 
   // Ordena: entrevistador (canonical) → setor → dom
@@ -4597,7 +4597,7 @@ window.copiarPendenciasWhatsApp = (tableId) => {
   const _cache = entrevistadoresCache || [];
   lista.forEach(d => {
     const reg = _cache.find(u => nomesCorrespondem(u.nome, d.entrevistador_nome||''));
-    d._nomeCanonical = reg ? tc(reg.nome) : tc(d.entrevistador_nome||'Sem entrevistador');
+    d._nomeCanonical = reg ? tc(reg.nome) : toTitleCase(_chaveNomeGlobal(d.entrevistador_nome||'') || d.entrevistador_nome||'Sem entrevistador');
   });
 
   lista.sort((a, b) => {
@@ -4620,7 +4620,7 @@ window.copiarPendenciasWhatsApp = (tableId) => {
   const totalPorNome = {};
   todosdomicilios.filter(d => parseInt(d.semana || 0) <= _maxSemanaWpp).forEach(d => {
     const reg = _cache.find(u => nomesCorrespondem(u.nome, d.entrevistador_nome||''));
-    const nome = reg ? tc(reg.nome) : tc(d.entrevistador_nome||'');
+    const nome = reg ? tc(reg.nome) : toTitleCase(_chaveNomeGlobal(d.entrevistador_nome||'') || d.entrevistador_nome||'');
     if (!nome) return;
     totalPorNome[nome] = (totalPorNome[nome] || 0) + 1;
   });
@@ -4762,7 +4762,7 @@ async function _renderControlePendencias() {
     const s = (n || '').trim().replace(/^\*+/, '');
     if (!s) return '(sem entrevistador)';
     const reg = _cacheGraf.find(u => nomesCorrespondem(u.nome, s));
-    return reg ? toTitleCase(reg.nome) : toTitleCase(s);
+    return reg ? toTitleCase(reg.nome) : toTitleCase(_chaveNomeGlobal(s) || s);
   };
 
   const porEntr = {};
@@ -5813,7 +5813,7 @@ window.filtrarPendencias = () => {
     const _cacheP = entrevistadoresCache || [];
     lista.forEach(d => {
       const reg = _cacheP.find(u => nomesCorrespondem(u.nome, d.entrevistador_nome||''));
-      const k = reg ? toTitleCase(reg.nome) : (toTitleCase(d.entrevistador_nome) || '(Sem entrevistador)');
+      const k = reg ? toTitleCase(reg.nome) : (toTitleCase(_chaveNomeGlobal(d.entrevistador_nome||'') || d.entrevistador_nome||'') || '(Sem entrevistador)');
       (grupos[k]=grupos[k]||[]).push(d);
     });
     let html = '<div style="overflow-x:auto">';
@@ -9346,8 +9346,10 @@ function nomesCorrespondem(nomeCadastrado, nomeImportado) {
 function _entrevistadorCorresponde(domNome, filtroCanonical) {
   if (!filtroCanonical || filtroCanonical === '__sem__') return true;
   if (!domNome) return false;
-  // Normaliza (remove acentos + lowercase) antes de comparar diretamente
   if (normalizarNomeGlobal(domNome) === normalizarNomeGlobal(filtroCanonical)) return true;
+  // Chave canônica (primeiro nome) como fallback rápido
+  const cd = _chaveNomeGlobal(domNome), cf = _chaveNomeGlobal(filtroCanonical);
+  if (cd && cf && cd === cf) return true;
   const registrado = (entrevistadoresCache||[]).find(u => toTitleCase(u.nome) === filtroCanonical);
   return registrado ? nomesCorrespondem(registrado.nome, domNome) : false;
 }
