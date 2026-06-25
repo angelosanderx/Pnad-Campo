@@ -1879,9 +1879,10 @@
 
 
     <div class="pagina" id="pag-ficha-domicilio">
-      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem">
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap">
         <button class="btn-acao secundario" id="ficha-btn-voltar" onclick="irPara('domicilios')">← Voltar</button>
         <div class="titulo-pagina" style="margin-bottom:0" id="ficha-titulo">Ficha do Domicílio</div>
+        <span id="ficha-badge-solicitacao" style="display:none;font-size:0.78rem;font-weight:700;border-radius:14px;padding:3px 11px;white-space:nowrap"></span>
       </div>
 
       <div class="card-tabela" style="padding:2rem 1.5rem">
@@ -5607,6 +5608,9 @@ function _atualizarContadorPendencias(n) {
 
 // Conta, para o entrevistador logado, quantas solicitações dele ainda estão ativas
 // (não resolvidas) — mostrado como badge no item "Solicitações" do menu principal.
+// Ícone exibido no badge do menu conforme a etapa mais avançada das solicitações do entrevistador.
+const _ETAPA_SOL_ICONE = { pendente: '⏳', aceita: '👀', em_andamento: '🔧', pronta: '✅' };
+
 function _atualizarContadorSolicitacoes() {
   const badge = document.getElementById('nav-solicitacoes-count');
   if (!badge) return;
@@ -5614,15 +5618,23 @@ function _atualizarContadorSolicitacoes() {
   const meuUid  = usuarioLogado?.uid;
   const meuNome = perfilLogado?.nome || '';
   let n = 0;
+  let melhorEtapa = 'pendente';
   todosdomicilios.forEach(d => {
     (d.solicitacoes || []).forEach(s => {
       if (s.resolvido) return;
       const minha = s.criado_por_uid ? s.criado_por_uid === meuUid : nomesCorrespondem(s.criado_por_nome || '', meuNome);
-      if (minha) n++;
+      if (!minha) return;
+      n++;
+      const et = s.etapa || 'pendente';
+      if (_ETAPA_SOL_ORDEM.indexOf(et) > _ETAPA_SOL_ORDEM.indexOf(melhorEtapa)) melhorEtapa = et;
     });
   });
-  badge.textContent = n;
-  badge.style.display = n > 0 ? '' : 'none';
+  if (n === 0) { badge.style.display = 'none'; return; }
+  const info = ETAPA_SOL[melhorEtapa] || ETAPA_SOL.pendente;
+  badge.textContent = `${_ETAPA_SOL_ICONE[melhorEtapa] || ''} ${n}`;
+  badge.style.background = info.cor;
+  badge.title = `${n} solicitação${n > 1 ? 'ões' : ''} ativa${n > 1 ? 's' : ''} — etapa mais avançada: ${info.label}`;
+  badge.style.display = '';
 }
 
 function renderizarPainelPendentes(docs, semanaAtual) {
@@ -5876,6 +5888,7 @@ window.abrirFicha = (id, origem = '') => {
   // Atualizar cabeçalho
   const identificador = dom.domicilio_num || dom.numero_sequencial || 'S/N';
   document.getElementById('ficha-titulo').textContent = `Ficha do Domicílio: ${identificador}`;
+  _atualizarBadgeSolicitacaoFicha(id);
 
   // Preencher Dados Gerais
   const setor = dom.controle ? dom.controle.slice(0,-1) : (dom.upa || '-');
@@ -6741,8 +6754,10 @@ window.excluirSolicitar = async (domId, solId) => {
     domAtual.solicitacoes = novasSols;
     domAtual.status_atual = novoStatus;
     renderizarSolicitacoesExistentes(domId);
-    if (typeof domicilioAtualId !== 'undefined' && domicilioAtualId === domId)
+    if (typeof domicilioAtualId !== 'undefined' && domicilioAtualId === domId) {
       renderizarHistoricoSolicitacoesFicha(domId);
+      _atualizarBadgeSolicitacaoFicha(domId);
+    }
     mostrarToast('Solicitação resolvida ✓', 'sucesso');
     carregarDomicilios();
     carregarDashboard();
@@ -6765,8 +6780,10 @@ window.atualizarEtapaSolicitacao = async (domId, solId, etapa) => {
     await updateDoc(doc(db, 'domicilios', domId), { solicitacoes: novasSols });
     domAtual.solicitacoes = novasSols;
     renderizarSolicitacoesExistentes(domId);
-    if (typeof domicilioAtualId !== 'undefined' && domicilioAtualId === domId)
+    if (typeof domicilioAtualId !== 'undefined' && domicilioAtualId === domId) {
       renderizarHistoricoSolicitacoesFicha(domId);
+      _atualizarBadgeSolicitacaoFicha(domId);
+    }
     _atualizarContadorSolicitacoes();
     renderizarPainelSolicitacoes();
     renderizarMapaSetores();
@@ -6797,8 +6814,10 @@ window.excluirSolicitacaoDefinitivo = async (domId, solId) => {
     domAtual.solicitacoes = novasSols;
     domAtual.status_atual = novoStatus;
     renderizarSolicitacoesExistentes(domId);
-    if (typeof domicilioAtualId !== 'undefined' && domicilioAtualId === domId)
+    if (typeof domicilioAtualId !== 'undefined' && domicilioAtualId === domId) {
       renderizarHistoricoSolicitacoesFicha(domId);
+      _atualizarBadgeSolicitacaoFicha(domId);
+    }
     _atualizarContadorSolicitacoes();
     renderizarPainelSolicitacoes();
     renderizarMapaSetores();
@@ -9498,6 +9517,24 @@ function _etapaAtivaDomicilio(d) {
     if (_ETAPA_SOL_ORDEM.indexOf(et) > _ETAPA_SOL_ORDEM.indexOf(melhor)) melhor = et;
   });
   return melhor;
+}
+
+// Mostra/esconde o selo "🚩 Solicitação ativa" no cabeçalho da Ficha do Domicílio.
+function _atualizarBadgeSolicitacaoFicha(domId) {
+  const badgeSol = document.getElementById('ficha-badge-solicitacao');
+  if (!badgeSol) return;
+  const dom = todosdomicilios.find(d => d.id === domId) || _todosdomiciliosGlobal.find(d => d.id === domId);
+  const etapaAtiva = _etapaAtivaDomicilio(dom);
+  if (etapaAtiva) {
+    const info = ETAPA_SOL[etapaAtiva] || ETAPA_SOL.pendente;
+    badgeSol.textContent = `🚩 Solicitação ativa — ${info.label}`;
+    badgeSol.style.color = info.cor;
+    badgeSol.style.background = info.bg;
+    badgeSol.style.border = `1.5px solid ${info.cor}`;
+    badgeSol.style.display = '';
+  } else {
+    badgeSol.style.display = 'none';
+  }
 }
 
 async function renderizarMapaSetores() {
