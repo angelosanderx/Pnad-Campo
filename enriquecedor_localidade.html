@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IBGE — Enriquecedor de Localidade</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh}
+  .topo{background:#1a3a5c;color:#fff;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem}
+  .topo h1{font-size:1.1rem;font-weight:700}
+  .topo p{font-size:.8rem;opacity:.7;margin-top:2px}
+  .container{max-width:760px;margin:1.5rem auto;padding:0 1rem}
+  .card{background:#fff;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:1.25rem;overflow:hidden}
+  .card-header{padding:.9rem 1.25rem;border-bottom:1px solid #e2e8f0;background:#f8fafc}
+  .card-header h2{font-size:.9rem;font-weight:700;color:#1a3a5c}
+  .card-body{padding:1.25rem}
+  .st-auth{padding:.6rem 1rem;border-radius:7px;font-size:.83rem;font-weight:600;border:1.5px solid #cbd5e1;background:#f8fafc;color:#64748b}
+  .drop-zone{border:2px dashed #cbd5e1;border-radius:8px;padding:2rem 1.25rem;text-align:center;cursor:pointer;transition:.2s;background:#f8fafc}
+  .drop-zone:hover,.drop-zone.over{border-color:#2563a8;background:#e8f0fb}
+  .drop-zone .icone{font-size:2rem;margin-bottom:.5rem}
+  .drop-zone small{font-size:.75rem;color:#94a3b8;display:block;margin-top:.35rem}
+  input[type=file]{display:none}
+  .info-arquivo{margin-top:.75rem;padding:.5rem .75rem;border-radius:6px;font-size:.8rem;background:#e6f4ed;color:#1a7a4a;font-weight:600;display:none}
+  .btn{padding:.6rem 1.2rem;border-radius:7px;border:none;font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+  .btn-primario{background:#2563a8;color:#fff}
+  .btn-primario:hover:not(:disabled){background:#1a3a5c}
+  .btn-primario:disabled{background:#94a3b8;cursor:not-allowed}
+  .btn-verde{background:#16a34a;color:#fff}
+  .btn-verde:hover{background:#15803d}
+  .progress-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:.75rem 0}
+  .progress-fill{height:100%;background:#2563a8;border-radius:4px;transition:width .3s;width:0%}
+  .log{background:#1e293b;color:#94a3b8;border-radius:8px;padding:1rem;font-family:monospace;font-size:.78rem;max-height:200px;overflow-y:auto;margin-top:1rem}
+  .log .ok{color:#4ade80}
+  .log .erro{color:#f87171}
+  .log .info{color:#60a5fa}
+  .log .warn{color:#fbbf24}
+  .resultado{display:none;background:#e6f4ed;border:1.5px solid #16a34a;border-radius:8px;padding:1rem;margin-top:1rem}
+  .resultado strong{color:#15803d;font-size:.9rem}
+  .resultado p{font-size:.8rem;color:#166534;margin-top:.35rem}
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <div>
+    <h1>Enriquecedor de Localidade</h1>
+    <p>Adiciona a coluna Localidade a um CSV do IBGE usando os dados cadastrados no sistema</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Auth -->
+  <div class="card">
+    <div class="card-header"><h2>Autenticação</h2></div>
+    <div class="card-body">
+      <div id="st-auth" class="st-auth">Verificando login...</div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="card-header"><h2>1. Selecione o arquivo CSV</h2></div>
+    <div class="card-body">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('input-csv').click()">
+        <div class="icone">📄</div>
+        <strong>Clique para selecionar</strong> ou arraste o arquivo aqui
+        <small>CSV exportado do IBGE — separado por tabulação, vírgula ou ponto-e-vírgula</small>
+      </div>
+      <input type="file" id="input-csv" accept=".csv,.txt">
+      <div class="info-arquivo" id="info-arquivo"></div>
+    </div>
+  </div>
+
+  <!-- Processar -->
+  <div class="card">
+    <div class="card-header"><h2>2. Processar e baixar</h2></div>
+    <div class="card-body">
+      <button class="btn btn-primario" id="btn-processar" onclick="processar()" disabled>
+        Buscar localidades e gerar CSV
+      </button>
+      <div class="progress-bar" id="progress-bar" style="display:none">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="resultado" id="resultado">
+        <strong id="resultado-titulo"></strong>
+        <p id="resultado-desc"></p>
+        <br>
+        <button class="btn btn-verde" id="btn-baixar" onclick="baixarCSV()">⬇ Baixar CSV com Localidade</button>
+      </div>
+      <div class="log" id="log" style="display:none"></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyABWwa6Y0SCBK8jXTNNB_zhQeIOVvfLHrI",
+    authDomain: "pnad-c-campos.firebaseapp.com",
+    projectId: "pnad-c-campos",
+    storageBucket: "pnad-c-campos.firebasestorage.app",
+    messagingSenderId: "816527372751",
+    appId: "1:816527372751:web:b7b251d0060663a384e2ba"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  window.firebaseAuthToken = null;
+
+  onAuthStateChanged(auth, async user => {
+    const el = document.getElementById('st-auth');
+    if (user) {
+      window.firebaseAuthToken = await user.getIdToken();
+      el.textContent = `✅ Autenticado (${user.email})`;
+      el.style.cssText = 'background:#e6f4ed;color:#1a7a4a;border-color:#1a7a4a;padding:.6rem 1rem;border-radius:7px;font-size:.83rem;font-weight:600;border:1.5px solid';
+      verificarBotao();
+    } else {
+      window.firebaseAuthToken = null;
+      el.innerHTML = `❌ Faça login no <a href="index.html" style="color:#b91c1c;text-decoration:underline;font-weight:bold">Painel Principal</a> primeiro.`;
+      el.style.cssText = 'background:#fef2f2;color:#b91c1c;border-color:#f87171;padding:.6rem 1rem;border-radius:7px;font-size:.83rem;font-weight:600;border:1.5px solid';
+    }
+  });
+</script>
+
+<script>
+const PROJECT_ID = 'pnad-c-campos';
+let csvTexto = null;
+let csvResultado = null;
+
+// ── Drag and drop ──
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) carregarArquivo(f);
+});
+document.getElementById('input-csv').addEventListener('change', e => {
+  if (e.target.files[0]) carregarArquivo(e.target.files[0]);
+});
+
+function carregarArquivo(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    csvTexto = ev.target.result;
+    const info = document.getElementById('info-arquivo');
+    info.textContent = `✔ ${file.name} — ${(file.size/1024).toFixed(1)} KB`;
+    info.style.display = 'block';
+    verificarBotao();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function verificarBotao() {
+  document.getElementById('btn-processar').disabled = !(csvTexto && window.firebaseAuthToken);
+}
+
+// ── Parsing CSV ──
+function detectarSeparador(primeiraLinha) {
+  const tabs = (primeiraLinha.match(/\t/g)||[]).length;
+  const semis = (primeiraLinha.match(/;/g)||[]).length;
+  const virgs = (primeiraLinha.match(/,/g)||[]).length;
+  if (tabs >= semis && tabs >= virgs) return '\t';
+  if (semis >= virgs) return ';';
+  return ',';
+}
+
+function parsearCSV(texto, sep) {
+  const linhas = texto.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
+  return linhas.map(linha => {
+    // Respeita campos entre aspas
+    const campos = [];
+    let campo = '', emAspas = false;
+    for (let i = 0; i < linha.length; i++) {
+      const c = linha[i];
+      if (c === '"') { emAspas = !emAspas; }
+      else if (c === sep && !emAspas) { campos.push(campo); campo = ''; }
+      else { campo += c; }
+    }
+    campos.push(campo);
+    return campos;
+  });
+}
+
+// ── Firestore REST ──
+async function buscarLocalidades() {
+  const token = window.firebaseAuthToken;
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/localidades_upa?pageSize=500`;
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp.ok) throw new Error(`Firestore erro ${resp.status}`);
+  const json = await resp.json();
+  const mapa = {};
+  (json.documents || []).forEach(doc => {
+    const id = doc.name.split('/').pop();
+    mapa[id] = (doc.fields?.localidade?.stringValue || '');
+  });
+  return mapa;
+}
+
+// ── Log ──
+function log(msg, tipo = 'info') {
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  el.innerHTML += `<div class="${tipo}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(pct) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+// ── Processar ──
+async function processar() {
+  document.getElementById('btn-processar').disabled = true;
+  document.getElementById('log').style.display = 'none';
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('resultado').style.display = 'none';
+  document.getElementById('progress-bar').style.display = 'block';
+  setProgress(10);
+
+  try {
+    // 1. Buscar localidades
+    log('Buscando localidades no Firestore...', 'info');
+    const localidades = await buscarLocalidades();
+    const totalLocs = Object.keys(localidades).length;
+    log(`${totalLocs} localidades carregadas.`, 'ok');
+    setProgress(40);
+
+    // 2. Parse CSV
+    const linhas = csvTexto.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
+    const sep = detectarSeparador(linhas[0]);
+    const sepNome = sep === '\t' ? 'tabulação' : sep === ';' ? 'ponto-e-vírgula' : 'vírgula';
+    log(`Separador detectado: ${sepNome}`, 'info');
+
+    const tabela = parsearCSV(csvTexto, sep);
+    const cabecalho = tabela[0].map(c => c.trim());
+    const idxUPA = cabecalho.findIndex(c => c.toUpperCase() === 'UPA');
+    if (idxUPA < 0) throw new Error('Coluna "UPA" não encontrada no CSV.');
+    log(`Coluna UPA encontrada na posição ${idxUPA + 1}. Total de linhas: ${tabela.length - 1}`, 'info');
+    setProgress(60);
+
+    // 3. Adicionar coluna Localidade após UPA
+    const posLocalidade = idxUPA + 1;
+    let achou = 0, semLocal = 0;
+    const upasNaoEncontradas = new Set();
+
+    const novaTabela = tabela.map((row, i) => {
+      const nova = [...row];
+      if (i === 0) {
+        nova.splice(posLocalidade, 0, 'Localidade');
+        return nova;
+      }
+      const upa = (nova[idxUPA] || '').trim();
+      let localidade = '';
+      if (upa) {
+        localidade = localidades[upa] || '';
+        if (localidade) { achou++; }
+        else { semLocal++; upasNaoEncontradas.add(upa); }
+      }
+      nova.splice(posLocalidade, 0, localidade);
+      return nova;
+    });
+
+    setProgress(85);
+
+    if (upasNaoEncontradas.size > 0) {
+      log(`${semLocal} linha(s) sem localidade — UPAs não cadastradas: ${[...upasNaoEncontradas].join(', ')}`, 'warn');
+    }
+    log(`${achou} linha(s) com localidade preenchida.`, 'ok');
+
+    // 4. Gerar CSV resultado
+    csvResultado = novaTabela.map(row =>
+      row.map(c => {
+        const s = String(c ?? '');
+        return (s.includes(sep) || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s;
+      }).join(sep)
+    ).join('\n');
+
+    setProgress(100);
+    document.getElementById('resultado').style.display = 'block';
+    document.getElementById('resultado-titulo').textContent = `Pronto! ${achou} de ${tabela.length - 1} linhas com localidade.`;
+    document.getElementById('resultado-desc').textContent =
+      upasNaoEncontradas.size > 0
+        ? `Atenção: ${upasNaoEncontradas.size} UPA(s) sem localidade cadastrada no sistema.`
+        : 'Todas as UPAs foram encontradas.';
+
+  } catch (e) {
+    log(`Erro: ${e.message}`, 'erro');
+    console.error(e);
+  } finally {
+    document.getElementById('btn-processar').disabled = false;
+  }
+}
+
+// ── Download ──
+function baixarCSV() {
+  if (!csvResultado) return;
+  const blob = new Blob(['﻿' + csvResultado], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'csv_com_localidade.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
