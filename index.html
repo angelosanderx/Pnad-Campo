@@ -4405,7 +4405,7 @@ window.gerarDiarioCampo = async (idsOverride, tableId, porEntrevistador = false)
     const upaH = [...new Set(subLista.map(d => d.upa).filter(Boolean))].join(', ') || '—';
     const sem0 = subLista[0]?.semana || '—';
     const per0 = PERIODOS[subLista[0]?.periodo] || (subLista[0]?.periodo || '—');
-    const cab = `<div class="cabecalho"><table class="hd-tbl"><tr><td>UPA: <strong>${upaH}</strong></td><td>Data: <span class="bl bl-dt"></span></td><td>Semana: <strong>${sem0}</strong></td><td>Período: <strong>${per0}</strong></td></tr><tr><td colspan="2">Entrevistador: <strong>${nomeEntr}</strong></td><td colspan="2">Supervisor: <span class="bl bl-sup"></span> &nbsp;Tel: <span class="bl bl-tel"></span></td></tr></table></div>`;
+    const cab = `<div class="cabecalho"><table class="hd-tbl"><tr><td>UPA: <strong>${upaH}</strong></td><td>Data: <span class="bl bl-dt"></span></td><td>Semana: <strong>${sem0}</strong></td><td>Período: <strong>${per0}</strong></td></tr><tr><td colspan="2">Entrevistador: <strong style="font-size:10pt;font-weight:800">${nomeEntr}</strong></td><td colspan="2">Supervisor: <span class="bl bl-sup"></span> &nbsp;Tel: <span class="bl bl-tel"></span></td></tr></table></div>`;
     const its = [];
     let lastSt = null;
     subLista.forEach(d => {
@@ -5573,7 +5573,7 @@ function _badgeEntrevistador(nome) {
   if (!nome) return '<span style="color:var(--cinza);font-style:italic;font-size:0.78rem">—</span>';
   const c = corEntrevistador(nome);
   const primeiro = toTitleCase(nome.split(' ')[0]);
-  return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55">${primeiro}</span>`;
+  return `<span class="cron-chip" style="color:${c};background:${c}22;border:1px solid ${c}55;font-size:0.88rem;font-weight:700">${primeiro}</span>`;
 }
 
 function _montarLinhaDOM(d, ns = '') {
