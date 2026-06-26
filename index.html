@@ -5529,6 +5529,7 @@ function _montarLinhaDOM(d, ns = '') {
   };
   const _dataAnt = _ant ? (_ant.mes_ano || _calcTrimEtapa(d.trimestre, _eta, _ant.entrevista)) : '';
   const _stObj = STATUS[d.status_atual || 'nao_visitado'] || STATUS.nao_visitado;
+  const _solsAtivas = (d.solicitacoes || []).filter(s => !s.resolvido);
   return `<tr id="${ns}row-${d.id}" style="vertical-align:top">
       <td style="padding:0.25rem 0.4rem;width:35px;border-left:3px solid ${_stObj.fg}">
         <input type="checkbox" class="chk-dom" value="${d.id}" onchange="atualizarSelecao()">
@@ -5545,12 +5546,14 @@ function _montarLinhaDOM(d, ns = '') {
         ${periodoAtual === 'todos' ? `<div style="font-size:0.54rem;font-weight:700;color:var(--azul-medio);margin-top:2px">${PERIODOS[d.periodo || PERIODO_PADRAO]}</div>` : ''}
       </td>
       <td style="padding:0.25rem 0.45rem">
-        ${badgeStatus(d.status_atual || 'nao_visitado')}
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          ${badgeStatus(d.status_atual || 'nao_visitado')}
+          ${_solsAtivas.length > 0 ? `<span title="${_solsAtivas.map(s => ({carta_abertura:'📄 Abertura',carta_retorno:'🔄 Retorno',carta_recusa:'✉️ Recusa',apoio_supervisao:'👤 Apoio',apoio_viatura:'🚗 Viatura',corrigir_moradores:'👥 Moradores',correcao_questionario:'✏️ Correção',comunicar_dmc:'📢 DMC',contato_informante:'📞 Contato',mais_empenho:'💪 Empenho',verificar_status:'🔍 Status'}[s.tipo]||s.tipo)).join(', ')}" style="font-size:0.68rem;font-weight:700;color:var(--laranja);background:var(--laranja-claro);border:1px solid #f5c07b;border-radius:10px;padding:1px 6px;white-space:nowrap;cursor:default">📋 ${_solsAtivas.length}</span>` : ''}
+        </div>
         <div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:2px">
-          ${(d.solicitacoes?.length ? d.solicitacoes : d.tipo_solicitacao ? [{ tipo: d.tipo_solicitacao }] : [])
-            .map(s => `<span style="font-size:0.6rem;font-weight:700;color:var(--laranja);background:var(--laranja-claro);padding:1px 4px;border-radius:8px;white-space:nowrap">${
-              {carta_abertura:'📄 Abertura', carta_retorno:'🔄 Retorno', carta_recusa:'✉️ Recusa', apoio_supervisao:'👤 Apoio', apoio_viatura:'🚗 Viatura', corrigir_moradores:'👥 Moradores', correcao_questionario:'✏️ Correção', comunicar_dmc:'📢 DMC', contato_informante:'📞 Contato', mais_empenho:'💪 Empenho', verificar_status:'🔍 Status'}[s.tipo] || s.tipo
-            }</span>`).join('')}
+          ${_solsAtivas.map(s => `<span style="font-size:0.6rem;font-weight:700;color:var(--laranja);background:var(--laranja-claro);padding:1px 4px;border-radius:8px;white-space:nowrap">${
+            {carta_abertura:'📄 Abertura',carta_retorno:'🔄 Retorno',carta_recusa:'✉️ Recusa',apoio_supervisao:'👤 Apoio',apoio_viatura:'🚗 Viatura',corrigir_moradores:'👥 Moradores',correcao_questionario:'✏️ Correção',comunicar_dmc:'📢 DMC',contato_informante:'📞 Contato',mais_empenho:'💪 Empenho',verificar_status:'🔍 Status'}[s.tipo]||s.tipo
+          }</span>`).join('')}
         </div>
         <button style="font-size:0.58rem;padding:0.05rem 0.28rem;margin-top:3px;background:transparent;color:#b0b8c4;border:1px solid #e4eaf0;border-radius:3px;cursor:pointer;font-family:inherit" onclick="abrirSolicitar('${d.id}')">+ solicitar</button>
       </td>
