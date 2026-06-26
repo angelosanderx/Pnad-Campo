@@ -106,6 +106,30 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .pend-card .pend-chk{display:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--borda);flex-shrink:0;align-items:center;justify-content:center;font-size:13px;color:#fff;background:#fff;transition:all .15s}
 #lista-pendencias.modo-sel .pend-card .pend-chk{display:flex}
 #lista-pendencias.modo-sel .pend-card.selecionado .pend-chk{background:var(--azul-med);border-color:var(--azul-med)}
+
+/* ── OVERLAY DE ETIQUETAS ─────────────────────────────────── */
+#etiq-overlay{display:none;position:fixed;inset:0;background:#fff;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#etiq-overlay.ativo{display:block}
+#etiq-overlay .etiq-toolbar{position:sticky;top:0;background:#1a3a5c;color:#fff;padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;z-index:10}
+#etiq-overlay .etiq-toolbar span{flex:1;font-size:.83rem}
+#etiq-overlay .etiq-toolbar button{border:none;color:#fff;padding:.35rem .9rem;border-radius:6px;cursor:pointer;font-size:.83rem;font-family:inherit}
+#etiq-overlay .etiq-toolbar .btn-imp{background:#2563a8}
+#etiq-overlay .etiq-toolbar .btn-fec{background:rgba(255,255,255,.18)}
+#etiq-overlay .etiq-pagina{width:210mm;min-height:297mm;padding:10mm 7mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(7,35mm);column-gap:3mm;row-gap:2mm;margin:0 auto}
+#etiq-overlay .etiqueta{border:5px solid #111;padding:2mm 4mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;height:35mm}
+#etiq-overlay .etiq-nomes{margin-bottom:1mm}
+#etiq-overlay .etiq-nome{font-size:10pt;font-weight:bold;line-height:1.25;outline:none}
+#etiq-overlay .etiq-end{font-size:9pt;line-height:1.3;color:#111;outline:none}
+#etiq-overlay .etiq-cod{font-size:6pt;color:#555;margin-top:1mm;outline:none}
+#etiq-overlay [contenteditable=true]:hover{background:#fffde7;border-radius:2px;cursor:text}
+#etiq-overlay [contenteditable=true]:focus{background:#fff9c4;border-radius:2px}
+@media print{
+  body>*:not(#etiq-overlay){display:none!important}
+  #etiq-overlay{position:static!important;overflow:visible!important;display:block!important}
+  #etiq-overlay .etiq-toolbar{display:none!important}
+  #etiq-overlay .etiq-pagina{page-break-after:always}
+  @page{size:A4;margin:0}
+}
 .pend-tent.sol{background:#fff7ed;color:#c2410c}
 .pend-tent.vazio{color:var(--cinza);font-style:italic}
 /* AVISOS */
@@ -3269,11 +3293,12 @@ window.gerarEtiquetasPend = async () => {
     : pendentes;
   if (lista.length === 0) { toast('Nenhum domicílio pendente', 'erro'); return; }
 
-  // Abre a janela imediatamente (dentro do gesto do usuário) antes de qualquer await,
-  // para evitar bloqueio de popup em navegadores mobile.
-  const win = window.open('', '_blank');
-  if (!win) { toast('Permita pop-ups para gerar etiquetas', 'erro'); return; }
-  win.document.write('<html><body><p style="font-family:sans-serif;padding:2rem">Carregando moradores…</p></body></html>');
+  const overlay = document.getElementById('etiq-overlay');
+  const info = document.getElementById('etiq-overlay-info');
+  const corpo = document.getElementById('etiq-overlay-body');
+  if (info) info.textContent = 'Carregando moradores…';
+  if (corpo) corpo.innerHTML = '';
+  if (overlay) overlay.classList.add('ativo');
 
   const moradoresPorDom = {};
   await Promise.all(lista.map(async d => {
@@ -3308,29 +3333,28 @@ window.gerarEtiquetasPend = async () => {
 
   const POR_FOLHA = 14;
   let pags = '';
-  for (let i=0; i<lista.length; i+=POR_FOLHA) pags += `<div class="pagina">${lista.slice(i,i+POR_FOLHA).map(montarEtiq).join('')}</div>`;
-
-  win.document.open();
-  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etiquetas — PNAD-C Campos</title><style>
-*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#fff;padding-top:54px}
-.pagina{width:210mm;min-height:297mm;padding:10mm 7mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(7,35mm);column-gap:3mm;row-gap:2mm}
-.etiqueta{border:5px solid #111;padding:2mm 4mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;height:35mm}
-.etiq-nomes{margin-bottom:1mm}.etiq-nome{font-size:10pt;font-weight:bold;line-height:1.25;outline:none}
-.etiq-end{font-size:9pt;line-height:1.3;color:#111;outline:none}.etiq-cod{font-size:6pt;color:#555;margin-top:1mm;outline:none}
-[contenteditable=true]:hover{background:#fffde7;border-radius:2px;cursor:text}[contenteditable=true]:focus{background:#fff9c4;border-radius:2px}
-.toolbar{position:fixed;top:0;left:0;right:0;background:#1a3a5c;color:#fff;padding:.55rem 1rem;display:flex;align-items:center;gap:.75rem;font-size:.85rem;z-index:999}
-.toolbar button{background:#2563a8;border:none;color:#fff;padding:.35rem 1rem;border-radius:6px;cursor:pointer;font-size:.85rem;font-family:Arial,sans-serif}
-.toolbar button.sec{background:rgba(255,255,255,.15)}
-@media print{@page{size:A4;margin:0}body{padding-top:0}.toolbar{display:none}.pagina{page-break-after:always}[contenteditable]{outline:none!important;background:none!important}}
-</style></head><body>
-<div class="toolbar"><span>🏷️ <strong>${lista.length}</strong> etiqueta(s)${_selPend.size>0?' — selecionadas':' — todas as pendências'}</span><span style="font-size:.75rem;color:rgba(255,255,255,.7)">✏️ Clique para editar</span><button onclick="window.print()">🖨️ Imprimir</button><button class="sec" onclick="window.close()">Fechar</button></div>
-${pags}</body></html>`);
-  win.document.close();
+  for (let i=0; i<lista.length; i+=POR_FOLHA) pags += `<div class="etiq-pagina">${lista.slice(i,i+POR_FOLHA).map(montarEtiq).join('')}</div>`;
+  if (corpo) corpo.innerHTML = pags;
+  if (info) info.innerHTML = `🏷️ <strong>${lista.length}</strong> etiqueta(s)${_selPend.size>0?' — selecionadas':' — todas as pendências'} <span style="font-size:.74rem;opacity:.7;margin-left:.4rem">✏️ toque para editar</span>`;
   _sairModoSelPend();
 };
 
+window.fecharEtiqOverlay = () => {
+  const overlay = document.getElementById('etiq-overlay');
+  if (overlay) { overlay.classList.remove('ativo'); document.getElementById('etiq-overlay-body').innerHTML = ''; }
+};
+
 /* ── KEYBOARD ─────────────────────────────────────────── */
-document.addEventListener('keydown', e => { if(e.key==='Escape') fecharTudo(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') { if(document.getElementById('etiq-overlay')?.classList.contains('ativo')) fecharEtiqOverlay(); else fecharTudo(); } });
 </script>
+
+<div id="etiq-overlay">
+  <div class="etiq-toolbar">
+    <span id="etiq-overlay-info"></span>
+    <button class="btn-imp" onclick="window.print()">🖨️ Imprimir / PDF</button>
+    <button class="btn-fec" onclick="fecharEtiqOverlay()">✕ Fechar</button>
+  </div>
+  <div id="etiq-overlay-body"></div>
+</div>
 </body>
 </html>
