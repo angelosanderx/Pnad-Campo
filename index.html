@@ -4695,13 +4695,11 @@ window.copiarPendenciasWhatsApp = (tableId) => {
         const num    = d.domicilio_num || d.numero_sequencial || '?';
         const cod    = setor ? `${setor}/${num}` : num;
         const etapa  = d.visita_etapa || '?';
-        const status = STATUS_LABEL[d.status_atual] || d.status_atual || '?';
         const tents  = (d.tentativas_recentes || []).filter(t => t.origem);
         const nPres  = d.tentativas_count_pres != null ? d.tentativas_count_pres : tents.filter(t => !/telefone/i.test(t.origem||'')).length;
         const nTel   = d.tentativas_count_tel  != null ? d.tentativas_count_tel  : tents.filter(t => /telefone/i.test(t.origem||'')).length;
         const telStr = nTel === 0 ? `*0 tel.*` : `${nTel} tel.`;
-        const obs    = ` · (Tentativas: ${nPres} pres. - ${telStr})`;
-        linhas.push(`${cod} · Etapa ${etapa}ª · ${status}${obs}`);
+        linhas.push(`${cod} · Etapa ${etapa}ª · Tent. ${nPres} pres. - ${telStr}`);
       });
     }
   });
