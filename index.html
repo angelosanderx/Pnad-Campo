@@ -1277,12 +1277,14 @@
           <!-- Linha 1: localização + período + situação -->
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center">
             <span style="font-size:0.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Local</span>
-            <select id="filtro-upa" onchange="filtrarPorUpa()" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:170px">
-              <option value="">Todas as UPAs</option>
-            </select>
-            <select id="filtro-setor" onchange="filtrarDomicilios()" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:170px">
-              <option value="">Todos os setores</option>
-            </select>
+            <div style="position:relative" id="dom-upa-wrap">
+              <button id="dom-upa-btn" onclick="toggleFiltroDomUpaSetor('upa',event)" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.4rem;white-space:nowrap;min-width:140px;justify-content:space-between"><span id="dom-upa-lbl">UPA —</span><span style="font-size:0.7rem;opacity:0.6">▾</span></button>
+              <div id="dom-upa-dd" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:180px;max-height:260px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0"></div>
+            </div>
+            <div style="position:relative" id="dom-set-wrap">
+              <button id="dom-set-btn" onclick="toggleFiltroDomUpaSetor('set',event)" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.4rem;white-space:nowrap;min-width:160px;justify-content:space-between"><span id="dom-set-lbl">Setor —</span><span style="font-size:0.7rem;opacity:0.6">▾</span></button>
+              <div id="dom-set-dd" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:180px;max-height:260px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0"></div>
+            </div>
             <div style="width:1px;height:18px;background:var(--borda);margin:0 2px"></div>
             <span style="font-size:0.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Período</span>
             <div style="position:relative" id="dom-sem-wrap">
@@ -2778,7 +2780,7 @@ let perfilLogado = null;
 let todosdomicilios = [];
 let _todosdomiciliosGlobal = []; // todos os períodos — usado na qualidade CNEFE
 let _filtroSolicTypes = new Set();
-const _filtrosDom = { semanas: new Set(), etapas: new Set(), status: new Set(), entrevistadores: new Set() };
+const _filtrosDom = { upas: new Set(), setores: new Set(), semanas: new Set(), etapas: new Set(), status: new Set(), entrevistadores: new Set() };
 let entrevistadoresCache = null; // cache da lista de entrevistadores p/ não consultar o banco toda vez que o mapa abre
 let unsubs = [];
 
@@ -3247,38 +3249,83 @@ function _domFiltradosSemUpaSetor() {
   });
 }
 
+const _LS_CKBOX = 'display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem';
+
 function _atualizarDropdownsUpaSetor() {
   const base = _domFiltradosSemUpaSetor();
-  const upaAtual   = document.getElementById('filtro-upa').value;
-  const setorAtual = document.getElementById('filtro-setor').value;
 
-  // UPA dropdown
+  // UPA checkboxes
   const upas = [...new Set(base.map(d => d.upa).filter(Boolean))].sort((a,b) => a.localeCompare(b));
-  const selUpa = document.getElementById('filtro-upa');
-  selUpa.innerHTML = '<option value="">Todas as UPAs (' + upas.length + ')</option>';
-  upas.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u; opt.textContent = 'UPA ' + u;
-    selUpa.appendChild(opt);
-  });
-  selUpa.value = upas.includes(upaAtual) ? upaAtual : '';
+  // Remove upas que não existem mais
+  [..._filtrosDom.upas].forEach(u => { if (!upas.includes(u)) _filtrosDom.upas.delete(u); });
+  const ddUpa = document.getElementById('dom-upa-dd');
+  if (ddUpa) ddUpa.innerHTML = upas.map(u => {
+    const ck = _filtrosDom.upas.has(u) ? ' checked' : '';
+    return `<label style="${_LS_CKBOX}" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="${u}"${ck} onchange="atualizarFiltroDomUpas()"> UPA ${u}</label>`;
+  }).join('');
+  _syncLblUpaSetor('upa', _filtrosDom.upas, 'UPA —');
 
-  // Setor dropdown — filtra pela UPA selecionada (ou todas)
-  const upaEfetiva = selUpa.value;
+  // Setor checkboxes — restritos às UPAs selecionadas (ou todas)
   const setores = [...new Set(
-    base.filter(d => !upaEfetiva || d.upa === upaEfetiva)
+    base.filter(d => !_filtrosDom.upas.size || _filtrosDom.upas.has(d.upa))
       .map(d => d.controle ? d.controle.slice(0,-1) : d.upa)
       .filter(Boolean)
   )].sort((a,b) => a.localeCompare(b));
-  const selSetor = document.getElementById('filtro-setor');
-  selSetor.innerHTML = '<option value="">Todos os setores (' + setores.length + ')</option>';
-  setores.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s; opt.textContent = 'Setor ' + s;
-    selSetor.appendChild(opt);
-  });
-  selSetor.value = setores.includes(setorAtual) ? setorAtual : '';
+  // Remove setores que saíram do escopo
+  [..._filtrosDom.setores].forEach(s => { if (!setores.includes(s)) _filtrosDom.setores.delete(s); });
+  const ddSet = document.getElementById('dom-set-dd');
+  if (ddSet) ddSet.innerHTML = setores.map(s => {
+    const ck = _filtrosDom.setores.has(s) ? ' checked' : '';
+    return `<label style="${_LS_CKBOX}" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="${s}"${ck} onchange="atualizarFiltroDomSetores()"> Setor ${s}</label>`;
+  }).join('');
+  _syncLblUpaSetor('set', _filtrosDom.setores, 'Setor —');
 }
+
+function _syncLblUpaSetor(key, theSet, placeholder) {
+  const lbl = document.getElementById(`dom-${key}-lbl`);
+  const btn = document.getElementById(`dom-${key}-btn`);
+  if (lbl) lbl.textContent = theSet.size === 0 ? placeholder : theSet.size === 1 ? [...theSet][0] : `${theSet.size} selecionado(s)`;
+  if (btn) btn.classList.toggle('filtro-ativo-ctrl', theSet.size > 0);
+}
+
+window.toggleFiltroDomUpaSetor = (key, e) => {
+  e.stopPropagation();
+  const outro = key === 'upa' ? 'set' : 'upa';
+  const ddOutro = document.getElementById(`dom-${outro}-dd`); if (ddOutro) ddOutro.style.display = 'none';
+  const dd = document.getElementById(`dom-${key}-dd`);
+  if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+};
+
+window.atualizarFiltroDomUpas = () => {
+  const dd = document.getElementById('dom-upa-dd');
+  if (!dd) return;
+  _filtrosDom.upas.clear();
+  dd.querySelectorAll('input:checked').forEach(c => _filtrosDom.upas.add(c.value));
+  // Recarregar setor dropdown com base nas UPAs selecionadas
+  const base = _domFiltradosSemUpaSetor();
+  const setores = [...new Set(
+    base.filter(d => !_filtrosDom.upas.size || _filtrosDom.upas.has(d.upa))
+      .map(d => d.controle ? d.controle.slice(0,-1) : d.upa).filter(Boolean)
+  )].sort((a,b) => a.localeCompare(b));
+  [..._filtrosDom.setores].forEach(s => { if (!setores.includes(s)) _filtrosDom.setores.delete(s); });
+  const ddSet = document.getElementById('dom-set-dd');
+  if (ddSet) ddSet.innerHTML = setores.map(s => {
+    const ck = _filtrosDom.setores.has(s) ? ' checked' : '';
+    return `<label style="${_LS_CKBOX}" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="${s}"${ck} onchange="atualizarFiltroDomSetores()"> Setor ${s}</label>`;
+  }).join('');
+  _syncLblUpaSetor('upa', _filtrosDom.upas, 'UPA —');
+  _syncLblUpaSetor('set', _filtrosDom.setores, 'Setor —');
+  filtrarDomicilios();
+};
+
+window.atualizarFiltroDomSetores = () => {
+  const dd = document.getElementById('dom-set-dd');
+  if (!dd) return;
+  _filtrosDom.setores.clear();
+  dd.querySelectorAll('input:checked').forEach(c => _filtrosDom.setores.add(c.value));
+  _syncLblUpaSetor('set', _filtrosDom.setores, 'Setor —');
+  filtrarDomicilios();
+};
 
 async function preencherFiltroEntrevistador() {
   const dd = document.getElementById('dom-entr-dd');
@@ -3306,23 +3353,6 @@ async function preencherFiltroEntrevistador() {
   dd.innerHTML = (semAtribuicao ? mkLabel('__sem__', 'Não atribuído') : '') + nomes.map(n => mkLabel(n, n)).join('');
 }
 
-window.filtrarPorUpa = () => {
-  const upa = document.getElementById('filtro-upa').value;
-  const base = _domFiltradosSemUpaSetor();
-  const setores = [...new Set(
-    base.filter(d => !upa || d.upa === upa)
-      .map(d => d.controle ? d.controle.slice(0,-1) : d.upa)
-      .filter(Boolean)
-  )].sort((a,b) => a.localeCompare(b));
-  const sel = document.getElementById('filtro-setor');
-  sel.innerHTML = '<option value="">Todos os setores (' + setores.length + ')</option>';
-  setores.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s; opt.textContent = 'Setor ' + s;
-    sel.appendChild(opt);
-  });
-  filtrarDomicilios();
-};
 
 function _indicarFiltroAtivo(cardId, ativo) {
   const card = document.getElementById(cardId);
@@ -3331,13 +3361,11 @@ function _indicarFiltroAtivo(cardId, ativo) {
 
 window.filtrarDomicilios = () => {
   _atualizarDropdownsUpaSetor();
-  const upa = document.getElementById('filtro-upa').value;
-  const setor = document.getElementById('filtro-setor').value;
   const q = document.getElementById('busca-domicilio').value.toLowerCase();
   const filtrados = todosdomicilios.filter(d => {
     const setorDom = d.controle ? d.controle.slice(0,-1) : d.upa;
-    if (upa && d.upa !== upa) return false;
-    if (setor && setorDom !== setor) return false;
+    if (_filtrosDom.upas.size && !_filtrosDom.upas.has(d.upa)) return false;
+    if (_filtrosDom.setores.size && !_filtrosDom.setores.has(setorDom)) return false;
     if (_filtrosDom.semanas.size && !_filtrosDom.semanas.has(d.semana)) return false;
     if (_filtrosDom.etapas.size && !_filtrosDom.etapas.has(String(d.visita_etapa || ''))) return false;
     if (_filtrosDom.status.size && !_filtrosDom.status.has(d.status_atual || 'nao_visitado')) return false;
@@ -3379,13 +3407,12 @@ window.filtrarDomicilios = () => {
     return parseInt(a.domicilio_num||0) - parseInt(b.domicilio_num||0);
   });
   renderizarDomicilios(filtrados);
-  const _temFiltro = !!(upa || setor || _filtrosDom.semanas.size || _filtrosDom.etapas.size || _filtrosDom.status.size || _filtrosDom.entrevistadores.size || _filtroSolicTypes.size || q);
+  const _temFiltro = !!(_filtrosDom.upas.size || _filtrosDom.setores.size || _filtrosDom.semanas.size || _filtrosDom.etapas.size || _filtrosDom.status.size || _filtrosDom.entrevistadores.size || _filtroSolicTypes.size || q);
   _indicarFiltroAtivo('card-lista-dom', _temFiltro);
   const _cardPend = document.getElementById('card-pendentes-dom');
   if (_cardPend) _cardPend.style.display = _temFiltro ? 'none' : '';
-  ['filtro-upa','filtro-setor'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.classList.toggle('filtro-ativo-ctrl', !!el.value);
-  });
+  _syncLblUpaSetor('upa', _filtrosDom.upas, 'UPA —');
+  _syncLblUpaSetor('set', _filtrosDom.setores, 'Setor —');
   ['sem','eta','sts'].forEach(k => {
     const btn = document.getElementById(`dom-${k}-btn`);
     if (btn) btn.classList.toggle('filtro-ativo-ctrl', _DOM_DD_CFG[k].set.size > 0);
@@ -3399,10 +3426,11 @@ window.filtrarDomicilios = () => {
 };
 
 window.limparFiltros = () => {
-  document.getElementById('filtro-upa').value = '';
-  document.getElementById('filtro-setor').value = '';
+  _filtrosDom.upas.clear(); _filtrosDom.setores.clear();
   _filtrosDom.semanas.clear(); _filtrosDom.etapas.clear(); _filtrosDom.status.clear(); _filtrosDom.entrevistadores.clear();
-  ['dom-sem-dd','dom-eta-dd','dom-sts-dd','dom-entr-dd'].forEach(id => { document.querySelectorAll(`#${id} input`).forEach(c => c.checked = false); });
+  ['dom-upa-dd','dom-set-dd','dom-sem-dd','dom-eta-dd','dom-sts-dd','dom-entr-dd'].forEach(id => { document.querySelectorAll(`#${id} input`).forEach(c => c.checked = false); });
+  document.getElementById('dom-upa-lbl').textContent = 'UPA —';
+  document.getElementById('dom-set-lbl').textContent = 'Setor —';
   document.getElementById('dom-sem-lbl').textContent = 'Sem. —';
   document.getElementById('dom-eta-lbl').textContent = 'Eta. —';
   document.getElementById('dom-sts-lbl').textContent = 'Status —';
@@ -5789,8 +5817,7 @@ const _DOM_DD_CFG = {
 };
 window.toggleFiltroDomDD = (key, e) => {
   e.stopPropagation();
-  ['sem','eta','sts'].forEach(k => { if (k !== key) { const d = document.getElementById(`dom-${k}-dd`); if (d) d.style.display = 'none'; } });
-  document.getElementById('dom-entr-dd').style.display = 'none';
+  ['upa','set','sem','eta','sts','entr'].forEach(k => { if (k !== key) { const d = document.getElementById(`dom-${k}-dd`); if (d) d.style.display = 'none'; } });
   const dd = document.getElementById(`dom-${key}-dd`);
   if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
 };
@@ -5812,7 +5839,7 @@ window.atualizarFiltroDomDD = (key) => {
 };
 window.toggleFiltroDomEntr = (e) => {
   e.stopPropagation();
-  ['sem','eta','sts'].forEach(k => { const d = document.getElementById(`dom-${k}-dd`); if (d) d.style.display = 'none'; });
+  ['upa','set','sem','eta','sts'].forEach(k => { const d = document.getElementById(`dom-${k}-dd`); if (d) d.style.display = 'none'; });
   const dd = document.getElementById('dom-entr-dd');
   if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
 };
@@ -5833,7 +5860,7 @@ window.atualizarFiltroDomEntr = () => {
 
 window.toggleDropdownSolicDom = (e) => {
   e.stopPropagation();
-  ['dom-sem-dd','dom-eta-dd','dom-sts-dd','dom-entr-dd'].forEach(id => { const d = document.getElementById(id); if (d) d.style.display = 'none'; });
+  ['dom-upa-dd','dom-set-dd','dom-sem-dd','dom-eta-dd','dom-sts-dd','dom-entr-dd'].forEach(id => { const d = document.getElementById(id); if (d) d.style.display = 'none'; });
   const dd = document.getElementById('filtro-solic-dropdown');
   if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
 };
@@ -5852,6 +5879,8 @@ document.addEventListener('click', (e) => {
     const dd = document.getElementById('filtro-solic-dropdown');
     if (dd) dd.style.display = 'none';
   }
+  if (!e.target.closest('#dom-upa-wrap'))  { const d = document.getElementById('dom-upa-dd');  if (d) d.style.display = 'none'; }
+  if (!e.target.closest('#dom-set-wrap'))  { const d = document.getElementById('dom-set-dd');  if (d) d.style.display = 'none'; }
   if (!e.target.closest('#dom-sem-wrap'))  { const d = document.getElementById('dom-sem-dd');  if (d) d.style.display = 'none'; }
   if (!e.target.closest('#dom-eta-wrap'))  { const d = document.getElementById('dom-eta-dd');  if (d) d.style.display = 'none'; }
   if (!e.target.closest('#dom-sts-wrap'))  { const d = document.getElementById('dom-sts-dd');  if (d) d.style.display = 'none'; }
