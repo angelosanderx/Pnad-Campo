@@ -4643,19 +4643,16 @@ window.copiarPendenciasWhatsApp = (tableId) => {
   const todosGrupos = [...grupos, ...gruposZero];
 
   // Tabela comparativa em monospace (``` no WhatsApp)
-  // Emojis como ✅/⬜ têm largura visual 2 mas JS conta como 1 → compensamos com -1 no padEnd das linhas de dados.
+  // Emojis ✅/⬜ têm largura visual 2 mas JS conta como 1 → padEnd usa colNome-1 nas linhas de dados.
   const _ctr = (str, w) => { str = String(str); const p = Math.max(0, w - str.length); return ' '.repeat(Math.floor(p/2)) + str + ' '.repeat(Math.ceil(p/2)); };
-  const _pNome = nome => nome ? nome.split(' ')[0] : nome; // primeiro nome
-  // colNome = largura visual da coluna de nomes (prefixo "✅ " = 3 visuais, + nome)
-  const colNome = Math.max(12, ...todosGrupos.map(g => _pNome(g.nome).length + 3));
-  const H_PCT = 'Porc.%';
-  const SEP = '  '; // 2 espaços entre colunas
-  const cTot = 5, cPend = 5, cPct = H_PCT.length;
+  const _pNome = nome => nome ? nome.split(' ')[0] : nome;
+  // colNome = largura visual: prefixo "✅ " ocupa 3 visuais (emoji=2 + espaço=1)
+  const colNome = Math.max(10, ...todosGrupos.map(g => _pNome(g.nome).length + 3));
+  const SEP = ' ';
+  const cTot = 4, cPend = 4, cPct = 4; // 4 chars cabe "100%" centralizado
   const sepW = colNome + SEP.length + cTot + SEP.length + cPend + SEP.length + cPct;
-  // pfx tem 2 chars JS mas 3 visuais (emoji wide=2 + espaço=1) → padEnd usa colNome-1
-  const PFX_EXTRA = 1;
   const tabelaLinhas = ['```'];
-  tabelaLinhas.push('   APM'.padEnd(colNome) + SEP + _ctr('Tot',cTot) + SEP + _ctr('Pend',cPend) + SEP + H_PCT);
+  tabelaLinhas.push('   APM'.padEnd(colNome) + SEP + _ctr('Tot',cTot) + SEP + _ctr('Pnd',cPend) + SEP + _ctr('%',cPct));
   tabelaLinhas.push('-'.repeat(sepW));
   let somaTotal = 0;
   todosGrupos.forEach(g => {
@@ -4664,7 +4661,7 @@ window.copiarPendenciasWhatsApp = (tableId) => {
     const pct = tot > 0 ? Math.round(g.doms.length / tot * 100) : 0;
     const pfx = g.doms.length === 0 ? '✅ ' : '⬜ ';
     tabelaLinhas.push(
-      (pfx + _pNome(g.nome)).padEnd(colNome - PFX_EXTRA) + SEP +
+      (pfx + _pNome(g.nome)).padEnd(colNome - 1) + SEP +
       _ctr(tot, cTot) + SEP +
       _ctr(g.doms.length, cPend) + SEP +
       _ctr(pct + '%', cPct)
