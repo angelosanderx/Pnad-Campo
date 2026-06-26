@@ -102,11 +102,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .pend-tents{display:flex;flex-direction:column;gap:3px}
 .pend-tent{font-size:.76rem;padding:.3rem .55rem;border-radius:7px;background:var(--cinza-claro);color:var(--texto);line-height:1.4}
 .pend-tent.tel{background:#eff6ff;color:#1e40af}
-.pend-card.selecionado{border-left-color:var(--azul-med)!important;background:#eff6ff}
-.pend-card .pend-chk{width:20px;height:20px;border-radius:50%;border:2px solid var(--borda);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;color:#fff;font-size:13px;background:#fff}
-.pend-card.selecionado .pend-chk{background:var(--azul-med);border-color:var(--azul-med)}
-#barra-acao-etiq{position:fixed;bottom:0;left:0;right:0;background:#1a3a5c;color:#fff;padding:.75rem 1rem calc(env(safe-area-inset-bottom) + .75rem);display:flex;align-items:center;gap:.65rem;z-index:700;transform:translateY(100%);transition:transform .2s}
-#barra-acao-etiq.visivel{transform:translateY(0)}
+.pend-card.selecionado{border-left-color:var(--azul-med)!important;background:#dbeafe}
+.pend-card .pend-chk{display:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--borda);flex-shrink:0;align-items:center;justify-content:center;font-size:13px;color:#fff;background:#fff;transition:all .15s}
+#lista-pendencias.modo-sel .pend-card .pend-chk{display:flex}
+#lista-pendencias.modo-sel .pend-card.selecionado .pend-chk{background:var(--azul-med);border-color:var(--azul-med)}
 .pend-tent.sol{background:#fff7ed;color:#c2410c}
 .pend-tent.vazio{color:var(--cinza);font-style:italic}
 /* AVISOS */
@@ -630,12 +629,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
   <!-- FAB: filtrar só meus pendentes -->
   <div id="fab-filtro-pend" onclick="toggleFiltroMeusPendentes()" title="Mostrar só meus pendentes">📌</div>
 
-  <!-- Barra de ação: modo seleção de etiquetas -->
-  <div id="barra-acao-etiq">
-    <span id="etiq-contagem" style="flex:1;font-size:.85rem;font-weight:600"></span>
-    <button onclick="gerarEtiquetasPend()" style="background:#2563eb;border:none;color:#fff;padding:.45rem 1.1rem;border-radius:6px;font-size:.85rem;font-weight:700;cursor:pointer">🏷️ Gerar</button>
-    <button onclick="_sairModoSelPend()" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:.45rem .9rem;border-radius:6px;font-size:.85rem;cursor:pointer">Cancelar</button>
-  </div>
 
   <!-- FAB GPS -->
   <div id="fab-gps" onclick="centrarGPS()" title="Minha posição">📍</div>
@@ -1958,9 +1951,10 @@ function renderPendencias(setores) {
   const sems = Object.keys(porSem).sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
   sems.forEach(k => porSem[k].sort((a,b)=>parseInt(a.domicilio_num||0)-parseInt(b.domicilio_num||0)));
 
-  el.innerHTML = `<div style="position:sticky;top:0;z-index:10;background:#f8fafc;border-bottom:1px solid var(--borda);padding:.5rem .65rem;display:flex;align-items:center;justify-content:space-between">
-    <span style="font-size:.78rem;color:var(--cinza)">${doms.length} pendente(s)</span>
-    <button onclick="_entrarModoSelPend()" style="font-size:.78rem;padding:.3rem .8rem;border:1.5px solid var(--borda);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit">🏷️ Selecionar</button>
+  el.innerHTML = `<div id="pend-sel-barra" style="position:sticky;top:0;z-index:10;background:#f8fafc;border-bottom:1px solid var(--borda);padding:.5rem .65rem;display:flex;align-items:center;gap:.5rem;transition:background .2s">
+    <span id="pend-sel-info" style="flex:1;font-size:.78rem;color:var(--cinza)">${doms.length} pendente(s)</span>
+    <button id="btn-gerar-etiq" onclick="gerarEtiquetasPend()" style="display:none;font-size:.78rem;padding:.3rem .9rem;border:none;border-radius:6px;background:var(--azul-med);color:#fff;font-weight:700;cursor:pointer;font-family:inherit">🏷️ Gerar</button>
+    <button id="btn-sel-pend" onclick="_entrarModoSelPend()" style="font-size:.78rem;padding:.3rem .8rem;border:1.5px solid var(--borda);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit">🏷️ Selecionar</button>
   </div>` +
   '<div style="padding:.65rem">' + sems.map(sem => {
     const label = sem==='?'?'Sem semana':`Semana ${sem}`;
@@ -3222,14 +3216,31 @@ const _selPend = new Set();
 window._entrarModoSelPend = function() {
   _modoSelPend = true;
   _selPend.clear();
-  _atualizarBarraEtiq();
+  document.getElementById('lista-pendencias').classList.add('modo-sel');
+  const barra = document.getElementById('pend-sel-barra');
+  if (barra) { barra.style.background = '#1e3a5f'; }
+  const info = document.getElementById('pend-sel-info');
+  if (info) { info.style.color = '#fff'; }
+  const btnSel = document.getElementById('btn-sel-pend');
+  if (btnSel) { btnSel.textContent = '❌ Cancelar'; btnSel.style.cssText = 'font-size:.78rem;padding:.3rem .8rem;border:none;border-radius:6px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;font-family:inherit'; btnSel.onclick = window._sairModoSelPend; }
+  const btnGerar = document.getElementById('btn-gerar-etiq');
+  if (btnGerar) btnGerar.style.display = '';
+  _atualizarContadorSel();
 };
 
 window._sairModoSelPend = function() {
   _modoSelPend = false;
   _selPend.clear();
+  document.getElementById('lista-pendencias').classList.remove('modo-sel');
   document.querySelectorAll('#lista-pendencias .pend-card.selecionado').forEach(c => c.classList.remove('selecionado'));
-  document.getElementById('barra-acao-etiq').classList.remove('visivel');
+  const barra = document.getElementById('pend-sel-barra');
+  if (barra) { barra.style.background = ''; }
+  const info = document.getElementById('pend-sel-info');
+  if (info) { info.style.color = ''; }
+  const btnSel = document.getElementById('btn-sel-pend');
+  if (btnSel) { btnSel.textContent = '🏷️ Selecionar'; btnSel.style.cssText = 'font-size:.78rem;padding:.3rem .8rem;border:1.5px solid var(--borda);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit'; btnSel.onclick = window._entrarModoSelPend; }
+  const btnGerar = document.getElementById('btn-gerar-etiq');
+  if (btnGerar) btnGerar.style.display = 'none';
 };
 
 window._onClickPendCard = function(domId, upa) {
@@ -3237,19 +3248,18 @@ window._onClickPendCard = function(domId, upa) {
     const card = document.querySelector(`#lista-pendencias .pend-card[data-id="${domId}"]`);
     if (_selPend.has(domId)) { _selPend.delete(domId); card?.classList.remove('selecionado'); }
     else { _selPend.add(domId); card?.classList.add('selecionado'); }
-    _atualizarBarraEtiq();
+    _atualizarContadorSel();
   } else {
     abrirDomPendente(domId, upa);
   }
 };
 
-function _atualizarBarraEtiq() {
-  const barra = document.getElementById('barra-acao-etiq');
-  if (!barra) return;
-  const n = _selPend.size;
+function _atualizarContadorSel() {
   const total = document.querySelectorAll('#lista-pendencias .pend-card').length;
-  document.getElementById('etiq-contagem').textContent = n > 0 ? `${n} selecionado(s)` : `Todas (${total})`;
-  barra.classList.add('visivel');
+  const info = document.getElementById('pend-sel-info');
+  if (info) info.textContent = _selPend.size > 0 ? `${_selPend.size} selecionado(s)` : `Toque para selecionar (${total})`;
+  const btnGerar = document.getElementById('btn-gerar-etiq');
+  if (btnGerar) btnGerar.textContent = `🏷️ Gerar${_selPend.size > 0 ? ' ('+_selPend.size+')' : ' todas'}`;
 }
 
 window.gerarEtiquetasPend = async () => {
