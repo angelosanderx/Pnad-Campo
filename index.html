@@ -1285,36 +1285,42 @@
             </select>
             <div style="width:1px;height:18px;background:var(--borda);margin:0 2px"></div>
             <span style="font-size:0.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Período</span>
-            <select id="filtro-semana" onchange="filtrarDomicilios()" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
-              <option value="">Sem. —</option>
-              <option value="1">Sem. 1</option>
-              <option value="2">Sem. 2</option>
-              <option value="3">Sem. 3</option>
-              <option value="4">Sem. 4</option>
-            </select>
-            <select id="filtro-etapa" onchange="filtrarDomicilios()" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
-              <option value="">Eta. —</option>
-              <option value="1">Eta. 1</option>
-              <option value="2">Eta. 2</option>
-              <option value="3">Eta. 3</option>
-              <option value="4">Eta. 4</option>
-              <option value="5">Eta. 5 (última)</option>
-            </select>
+            <div style="position:relative" id="dom-sem-wrap">
+              <button id="dom-sem-btn" onclick="toggleFiltroDomDD('sem',event)" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.4rem;white-space:nowrap"><span id="dom-sem-lbl">Sem. —</span><span style="font-size:0.7rem;opacity:0.6">▾</span></button>
+              <div id="dom-sem-dd" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:120px;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0">
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="1" onchange="atualizarFiltroDomDD('sem')"> Sem. 1</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="2" onchange="atualizarFiltroDomDD('sem')"> Sem. 2</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="3" onchange="atualizarFiltroDomDD('sem')"> Sem. 3</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="4" onchange="atualizarFiltroDomDD('sem')"> Sem. 4</label>
+              </div>
+            </div>
+            <div style="position:relative" id="dom-eta-wrap">
+              <button id="dom-eta-btn" onclick="toggleFiltroDomDD('eta',event)" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.4rem;white-space:nowrap"><span id="dom-eta-lbl">Eta. —</span><span style="font-size:0.7rem;opacity:0.6">▾</span></button>
+              <div id="dom-eta-dd" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:130px;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0">
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="1" onchange="atualizarFiltroDomDD('eta')"> Eta. 1</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="2" onchange="atualizarFiltroDomDD('eta')"> Eta. 2</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="3" onchange="atualizarFiltroDomDD('eta')"> Eta. 3</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="4" onchange="atualizarFiltroDomDD('eta')"> Eta. 4</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="5" onchange="atualizarFiltroDomDD('eta')"> Eta. 5 (última)</label>
+              </div>
+            </div>
             <div style="width:1px;height:18px;background:var(--borda);margin:0 2px"></div>
             <span style="font-size:0.7rem;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap">Situação</span>
-            <select id="filtro-status" onchange="filtrarDomicilios()" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro)">
-              <option value="">Status —</option>
-              <option value="nao_visitado">Não visitado</option>
-              <option value="ausente">Ausente</option>
-              <option value="fechado">Fechado</option>
-              <option value="agendado">Agendado</option>
-              <option value="realizada">Realizada</option>
-              <option value="recusa">Recusa</option>
-              <option value="carta_solicitada">Carta solicitada</option>
-              <option value="supervisao">Supervisão necessária</option>
-              <option value="vago">Vago/Inapto</option>
-              <option value="uso_ocasional">Uso Ocasional</option>
-            </select>
+            <div style="position:relative" id="dom-sts-wrap">
+              <button id="dom-sts-btn" onclick="toggleFiltroDomDD('sts',event)" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.4rem;white-space:nowrap"><span id="dom-sts-lbl">Status —</span><span style="font-size:0.7rem;opacity:0.6">▾</span></button>
+              <div id="dom-sts-dd" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:190px;max-height:280px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0">
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="nao_visitado" onchange="atualizarFiltroDomDD('sts')"> Não visitado</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="ausente" onchange="atualizarFiltroDomDD('sts')"> Ausente</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="fechado" onchange="atualizarFiltroDomDD('sts')"> Fechado</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="agendado" onchange="atualizarFiltroDomDD('sts')"> Agendado</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="realizada" onchange="atualizarFiltroDomDD('sts')"> Realizada</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="recusa" onchange="atualizarFiltroDomDD('sts')"> Recusa</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="carta_solicitada" onchange="atualizarFiltroDomDD('sts')"> Carta solicitada</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="supervisao" onchange="atualizarFiltroDomDD('sts')"> Supervisão necessária</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="vago" onchange="atualizarFiltroDomDD('sts')"> Vago/Inapto</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="uso_ocasional" onchange="atualizarFiltroDomDD('sts')"> Uso Ocasional</label>
+              </div>
+            </div>
             <div style="position:relative" id="filtro-solic-wrap">
               <button id="filtro-solic-btn" onclick="toggleDropdownSolicDom(event)" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.4rem;min-width:138px;justify-content:space-between;white-space:nowrap">
                 <span id="filtro-solic-label">Solicitação —</span><span style="font-size:0.7rem;opacity:0.6">▾</span>
@@ -1329,9 +1335,10 @@
                 <label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.8rem;cursor:pointer;font-size:0.83rem" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="verificar_status" onchange="atualizarFiltroSolicDom()"> 🔍 Verificar Status</label>
               </div>
             </div>
-            <select id="filtro-entrevistador" onchange="filtrarDomicilios()" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);min-width:160px">
-              <option value="">Entrevistador —</option>
-            </select>
+            <div style="position:relative" id="dom-entr-wrap">
+              <button id="dom-entr-btn" onclick="toggleFiltroDomEntr(event)" style="padding:0.3rem 0.55rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.82rem;font-family:var(--fonte);background:var(--cinza-claro);cursor:pointer;display:flex;align-items:center;gap:0.4rem;white-space:nowrap;min-width:160px;justify-content:space-between"><span id="dom-entr-lbl">Entrevistador —</span><span style="font-size:0.7rem;opacity:0.6">▾</span></button>
+              <div id="dom-entr-dd" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1.5px solid var(--borda);border-radius:8px;min-width:220px;max-height:260px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.13);padding:0.25rem 0"></div>
+            </div>
           </div>
           <!-- Linha 2: busca + ordem + ações -->
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center">
@@ -2771,6 +2778,7 @@ let perfilLogado = null;
 let todosdomicilios = [];
 let _todosdomiciliosGlobal = []; // todos os períodos — usado na qualidade CNEFE
 let _filtroSolicTypes = new Set();
+const _filtrosDom = { semanas: new Set(), etapas: new Set(), status: new Set(), entrevistadores: new Set() };
 let entrevistadoresCache = null; // cache da lista de entrevistadores p/ não consultar o banco toda vez que o mapa abre
 let unsubs = [];
 
@@ -3219,17 +3227,16 @@ async function carregarDomicilios() {
 }
 
 function _domFiltradosSemUpaSetor() {
-  const semana = document.getElementById('filtro-semana')?.value || '';
-  const etapa  = document.getElementById('filtro-etapa')?.value || '';
-  const status = document.getElementById('filtro-status')?.value || '';
-  const entrevistador = document.getElementById('filtro-entrevistador')?.value || '';
   const q = (document.getElementById('busca-domicilio')?.value || '').toLowerCase();
   return todosdomicilios.filter(d => {
-    if (semana && d.semana !== semana) return false;
-    if (etapa  && String(d.visita_etapa || '') !== etapa) return false;
-    if (entrevistador === '__sem__' && d.entrevistador_nome) return false;
-    if (entrevistador && entrevistador !== '__sem__' && !_entrevistadorCorresponde(d.entrevistador_nome, entrevistador)) return false;
-    if (status && (d.status_atual || 'nao_visitado') !== status) return false;
+    if (_filtrosDom.semanas.size && !_filtrosDom.semanas.has(d.semana)) return false;
+    if (_filtrosDom.etapas.size && !_filtrosDom.etapas.has(String(d.visita_etapa || ''))) return false;
+    if (_filtrosDom.status.size && !_filtrosDom.status.has(d.status_atual || 'nao_visitado')) return false;
+    if (_filtrosDom.entrevistadores.size) {
+      const semEntr = _filtrosDom.entrevistadores.has('__sem__') && !d.entrevistador_nome;
+      const comEntr = [..._filtrosDom.entrevistadores].filter(e => e !== '__sem__').some(e => _entrevistadorCorresponde(d.entrevistador_nome, e));
+      if (!semEntr && !comEntr) return false;
+    }
     if (_filtroSolicTypes.size) {
       const temNaLista = (d.solicitacoes || []).some(s => _filtroSolicTypes.has(s.tipo));
       const temLegado  = !(d.solicitacoes?.length) && _filtroSolicTypes.has(d.tipo_solicitacao);
@@ -3274,35 +3281,29 @@ function _atualizarDropdownsUpaSetor() {
 }
 
 async function preencherFiltroEntrevistador() {
-  const sel = document.getElementById('filtro-entrevistador');
-  if (!sel) return;
-  const val = toTitleCase(sel.value);
+  const dd = document.getElementById('dom-entr-dd');
+  if (!dd) return;
   if (!entrevistadoresCache) {
     try {
       const snap = await getDocs(query(collection(db, 'usuarios'), where('perfil', '==', 'entrevistador')));
       entrevistadoresCache = snap.docs.map(d => ({ id: d.id, nome: d.data().nome }));
     } catch(e) { entrevistadoresCache = []; }
   }
-  // Para cada nome encontrado nos domicílios, usa o nome cadastrado se houver correspondência
-  const nomesMap = new Map(); // key: canonical lowercase → display
+  const nomesMap = new Map();
   todosdomicilios.forEach(d => {
     if (!d.entrevistador_nome) return;
     const registrado = entrevistadoresCache.find(u => nomesCorrespondem(u.nome, d.entrevistador_nome));
     const canonical = toTitleCase(registrado ? registrado.nome : d.entrevistador_nome);
-    const key = canonical.toLowerCase();
-    if (!nomesMap.has(key)) nomesMap.set(key, canonical);
+    nomesMap.set(canonical.toLowerCase(), canonical);
   });
   const nomes = [...nomesMap.values()].sort();
   const semAtribuicao = todosdomicilios.some(d => !d.entrevistador_nome);
-  sel.innerHTML = '<option value="">Todos os entrevistadores</option>';
-  if (semAtribuicao) sel.innerHTML += '<option value="__sem__">Não atribuído</option>';
-  nomes.forEach(n => {
-    const opt = document.createElement('option');
-    opt.value = n;
-    opt.textContent = n;
-    sel.appendChild(opt);
-  });
-  sel.value = val;
+  const labelStyle = 'display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;cursor:pointer;font-size:0.83rem';
+  const mkLabel = (val, txt) => {
+    const checked = _filtrosDom.entrevistadores.has(val) ? ' checked' : '';
+    return `<label style="${labelStyle}" onmouseenter="this.style.background='var(--cinza-claro)'" onmouseleave="this.style.background=''"><input type="checkbox" value="${val}"${checked} onchange="atualizarFiltroDomEntr()"> ${txt}</label>`;
+  };
+  dd.innerHTML = (semAtribuicao ? mkLabel('__sem__', 'Não atribuído') : '') + nomes.map(n => mkLabel(n, n)).join('');
 }
 
 window.filtrarPorUpa = () => {
@@ -3332,20 +3333,19 @@ window.filtrarDomicilios = () => {
   _atualizarDropdownsUpaSetor();
   const upa = document.getElementById('filtro-upa').value;
   const setor = document.getElementById('filtro-setor').value;
-  const semana = document.getElementById('filtro-semana').value;
-  const etapa = document.getElementById('filtro-etapa').value;
-  const entrevistador = document.getElementById('filtro-entrevistador').value;
   const q = document.getElementById('busca-domicilio').value.toLowerCase();
   const filtrados = todosdomicilios.filter(d => {
     const setorDom = d.controle ? d.controle.slice(0,-1) : d.upa;
     if (upa && d.upa !== upa) return false;
     if (setor && setorDom !== setor) return false;
-    if (semana && d.semana !== semana) return false;
-    if (etapa && String(d.visita_etapa || '') !== etapa) return false;
-    if (entrevistador === '__sem__' && d.entrevistador_nome) return false;
-    if (entrevistador && entrevistador !== '__sem__' && !_entrevistadorCorresponde(d.entrevistador_nome, entrevistador)) return false;
-    const status = document.getElementById('filtro-status').value;
-    if (status && (d.status_atual || 'nao_visitado') !== status) return false;
+    if (_filtrosDom.semanas.size && !_filtrosDom.semanas.has(d.semana)) return false;
+    if (_filtrosDom.etapas.size && !_filtrosDom.etapas.has(String(d.visita_etapa || ''))) return false;
+    if (_filtrosDom.status.size && !_filtrosDom.status.has(d.status_atual || 'nao_visitado')) return false;
+    if (_filtrosDom.entrevistadores.size) {
+      const semEntr = _filtrosDom.entrevistadores.has('__sem__') && !d.entrevistador_nome;
+      const comEntr = [..._filtrosDom.entrevistadores].filter(e => e !== '__sem__').some(e => _entrevistadorCorresponde(d.entrevistador_nome, e));
+      if (!semEntr && !comEntr) return false;
+    }
     if (_filtroSolicTypes.size) {
       const temNaLista = (d.solicitacoes || []).some(s => _filtroSolicTypes.has(s.tipo));
       const temLegado  = !(d.solicitacoes?.length) && _filtroSolicTypes.has(d.tipo_solicitacao);
@@ -3379,14 +3379,19 @@ window.filtrarDomicilios = () => {
     return parseInt(a.domicilio_num||0) - parseInt(b.domicilio_num||0);
   });
   renderizarDomicilios(filtrados);
-  const _status = document.getElementById('filtro-status')?.value || '';
-  const _temFiltro = !!(upa || setor || semana || etapa || _status || _filtroSolicTypes.size || entrevistador || q);
+  const _temFiltro = !!(upa || setor || _filtrosDom.semanas.size || _filtrosDom.etapas.size || _filtrosDom.status.size || _filtrosDom.entrevistadores.size || _filtroSolicTypes.size || q);
   _indicarFiltroAtivo('card-lista-dom', _temFiltro);
   const _cardPend = document.getElementById('card-pendentes-dom');
   if (_cardPend) _cardPend.style.display = _temFiltro ? 'none' : '';
-  ['filtro-upa','filtro-setor','filtro-semana','filtro-etapa','filtro-status','filtro-entrevistador'].forEach(id => {
+  ['filtro-upa','filtro-setor'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('filtro-ativo-ctrl', !!el.value);
   });
+  ['sem','eta','sts'].forEach(k => {
+    const btn = document.getElementById(`dom-${k}-btn`);
+    if (btn) btn.classList.toggle('filtro-ativo-ctrl', _DOM_DD_CFG[k].set.size > 0);
+  });
+  const _entrBtn = document.getElementById('dom-entr-btn');
+  if (_entrBtn) _entrBtn.classList.toggle('filtro-ativo-ctrl', _filtrosDom.entrevistadores.size > 0);
   const _solicBtn = document.getElementById('filtro-solic-btn');
   if (_solicBtn) _solicBtn.classList.toggle('filtro-ativo-ctrl', _filtroSolicTypes.size > 0);
   const _bDom = document.getElementById('busca-domicilio');
@@ -3396,13 +3401,15 @@ window.filtrarDomicilios = () => {
 window.limparFiltros = () => {
   document.getElementById('filtro-upa').value = '';
   document.getElementById('filtro-setor').value = '';
-  document.getElementById('filtro-semana').value = '';
-  document.getElementById('filtro-etapa').value = '';
-  document.getElementById('filtro-status').value = '';
+  _filtrosDom.semanas.clear(); _filtrosDom.etapas.clear(); _filtrosDom.status.clear(); _filtrosDom.entrevistadores.clear();
+  ['dom-sem-dd','dom-eta-dd','dom-sts-dd','dom-entr-dd'].forEach(id => { document.querySelectorAll(`#${id} input`).forEach(c => c.checked = false); });
+  document.getElementById('dom-sem-lbl').textContent = 'Sem. —';
+  document.getElementById('dom-eta-lbl').textContent = 'Eta. —';
+  document.getElementById('dom-sts-lbl').textContent = 'Status —';
+  document.getElementById('dom-entr-lbl').textContent = 'Entrevistador —';
   _filtroSolicTypes.clear();
   document.querySelectorAll('#filtro-solic-dropdown input').forEach(c => c.checked = false);
   const _lbl = document.getElementById('filtro-solic-label'); if (_lbl) _lbl.textContent = 'Solicitação —';
-  document.getElementById('filtro-entrevistador').value = '';
   document.getElementById('filtro-ordem').value = 'padrao';
   document.getElementById('busca-domicilio').value = '';
   filtrarDomicilios();
@@ -5775,8 +5782,58 @@ window.toggleChipPend = (el) => {
   filtrarPendencias();
 };
 
+const _DOM_DD_CFG = {
+  sem: { set: _filtrosDom.semanas, placeholder: 'Sem. —' },
+  eta: { set: _filtrosDom.etapas,  placeholder: 'Eta. —' },
+  sts: { set: _filtrosDom.status,  placeholder: 'Status —' },
+};
+window.toggleFiltroDomDD = (key, e) => {
+  e.stopPropagation();
+  ['sem','eta','sts'].forEach(k => { if (k !== key) { const d = document.getElementById(`dom-${k}-dd`); if (d) d.style.display = 'none'; } });
+  document.getElementById('dom-entr-dd').style.display = 'none';
+  const dd = document.getElementById(`dom-${key}-dd`);
+  if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+};
+window.atualizarFiltroDomDD = (key) => {
+  const cfg = _DOM_DD_CFG[key];
+  if (!cfg) return;
+  const dd = document.getElementById(`dom-${key}-dd`);
+  const lbl = document.getElementById(`dom-${key}-lbl`);
+  const btn = document.getElementById(`dom-${key}-btn`);
+  if (!dd || !lbl) return;
+  const checked = [...dd.querySelectorAll('input:checked')];
+  cfg.set.clear();
+  checked.forEach(c => cfg.set.add(c.value));
+  lbl.textContent = checked.length === 0 ? cfg.placeholder
+    : checked.length === 1 ? checked[0].closest('label').textContent.trim()
+    : `${checked.length} selecionado(s)`;
+  if (btn) btn.classList.toggle('filtro-ativo-ctrl', cfg.set.size > 0);
+  filtrarDomicilios();
+};
+window.toggleFiltroDomEntr = (e) => {
+  e.stopPropagation();
+  ['sem','eta','sts'].forEach(k => { const d = document.getElementById(`dom-${k}-dd`); if (d) d.style.display = 'none'; });
+  const dd = document.getElementById('dom-entr-dd');
+  if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+};
+window.atualizarFiltroDomEntr = () => {
+  const dd = document.getElementById('dom-entr-dd');
+  const lbl = document.getElementById('dom-entr-lbl');
+  const btn = document.getElementById('dom-entr-btn');
+  if (!dd || !lbl) return;
+  const checked = [...dd.querySelectorAll('input:checked')];
+  _filtrosDom.entrevistadores.clear();
+  checked.forEach(c => _filtrosDom.entrevistadores.add(c.value));
+  lbl.textContent = checked.length === 0 ? 'Entrevistador —'
+    : checked.length === 1 ? checked[0].closest('label').textContent.trim()
+    : `${checked.length} entrevistador(es)`;
+  if (btn) btn.classList.toggle('filtro-ativo-ctrl', _filtrosDom.entrevistadores.size > 0);
+  filtrarDomicilios();
+};
+
 window.toggleDropdownSolicDom = (e) => {
   e.stopPropagation();
+  ['dom-sem-dd','dom-eta-dd','dom-sts-dd','dom-entr-dd'].forEach(id => { const d = document.getElementById(id); if (d) d.style.display = 'none'; });
   const dd = document.getElementById('filtro-solic-dropdown');
   if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
 };
@@ -5795,6 +5852,10 @@ document.addEventListener('click', (e) => {
     const dd = document.getElementById('filtro-solic-dropdown');
     if (dd) dd.style.display = 'none';
   }
+  if (!e.target.closest('#dom-sem-wrap'))  { const d = document.getElementById('dom-sem-dd');  if (d) d.style.display = 'none'; }
+  if (!e.target.closest('#dom-eta-wrap'))  { const d = document.getElementById('dom-eta-dd');  if (d) d.style.display = 'none'; }
+  if (!e.target.closest('#dom-sts-wrap'))  { const d = document.getElementById('dom-sts-dd');  if (d) d.style.display = 'none'; }
+  if (!e.target.closest('#dom-entr-wrap')) { const d = document.getElementById('dom-entr-dd'); if (d) d.style.display = 'none'; }
 });
 
 window.toggleDropdownPendEntr = (e) => {
