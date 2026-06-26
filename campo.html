@@ -2043,9 +2043,32 @@ function renderSolicitacoes() {
       ${sol.obs ? `<div class="sol-list-obs">${sol.obs}</div>` : ''}
       ${avisoSup}
       <div class="sol-list-autor">${daSup ? '👤 Da supervisão · ' : ''}${sol.criado_por_nome||''} ${fmtTs(sol.criado_em_ts)?'· '+fmtTs(sol.criado_em_ts):''}</div>
+      ${!daSup ? `<div style="margin-top:6px;text-align:right">
+        <button onclick="event.stopPropagation();cancelarSolicitacaoLista('${dom.id}','${sol.id}')"
+          style="font-size:.66rem;padding:2px 10px;border:1px solid #fca5a5;color:#dc2626;background:transparent;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:700">
+          ✕ Cancelar
+        </button>
+      </div>` : ''}
     </div>`;
   }).join('');
 }
+
+window.cancelarSolicitacaoLista = (domId, solId) => {
+  let dom = null;
+  for (const s of mySectors) { dom = s.doms.find(d => d.id === domId); if (dom) break; }
+  if (!dom) return;
+  if (!confirm('Cancelar esta solicitação?')) return;
+  const novas = (dom.solicitacoes || []).filter(x => x.id !== solId);
+  dom.solicitacoes = novas;
+  renderSolicitacoes();
+  atualizarBadgeSols();
+  toast(navigator.onLine === false
+    ? 'Solicitação cancelada — será sincronizada quando a conexão voltar'
+    : 'Solicitação cancelada', 'ok');
+  _registrarEscritaPendente(
+    updateDoc(doc(db, 'domicilios', domId), { solicitacoes: novas })
+  ).catch(e => toast('Erro ao sincronizar: ' + e.message, 'erro'));
+};
 
 function atualizarBadgeSols() {
   const _etapaOrdem = ['pronta','em_andamento','aceita','pendente'];
