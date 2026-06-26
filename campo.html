@@ -3259,7 +3259,12 @@ window.gerarEtiquetasPend = async () => {
     : pendentes;
   if (lista.length === 0) { toast('Nenhum domicílio pendente', 'erro'); return; }
 
-  toast('Carregando moradores…', 'info');
+  // Abre a janela imediatamente (dentro do gesto do usuário) antes de qualquer await,
+  // para evitar bloqueio de popup em navegadores mobile.
+  const win = window.open('', '_blank');
+  if (!win) { toast('Permita pop-ups para gerar etiquetas', 'erro'); return; }
+  win.document.write('<html><body><p style="font-family:sans-serif;padding:2rem">Carregando moradores…</p></body></html>');
+
   const moradoresPorDom = {};
   await Promise.all(lista.map(async d => {
     try {
@@ -3295,8 +3300,7 @@ window.gerarEtiquetasPend = async () => {
   let pags = '';
   for (let i=0; i<lista.length; i+=POR_FOLHA) pags += `<div class="pagina">${lista.slice(i,i+POR_FOLHA).map(montarEtiq).join('')}</div>`;
 
-  const win = window.open('','_blank');
-  if (!win) { toast('Permita pop-ups para gerar etiquetas', 'erro'); return; }
+  win.document.open();
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Etiquetas — PNAD-C Campos</title><style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#fff;padding-top:54px}
 .pagina{width:210mm;min-height:297mm;padding:10mm 7mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(7,35mm);column-gap:3mm;row-gap:2mm}
