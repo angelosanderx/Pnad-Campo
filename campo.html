@@ -3050,7 +3050,8 @@ window.confirmarSolicitar = () => {
       btnsEl.innerHTML = '';
       const pnadMors = Array.isArray(domAtivo._moradores) ? domAtivo._moradores.filter(m => m.nome).slice(0, 2) : [];
       pnadMors.forEach((m, i) => btnsEl.appendChild(_mcmBtnDinamico(m.nome, 'PNAD', `mcm-din-${i}`)));
-      if (domAtivo.morador_cnefe) btnsEl.appendChild(_mcmBtnDinamico(domAtivo.morador_cnefe, 'CNEFE', 'mcm-din-cnefe'));
+      const _nomeCnefe = domAtivo.morador_cnefe || domAtivo.morador || '';
+      if (_nomeCnefe) btnsEl.appendChild(_mcmBtnDinamico(_nomeCnefe, 'CNEFE', 'mcm-din-cnefe'));
       btnsEl.appendChild(_mcmBtnDinamico('Sr(a) Morador(a)', '', 'mcm-din-generico', '🤷'));
       $('modal-confirm-morador').classList.remove('hidden');
     };
