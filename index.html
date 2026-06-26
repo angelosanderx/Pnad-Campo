@@ -5624,7 +5624,7 @@ function _montarLinhaDOM(d, ns = '') {
         <button style="font-size:0.58rem;padding:0.05rem 0.28rem;margin-top:3px;background:transparent;color:#b0b8c4;border:1px solid #e4eaf0;border-radius:3px;cursor:pointer;font-family:inherit" onclick="abrirSolicitar('${d.id}')">+ solicitar</button>
       </td>
       <td style="padding:0.25rem 0.6rem">
-        <div class="campo-editavel-inline" style="font-size:0.8rem;font-weight:600;display:flex;align-items:center;gap:3px">
+        <div class="campo-editavel-inline" style="font-size:0.8rem;font-weight:600">
           <span id="${ns}dom-end-${d.id}">${d.endereco_custom || d.endereco || '-'}</span>
           <button class="btn-editar-inline" onclick="editarCampoDomicilio('${d.id}','endereco_custom','${ns}')" title="Editar endereço">✏️</button>
         </div>
