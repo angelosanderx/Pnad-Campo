@@ -4,7 +4,7 @@
 // eles têm sua própria persistência/cache e usam conexões (long-polling, streaming)
 // que um service worker genérico poderia quebrar se tentasse interceptar.
 
-const CACHE_NAME = 'campo-shell-v1';
+const CACHE_NAME = 'campo-shell-v2';
 
 const APP_SHELL_RELATIVE = [
   '/campo.html',
