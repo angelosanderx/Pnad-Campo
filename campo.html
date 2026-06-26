@@ -3177,6 +3177,12 @@ function _gravarSolicitar(nomeMorador = '') {
   const statusAtual = domAtivo.status_atual || 'nao_visitado';
   const offline = navigator.onLine === false;
 
+  // Atualização otimista: reflete no cache em memória sem esperar o Firestore
+  domAtivo.solicitacoes = [...(domAtivo.solicitacoes || []), novaSol];
+  const _sec = mySectors.find(s => s.doms.some(d => d.id === domId));
+  if (_sec) { const _d = _sec.doms.find(d => d.id === domId); if (_d) _d.solicitacoes = [...(_d.solicitacoes || []), novaSol]; }
+  atualizarBadgeSols();
+
   fecharPanelSolicitar();
   toast(offline ? `${tipo?.label||'Solicitação'} salva — será enviada quando a conexão voltar` : `${tipo?.label||'Solicitação'} registrada!`, 'ok');
 
