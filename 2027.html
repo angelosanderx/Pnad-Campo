@@ -3533,6 +3533,37 @@ function renderizarTrilhaAulas() {
   el.innerHTML = html;
 }
 
+function _blocoTrilhaHTML(t, primeiro) {
+  const tc = TIPO_COR[t.tipo] || '#64748b';
+  const tl = TIPO_LABEL[t.tipo] || t.tipo;
+  const cabecalhoTipo = primeiro
+    ? `<select class="ta-tipo-select" style="background:${tc}" onchange="alterarTipoTrilha('${t.id}',this)">
+        ${TIPOS_PRIMEIRO_BLOCO.map(tp => `<option value="${tp}" ${t.tipo === tp ? 'selected' : ''}>${TIPO_LABEL[tp]}</option>`).join('')}
+      </select>`
+    : `<span class="ta-tipo-badge" style="background:${tc}">${tl}</span>`;
+  const cabecalhoAula = primeiro
+    ? `<input type="text" class="ta-aula-input" placeholder="Ex.: Aula 07 · Parte 1/2" value="${esc(t.aula)}${t.parte ? ' · ' + esc(t.parte) : ''}" oninput="agendarCabecalhoTrilha('${t.id}',this.value)">`
+    : `<span style="font-size:.75rem;color:var(--text-muted)">${esc(t.aula)}${t.parte ? ' · ' + esc(t.parte) : ''}</span>`;
+  return `<div class="ta-tarefa-bloco ${t.concluida ? 'concluida' : ''}" id="ta-bloco-${t.id}">
+    <div class="ta-tarefa-meta">
+      <span class="ta-tarefa-num">#${t.num_tarefa}</span>
+      ${cabecalhoTipo}
+      ${cabecalhoAula}
+    </div>
+    <div class="ta-tarefa-desc">${esc(t.descricao)}</div>
+    <div class="ta-apoio-label">Texto de apoio</div>
+    <textarea class="ta-apoio-textarea" id="ta-apoio-${t.id}" placeholder="Anotações, resumo, pontos importantes..."
+      oninput="agendarTextoApoio('${t.id}',this.value)"></textarea>
+    <div class="ta-tarefa-acoes">
+      <input type="checkbox" ${t.concluida ? 'checked' : ''} onchange="toggleTrilhaAula('${t.id}',this.checked)" title="Marcar como concluída">
+      <span style="font-size:.75rem;color:var(--text-muted)">Concluída</span>
+      <button class="btn-add-sem" onclick="abrirDrawer('${_discSlug(t.disciplinaNome)}_${String(t.num_tarefa).padStart(2,'0')}', ${JSON.stringify({descricao:t.descricao,tipo:t.tipo,disciplinaNome:t.disciplinaNome,num_tarefa:t.num_tarefa}).replace(/"/g,'&quot;')})">📖 Detalhes</button>
+      <button class="btn-add-sem" onclick="adicionarTAAsemana('${t.id}')" style="margin-left:auto">+ Semana</button>
+      <button class="btn-add-sem" onclick="apagarBlocoTrilha('${t.id}')" style="color:#f87171;border-color:rgba(239,68,68,.4)" title="Apagar bloco">🗑️ Apagar</button>
+    </div>
+  </div>`;
+}
+
 window.abrirDetalheTrilha = (discId) => {
   const el = document.getElementById('trilha-aulas-lista');
   const docs = Object.values(trilhaAulasCache).filter(d => d.disciplinaId === discId).sort((a,b) => a.num_tarefa - b.num_tarefa);
@@ -3550,39 +3581,16 @@ window.abrirDetalheTrilha = (discId) => {
     html += '<div class="vazio">Nenhum bloco cadastrado ainda nesta matéria. Use o botão abaixo para criar o primeiro.</div>';
   }
   docs.forEach((t, idx) => {
-    const tc = TIPO_COR[t.tipo] || '#64748b';
-    const tl = TIPO_LABEL[t.tipo] || t.tipo;
-    const apoio = esc(t.texto_apoio || '');
     const primeiro = idx === 0 || t.personalizado === true;
-    const cabecalhoTipo = primeiro
-      ? `<select class="ta-tipo-select" style="background:${tc}" onchange="alterarTipoTrilha('${t.id}',this)">
-          ${TIPOS_PRIMEIRO_BLOCO.map(tp => `<option value="${tp}" ${t.tipo === tp ? 'selected' : ''}>${TIPO_LABEL[tp]}</option>`).join('')}
-        </select>`
-      : `<span class="ta-tipo-badge" style="background:${tc}">${tl}</span>`;
-    const cabecalhoAula = primeiro
-      ? `<input type="text" class="ta-aula-input" placeholder="Ex.: Aula 07 · Parte 1/2" value="${esc(t.aula)}${t.parte ? ' · ' + esc(t.parte) : ''}" oninput="agendarCabecalhoTrilha('${t.id}',this.value)">`
-      : `<span style="font-size:.75rem;color:var(--text-muted)">${esc(t.aula)}${t.parte ? ' · ' + esc(t.parte) : ''}</span>`;
-    html += `<div class="ta-tarefa-bloco ${t.concluida ? 'concluida' : ''}" id="ta-bloco-${t.id}">
-      <div class="ta-tarefa-meta">
-        <span class="ta-tarefa-num">#${t.num_tarefa}</span>
-        ${cabecalhoTipo}
-        ${cabecalhoAula}
-      </div>
-      <div class="ta-tarefa-desc">${esc(t.descricao)}</div>
-      <div class="ta-apoio-label">Texto de apoio</div>
-      <textarea class="ta-apoio-textarea" id="ta-apoio-${t.id}" placeholder="Anotações, resumo, pontos importantes..."
-        oninput="agendarTextoApoio('${t.id}',this.value)">${apoio}</textarea>
-      <div class="ta-tarefa-acoes">
-        <input type="checkbox" ${t.concluida ? 'checked' : ''} onchange="toggleTrilhaAula('${t.id}',this.checked)" title="Marcar como concluída">
-        <span style="font-size:.75rem;color:var(--text-muted)">Concluída</span>
-        <button class="btn-add-sem" onclick="abrirDrawer('${_discSlug(t.disciplinaNome)}_${String(t.num_tarefa).padStart(2,'0')}', ${JSON.stringify({descricao:t.descricao,tipo:t.tipo,disciplinaNome:t.disciplinaNome,num_tarefa:t.num_tarefa}).replace(/"/g,'&quot;')})">📖 Detalhes</button>
-        <button class="btn-add-sem" onclick="adicionarTAAsemana('${t.id}')" style="margin-left:auto">+ Semana</button>
-        <button class="btn-add-sem" onclick="apagarBlocoTrilha('${t.id}')" style="color:#f87171;border-color:rgba(239,68,68,.4)" title="Apagar bloco">🗑️ Apagar</button>
-      </div>
-    </div>`;
+    html += _blocoTrilhaHTML(t, primeiro);
   });
   html += `<button class="btn btn-ghost" style="margin-top:.5rem" onclick="adicionarBlocoTrilha('${discId}')">+ Adicionar bloco</button>`;
   el.innerHTML = html;
+  // Definir valores dos textareas após innerHTML para evitar restauração indevida pelo browser
+  docs.forEach(t => {
+    const ta = document.getElementById('ta-apoio-' + t.id);
+    if (ta) ta.value = t.texto_apoio || '';
+  });
 };
 
 window.adicionarBlocoTrilha = async (discId) => {
@@ -3602,7 +3610,16 @@ window.adicionarBlocoTrilha = async (discId) => {
   try {
     await setDoc(doc(db, 'concurso_trilha_aulas', novoId), novaTarefa);
     trilhaAulasCache[novoId] = { id: novoId, ...novaTarefa };
-    abrirDetalheTrilha(discId);
+    // Inserir o novo bloco diretamente no DOM, sem recriar a lista inteira
+    const el = document.getElementById('trilha-aulas-lista');
+    const btnAdicionar = el?.querySelector('.btn-ghost');
+    if (btnAdicionar) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = _blocoTrilhaHTML(trilhaAulasCache[novoId], true);
+      el.insertBefore(tmp.firstChild, btnAdicionar);
+    } else {
+      abrirDetalheTrilha(discId);
+    }
   } catch (e) { console.error(e); mostrarToast('Erro ao adicionar bloco', 'erro'); }
 };
 
