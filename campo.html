@@ -1057,25 +1057,49 @@ let _cronSemana    = null;
 let _cronLinhas    = [];
 let _cronLoadedKey = '';
 
-// Agrupa os setores do entrevistador por semana, usando mySectors carregado em carregarSetores()
+// Cache com todos os setores (todas as UPAs), independente do entrevistador.
+// Populado na primeira vez que o botão é clicado; reutilizado depois.
+let _allSemanasCache = null;
+
+async function _cronCarregarTodosSetores() {
+  if (_allSemanasCache) return;
+  try {
+    const [domSnap, locSnap] = await Promise.all([
+      getDocs(collection(db, 'domicilios')),
+      getDocs(collection(db, 'localidades_upa')).catch(() => ({ docs: [] })),
+    ]);
+    const locs = {};
+    locSnap.docs.forEach(d => { locs[d.id] = d.data().localidade || ''; });
+    const map = {};
+    domSnap.docs.forEach(d => {
+      const data = d.data();
+      if (!data.upa || data.arquivado) return;
+      if (!map[data.upa]) map[data.upa] = { upa: data.upa, localidade: locs[data.upa] || data.localidade || '', semanas: new Set() };
+      if (data.semana) map[data.upa].semanas.add(Number(data.semana));
+    });
+    _allSemanasCache = Object.values(map).sort((a, b) => a.upa.localeCompare(b.upa));
+  } catch(e) {
+    _allSemanasCache = [];
+  }
+}
+
 function _cronSetoresMesPorSemana() {
   const porSemana = {1:[],2:[],3:[],4:[]};
-  (mySectors || []).forEach(s => {
+  (_allSemanasCache || []).forEach(s => {
     for (let sem = 1; sem <= 4; sem++) {
-      if (s.doms.some(d => Number(d.semana) === sem)) {
-        porSemana[sem].push({ upa: s.upa, localidade: s.localidade });
-      }
+      if (s.semanas.has(sem)) porSemana[sem].push(s);
     }
   });
   return porSemana;
 }
 
-window.cronToggleSetoresMes = (e) => {
+window.cronToggleSetoresMes = async (e) => {
   e.stopPropagation();
   const existente = document.getElementById('cron-setores-mes-pop');
   if (existente) { existente.remove(); document.removeEventListener('mousedown', _cronSetoresMesOutside); return; }
   if (!_cronMes) return;
 
+  await _cronCarregarTodosSetores();
   const porSemana = _cronSetoresMesPorSemana();
   const mesNome   = _NOMES_MES[_cronMes] || ('Mês ' + _cronMes);
   const total     = Object.values(porSemana).reduce((n, l) => n + l.length, 0);
