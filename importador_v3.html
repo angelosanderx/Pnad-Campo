@@ -891,6 +891,7 @@ async function importarFirestore() {
           _existingTrimEtapa[docId] = {
             trimestre:    f.trimestre?.stringValue    || '',
             visita_etapa: f.visita_etapa?.stringValue || '',
+            arquivado:    f.arquivado?.booleanValue   || false,
           };
         }
       } else {
@@ -943,7 +944,7 @@ async function importarFirestore() {
     const docId = `${d.periodo}_${d.controle}_${d.domicilio_num}`;
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/domicilios/${docId}`;
 
-    if (_ehRegressao(_existingTrimEtapa[docId], d)) {
+    if (!_existingTrimEtapa[docId]?.arquivado && _ehRegressao(_existingTrimEtapa[docId], d)) {
       pulados++;
       const ex = _existingTrimEtapa[docId];
       addLog(`⏭ ${docId}: pulado — já existe trimestre/etapa mais recente salvo (${ex.trimestre || '—'}/etapa ${ex.visita_etapa || '—'} é mais novo que ${d.trimestre || '—'}/etapa ${d.visita_etapa || '—'} deste CSV)`, 'warn');
@@ -998,7 +999,19 @@ async function importarFirestore() {
       fields.tentativas_count_tel  = toInt(d.tentativas_count_tel);
       maskFields.push('tentativas_count', 'tentativas_count_pres', 'tentativas_count_tel');
     }
-    const _especiesMesclado = _mesclarEspecies(d.historico_especies, _existingHistorico[docId] || []);
+    // Detecta reabertura de ciclo: domicílio estava arquivado (etapa 5 de trimestre anterior)
+    // e agora entra como etapa 1 em um novo trimestre → reativa e limpa dados operacionais.
+    const _estaArquivado = _existingTrimEtapa[docId]?.arquivado === true;
+    const _ehNovoCiclo   = _estaArquivado && String(d.visita_etapa) === '1';
+    if (_ehNovoCiclo) {
+      fields.arquivado = { booleanValue: false };
+      maskFields.push('arquivado');
+      addLog(`♻️ ${docId}: domicílio arquivado reativado como etapa 1 (novo ciclo)`, 'ok');
+    }
+
+    const _especiesMesclado = _ehNovoCiclo
+      ? d.historico_especies   // novo ciclo: não mescla com histórico anterior (já salvo em historico_ciclos_anteriores)
+      : _mesclarEspecies(d.historico_especies, _existingHistorico[docId] || []);
     if (_especiesMesclado.length > 0) { fields.historico_especies = toArr(_especiesMesclado); maskFields.push('historico_especies'); }
     if (d.historico_telefones.length > 0) { fields.historico_telefones = toArr(d.historico_telefones); maskFields.push('historico_telefones'); }
     if (d.tentativas.length > 0) { fields.tentativas_recentes = toArr(d.tentativas); maskFields.push('tentativas_recentes'); }

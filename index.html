@@ -1697,6 +1697,26 @@
             🧹 Apagar todos os avisos
           </button>
           <div id="avisos-limpeza-status" style="margin-top:0.85rem;font-size:0.85rem"></div>
+
+          <hr class="divisor-secao" style="margin:1.5rem 0">
+
+          <p style="font-size:0.85rem;color:var(--cinza-escuro);margin-bottom:0.75rem">
+            <strong>Arquivar domicílios de etapa 5.</strong> Marca como <em>arquivados</em> todos os
+            domicílios do trimestre informado que estejam na etapa 5 — removendo-os do fluxo principal
+            (Dashboard, Pendências, listas e app de campo) e preservando todo o histórico. Se um domicílio
+            arquivado reaparecer em uma futura importação CSV como etapa 1, ele é automaticamente reativado.
+          </p>
+          <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.75rem">
+            <input id="arquivo-trimestre" type="text" placeholder="Ex: 2026T2"
+              style="border:1px solid var(--borda);border-radius:8px;padding:0.45rem 0.75rem;font-size:0.9rem;width:120px">
+            <button class="btn-acao" onclick="arquivarEtapa5()">
+              📦 Arquivar etapa 5
+            </button>
+            <button class="btn-acao secundario" onclick="desarquivarTodos()">
+              ↩️ Desarquivar todos
+            </button>
+          </div>
+          <div id="arquivo-status" style="margin-top:0.5rem;font-size:0.85rem"></div>
         </div>
       </div>
 
@@ -3220,7 +3240,7 @@ async function carregarDomicilios() {
       const data = { id: d.id, ...d.data() };
       if (data.qtd_moradores_pnad > 0) data._tem_moradores = true;
       return data;
-    }).filter(d => d.endereco);
+    }).filter(d => d.endereco && !d.arquivado);
     todosdomicilios = _todosdomiciliosGlobal.filter(pertencePeriodo);
     preencherFiltroEntrevistador();
     filtrarDomicilios();
@@ -8945,6 +8965,96 @@ window.apagarTodosAvisos = async () => {
   } catch(e) {
     console.error(e);
     statusDiv.innerHTML = '<div style="color:var(--vermelho);font-weight:600">❌ Erro. Veja o console.</div>';
+  }
+};
+
+// ── MANUTENÇÃO: arquivar domicílios de etapa 5 ──
+window.arquivarEtapa5 = async () => {
+  if (perfilLogado.perfil !== 'administrador') {
+    mostrarToast('Apenas administradores podem arquivar domicílios', 'erro'); return;
+  }
+  const statusDiv = document.getElementById('arquivo-status');
+  const trimestre = (document.getElementById('arquivo-trimestre').value || '').trim().toUpperCase();
+  if (!/^\d{4}T[1-4]$/.test(trimestre)) {
+    statusDiv.innerHTML = '<div style="color:var(--vermelho)">Informe um trimestre válido (ex: 2026T2).</div>';
+    return;
+  }
+
+  const alvos = _todosdomiciliosGlobal.filter(d =>
+    String(d.visita_etapa) === '5' && d.trimestre === trimestre && !d.arquivado
+  );
+  if (!alvos.length) {
+    statusDiv.innerHTML = `<div style="color:var(--cinza)">Nenhum domicílio de etapa 5 encontrado para ${trimestre}.</div>`;
+    return;
+  }
+  if (!confirm(`Arquivar ${alvos.length} domicílio(s) de etapa 5 do trimestre ${trimestre}?\n\nEles sairão do fluxo principal, mas o histórico será preservado. Se voltarem como etapa 1 na próxima importação CSV, serão reativados automaticamente.`)) return;
+
+  statusDiv.innerHTML = '<div style="color:var(--cinza)">⏳ Arquivando...</div>';
+  const BATCH_SIZE = 400;
+  let lote = writeBatch(db);
+  let ops = 0;
+  try {
+    for (const d of alvos) {
+      const ref = doc(db, 'domicilios', d.id);
+      const ciclosAnteriores = [
+        ...(d.historico_ciclos_anteriores || []),
+        { arquivado_em_trimestre: trimestre, especies: JSON.stringify(d.historico_especies || []) },
+      ];
+      lote.update(ref, {
+        arquivado: true,
+        arquivado_em: serverTimestamp(),
+        arquivado_trimestre: trimestre,
+        historico_ciclos_anteriores: ciclosAnteriores,
+        tentativas_recentes: [],
+        solicitacoes: [],
+      });
+      ops++;
+      if (ops === BATCH_SIZE) { await lote.commit(); lote = writeBatch(db); ops = 0; }
+    }
+    if (ops > 0) await lote.commit();
+    statusDiv.innerHTML = `<div style="color:var(--verde);font-weight:700">✅ ${alvos.length} domicílio(s) arquivado(s) do trimestre ${trimestre}.</div>`;
+    mostrarToast(`${alvos.length} domicílio(s) arquivado(s)`, 'sucesso');
+    await carregarDomicilios();
+    carregarDashboard().catch(console.error);
+  } catch(e) {
+    console.error(e);
+    statusDiv.innerHTML = '<div style="color:var(--vermelho);font-weight:600">❌ Erro ao arquivar. Veja o console.</div>';
+  }
+};
+
+window.desarquivarTodos = async () => {
+  if (perfilLogado.perfil !== 'administrador') {
+    mostrarToast('Apenas administradores podem desarquivar domicílios', 'erro'); return;
+  }
+  const statusDiv = document.getElementById('arquivo-status');
+  if (!confirm('Isso vai reativar TODOS os domicílios arquivados, devolvendo-os ao fluxo principal. Continuar?')) return;
+
+  statusDiv.innerHTML = '<div style="color:var(--cinza)">⏳ Buscando arquivados...</div>';
+  try {
+    const snap = await getDocs(collection(db, 'domicilios'));
+    const arquivados = snap.docs.filter(d => d.data().arquivado === true);
+    if (!arquivados.length) {
+      statusDiv.innerHTML = '<div style="color:var(--cinza)">Nenhum domicílio arquivado encontrado.</div>';
+      return;
+    }
+    if (!confirm(`Desarquivar ${arquivados.length} domicílio(s)?`)) return;
+
+    const BATCH_SIZE = 400;
+    let lote = writeBatch(db);
+    let ops = 0;
+    for (const d of arquivados) {
+      lote.update(d.ref, { arquivado: false });
+      ops++;
+      if (ops === BATCH_SIZE) { await lote.commit(); lote = writeBatch(db); ops = 0; }
+    }
+    if (ops > 0) await lote.commit();
+    statusDiv.innerHTML = `<div style="color:var(--verde);font-weight:700">✅ ${arquivados.length} domicílio(s) desarquivado(s).</div>`;
+    mostrarToast(`${arquivados.length} domicílio(s) reativado(s)`, 'sucesso');
+    await carregarDomicilios();
+    carregarDashboard().catch(console.error);
+  } catch(e) {
+    console.error(e);
+    statusDiv.innerHTML = '<div style="color:var(--vermelho);font-weight:600">❌ Erro ao desarquivar. Veja o console.</div>';
   }
 };
 

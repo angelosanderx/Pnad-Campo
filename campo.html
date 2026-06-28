@@ -1595,7 +1595,7 @@ async function carregarSetores() {
       ? query(collection(db, 'domicilios'))
       : query(collection(db, 'domicilios'), where('entrevistador_nome', '==', usuarioNome));
     const snap  = await getDocs(qDom);
-    const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const todos = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => !d.arquivado);
     const comCoord = todos.filter(d => d.latitude_kml && d.longitude_kml);
 
     if (todos.length === 0) {
