@@ -316,6 +316,17 @@ body{font-family:var(--fonte);background:var(--bg);color:var(--text);min-height:
 .btn-tempo.pular{color:var(--dim);font-weight:400;border-color:var(--border)}
 .btn-tempo.pular:hover{background:rgba(255,255,255,.05);color:var(--muted)}
 
+/* ── NOTA DA TAREFA ── */
+.trilha-nota-area{display:none;padding:.3rem 1rem .5rem 2.4rem;background:rgba(0,0,0,.12);border-bottom:1px solid rgba(255,255,255,.04)}
+.trilha-nota-area.aberto{display:block}
+.trilha-nota-input{width:100%;background:var(--bg-input);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--fonte);font-size:.8rem;padding:.4rem .6rem;resize:vertical;min-height:52px;outline:none;line-height:1.4;box-sizing:border-box}
+.trilha-nota-input:focus{border-color:var(--azul)}
+.trilha-row-label{cursor:pointer}
+.trilha-row-label:hover{opacity:.8}
+.tarefa-desc{cursor:pointer}
+.tarefa-desc:hover{opacity:.8}
+.nota-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--azul);margin-left:.35rem;vertical-align:middle;flex-shrink:0}
+
 /* ── UTILS ── */
 .loader{padding:2rem;text-align:center;color:var(--muted);font-size:.875rem}
 .vazio{padding:2rem;text-align:center;color:var(--dim);font-size:.875rem}
@@ -651,6 +662,8 @@ let materiasCache = [];   // [{id, nome, cor, ordem}]
 let tarefasCache  = [];   // [{id, materiaId, materiaNome, descricao, feita, semana, ordem}]
 let _paginaAtual  = 'dashboard';
 let _dropAtivo    = null; // id do mover-dropdown aberto
+const _notasAbertas = new Set();
+const _notaTimers   = {};
 
 // ─── tópicos por aula (índice do caderno de questões) ────────
 const TOPICOS_POR_AULA = [
@@ -765,6 +778,38 @@ function fecharModal(id) {
 function abrirModal(id) {
   document.getElementById(id).classList.add('visivel');
 }
+
+// ─── notas inline por tarefa ──────────────────────────────────
+function _placeholderNota(tipo) {
+  if (tipo === 'teoria') return 'Link da videoaula, notas…';
+  if (tipo === 'questoes_pdf' || tipo === 'questoes_anki') return 'Link do deck Anki, observações…';
+  if (tipo === 'questoes_site') return 'Link do caderno de questões…';
+  if (tipo === 'revisao' || tipo === 'revisao_geral_anki' || tipo === 'revisao_geral_site') return 'Anotações da revisão…';
+  return 'Link, anotações…';
+}
+
+function _renderNotaArea(t, colecao) {
+  const aberto = _notasAbertas.has(t.id);
+  const ph = _placeholderNota(t.tipo || '');
+  return `<div class="trilha-nota-area ${aberto?'aberto':''}" id="nota-area-${t.id}"><textarea class="trilha-nota-input" placeholder="${ph}" oninput="salvarNotaTarefa('${t.id}','${colecao}',this.value)">${esc(t.nota||'')}</textarea></div>`;
+}
+
+window.toggleNotaTarefa = (id) => {
+  if (_notasAbertas.has(id)) _notasAbertas.delete(id);
+  else _notasAbertas.add(id);
+  const el = document.getElementById('nota-area-' + id);
+  if (!el) return;
+  el.classList.toggle('aberto');
+  if (_notasAbertas.has(id)) setTimeout(() => el.querySelector('textarea')?.focus(), 40);
+};
+
+window.salvarNotaTarefa = (id, colecao, valor) => {
+  clearTimeout(_notaTimers[id]);
+  _notaTimers[id] = setTimeout(async () => {
+    try { await updateDoc(doc(db, colecao, id), {nota: valor}); }
+    catch(e) {}
+  }, 700);
+};
 
 // ─── navegação ───────────────────────────────────────────────
 const TITULOS = {
@@ -1061,11 +1106,12 @@ function renderizarTarefas() {
 
 function renderizarTarefaRow(t, sem, todasSemanas) {
   const cor = t.materiaCor || '#64748b';
-  return `<div class="tarefa-row" draggable="true" data-id="${t.id}" data-semana="${sem}" style="position:relative">
+  return `<div>
+  <div class="tarefa-row" draggable="true" data-id="${t.id}" data-semana="${sem}" style="position:relative">
     <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
     <input type="checkbox" class="tarefa-check" ${t.feita?'checked':''} onchange="toggleTarefa('${t.id}')">
     <span class="mat-badge" style="background:${cor}">${esc(t.materiaNome)}</span>
-    <span class="tarefa-desc ${t.feita?'feita':''}">${esc(t.descricao)}</span>
+    <span class="tarefa-desc ${t.feita?'feita':''}" onclick="toggleNotaTarefa('${t.id}')" title="Clique para anotações">${esc(t.descricao)}${t.nota?'<span class="nota-dot"></span>':''}</span>
     ${t.feita&&t.concluidoEm?`<span class="data-conc">✓ ${formatData(t.concluidoEm)}</span>`:''}
     <div style="position:relative">
       <button class="btn-mover" onclick="toggleDropdown('dd-${t.id}',event)" title="Mover para outra semana">⇄</button>
@@ -1082,7 +1128,9 @@ function renderizarTarefaRow(t, sem, todasSemanas) {
       </div>
     </div>
     <button class="btn-del" onclick="excluirTarefa('${t.id}')" title="Excluir">✕</button>
-  </div>`;
+  </div>
+  ${_renderNotaArea(t,'plano_tarefas')}
+</div>`;
 }
 
 window.toggleSemana = (sem) => {
@@ -1516,7 +1564,7 @@ function renderizarTrilhaRow(t) {
     <div class="trilha-row">
       <input type="checkbox" class="trilha-check" ${t.feita?'checked':''}
         onchange="toggleTrilhaTarefa('${t.id}')">
-      <span class="trilha-row-label ${t.feita?'feita':''}">${esc(t.label)}</span>
+      <span class="trilha-row-label ${t.feita?'feita':''}" onclick="toggleNotaTarefa('${t.id}')" title="Clique para anotações">${esc(t.label)}${t.nota?'<span class="nota-dot"></span>':''}</span>
       ${t.feita&&t.concluidoEm?`<span class="data-conc">✓ ${formatData(t.concluidoEm)}</span>`:''}
       <span class="trilha-tempo" id="ttempo-${t.id}" onclick="editarTrilhaTempo('${t.id}',event)"
         title="Clique para editar">${formatTempo(t.tempoMin)}</span>
@@ -1545,6 +1593,7 @@ function renderizarTrilhaRow(t) {
       </div>
     </div>
     ${subsHtml}
+    ${_renderNotaArea(t,'trilha_cont_tarefas')}
   </div>`;
 }
 
@@ -1704,6 +1753,8 @@ window.abrirTopicosAula = (aulaNum) => {
 
 window.fecharModalTopicos = () => {
   document.getElementById('modal-topicos').classList.remove('visivel');
+  document.querySelector('.topico-add-row').style.display = '';
+  document.querySelector('#modal-topicos .btn-restaurar-topicos').style.display = '';
   _modalTopicoAula = null;
   _notasChaveAtiva = null;
 };
@@ -1873,7 +1924,7 @@ function fecharMenuTrilhaTarefa() {
 
 document.addEventListener('click', () => {
   fecharMenuTrilhaTarefa(); fecharTrilhaSemDD();
-  fecharMenuTrilhaPortTarefa(); fecharTrilhaPortSemDD();
+  fecharMenuTrilhaPortTarefa(); fecharTrilhaPortSemDD(); fecharMenuTopicoPort(); fecharPortColorDD();
   Object.values(_TRILHA).forEach(m => { m.fecharMenuTarefa(); m.fecharSemDD(); });
 });
 
@@ -2078,71 +2129,109 @@ window.agendarTrilha = async (id, semana) => {
 };
 
 // ─── TRILHA: PORTUGUÊS ───────────────────────────────────────
-const TOPICOS_PORT = [
-  // Grupo 0
-  {label:'Fonética',                                        subdecks:['02 — Fonemas, Dígrafos, Encontros Consonantais e Vocálicos, Separação Silábica']},
-  {label:'Ortografia I — Emprego das Letras e Maiúscula',   subdecks:['01.01 — Ortografia: Casos Gerais e Emprego das Letras','01.03 — Inicial Maiúscula','01.06 — Convenções de Escrita (Itálico, Siglas etc.)']},
-  {label:'Ortografia II — Acentuação, Hífen e Fatos da Língua', subdecks:['01.02 — Porque, Por que, Porquê, Por Quê; Onde, Aonde','01.04 — Acentuação','01.05 — Uso do Hífen']},
-  // Grupo 1
-  {label:'Morfologia — Formação de Palavras e Classes Nominais', subdecks:['03.01 — Formação e Estrutura das Palavras','03.02.01 — Artigo','03.02.02 — Substantivo','03.02.03 — Adjetivo','03.02.07 — Numeral']},
-  {label:'Morfologia — Verbo',                              subdecks:['03.02.04 — Verbo (questões gerais)','03.02.04.01 — Conjugação: Modos e Tempos Verbais','03.02.04.02 — Correlação Verbal','03.02.04.03 — Locução Verbal']},
-  {label:'Morfologia — Pronomes e Colocação Pronominal',    subdecks:['03.02.05.01 — Pronomes Pessoais','03.02.05.02 — Pronomes de Tratamento','03.02.05.03 — Pronomes Possessivos','03.02.05.04 — Pronomes Indefinidos','03.02.05.05 — Pronomes Interrogativos','03.02.05.06 — Pronomes Demonstrativos','03.02.05.07 — Pronomes Relativos','04 — Colocação Pronominal']},
-  // Grupo 2
-  {label:'Morfologia — Classes Invariáveis',                subdecks:['03.02.06 — Advérbio','03.02.08 — Preposição','03.02.09 — Conjunção','03.02.10 — Interjeição']},
-  {label:'Semântica',                                       subdecks:['05.01 — Sinônimos e Antônimos','05.02 — Homônimos e Parônimos','05.03 — Denotação e Conotação','05.04 — Polissemia','05.06 — Significação de Vocábulos e Expressões']},
-  {label:'Sintaxe I — Funções Sintáticas',                  subdecks:['06.01 — Frase, Oração e Período','06.02.01.01 — Sujeito','06.02.01.02 — Predicado','06.02.02 — Termos Integrantes (OD, OI, Complemento Nominal, Agente)','06.02.03 — Termos Acessórios (Adjunto Adnominal, Adverbial, Aposto)','06.02.04 — Adjunto Adnominal x Complemento Nominal']},
-  // Grupo 3
-  {label:'Sintaxe II — Orações e Períodos',                 subdecks:['06.03 — Orações Coordenadas','06.04 — Orações Subordinadas Substantivas','06.05 — Orações Subordinadas Adjetivas','06.06 — Orações Subordinadas Adverbiais','06.07 — Orações Reduzidas','06.08 — Funções Sintáticas dos Pronomes Relativos','06.09 — Função Sintática dos Pronomes Pessoais Átonos']},
-  {label:'Pontuação',                                       subdecks:['07 — Pontuação (Ponto, Vírgula, Travessão, Aspas, Parênteses etc.)']},
-  {label:'Regência, Crase e Concordância',                  subdecks:['08.01 — Regência Nominal e Verbal','08.02 — Crase','09 — Concordância Verbal e Nominal']},
-  // Grupo 4
-  {label:'Vozes Verbais, Coerência e Coesão',               subdecks:['10 — Vozes (Voz Passiva e Voz Ativa)','11 — Coerência. Coesão (Anáfora, Catáfora, Conectores)']},
-  {label:'Linguagem — Figuras, Vícios e Funções',           subdecks:['13.01 — Variações da Linguagem: Regional, Histórica, Contextual, Neologismos','13.02 — Linguagem Formal e Informal','13.03 — Figuras de Linguagem','13.04 — Vícios de Linguagem (Pleonasmo, Ambiguidade, Cacofonia etc.)','13.05 — Elementos da Comunicação e Funções da Linguagem']},
-  {label:'Tipos de Discurso, Partícula "Se", "Como" e "Que"', subdecks:['12 — Tipos de Discurso (Direto, Indireto e Indireto Livre)','14 — Partícula "Se"','15 — Vocábulo "Como"','16 — Vocábulo "Que"']},
-  // Grupo 5
-  {label:'Interpretação de Textos e Tipologia Textual',     subdecks:['17 — Interpretação de Textos (Compreensão)','18 — Tipologia e Gênero Textual']},
-  {label:'Paralelismo, Reescrita e Clareza',                subdecks:['19 — Paralelismo','20 — Reescrita de Frases. Substituição de Palavras ou Trechos','21 — Clareza e Correção']},
-  {label:'Questões Mescladas e Simulado Final',             subdecks:['22 — Outras Questões de Português e Questões Mescladas']},
+const TOPICOS_POR_AULA_PORT = [
+  '01 · Ortografia — 01.01 · Casos Gerais e Emprego das Letras',
+  '01 · Ortografia — 01.02 · Fatos da Língua Portuguesa',
+  '01 · Ortografia — 01.04 · Acentuação',
+  '01 · Ortografia — 01.05 · Uso do Hífen',
+  '01 · Ortografia — 01.06 · Convenções de Escrita',
+  '02 · Fonética e Fonologia',
+  '03.01 · Formação e Estrutura das Palavras',
+  '03.02 · Classes de Palavras — 03.02.01 · Artigo',
+  '03.02 · Classes de Palavras — 03.02.02 · Substantivo',
+  '03.02 · Classes de Palavras — 03.02.03 · Adjetivo',
+  '03.02.04 · Verbo — 03.02.04.01 · Conjugação e Tempos Verbais',
+  '03.02.04 · Verbo — 03.02.04.02 · Correlação Verbal',
+  '03.02 · Classes de Palavras — 03.02.05 · Pronomes',
+  '03.02 · Classes de Palavras — 03.02.06 · Advérbio',
+  '03.02 · Classes de Palavras — 03.02.07 · Numeral',
+  '03.02 · Classes de Palavras — 03.02.08 · Preposição',
+  '03.02 · Classes de Palavras — 03.02.09 · Conjunção',
+  '03.02 · Classes de Palavras — 03.02.10 · Interjeição',
+  '04 · Colocação Pronominal',
+  '05 · Semântica — 05.01 · Sinônimos e Antônimos',
+  '05 · Semântica — 05.02 · Homônimos e Parônimos',
+  '05 · Semântica — 05.03 · Denotação e Conotação',
+  '05 · Semântica — 05.06 · Significação de Vocábulos',
+  '06.02 · Funções Sintáticas',
+  '06.03 · Orações Coordenadas',
+  '06.04 · Orações Subord. Substantivas',
+  '06.05 · Orações Subord. Adjetivas',
+  '06.06 · Orações Subord. Adverbiais',
+  '07 · Pontuação',
+  '08.01 · Regência Nominal e Verbal',
+  '08.02 · Crase',
+  '09 · Concordância',
+  '10 · Vozes Verbais',
+  '11 · Coerência e Coesão',
+  '13.01 · Variações da Linguagem',
+  '13.02 · Linguagem Formal e Informal',
+  '13.05 · Funções da Linguagem',
+  '17 · Interpretação de Textos',
+  '18 · Tipologia e Gênero Textual',
+  '20 · Reescrita de Frases',
 ];
 
-let trilhaPort = [];
-let _trilhaPortCarregada = false;
+let trilhaPort            = [];
+let _trilhaPortCarregada  = false;
 const _trilhaPortSecAberta  = new Set();
 const _trilhaPortSubsAberto = new Set();
 let _trilhaPortSemDD  = null;
 let _trilhaPortMenuDD = null;
+let _portDragSrcAula  = null;
+let _portDragSrcTask  = null;
+let _portDragOverEl   = null;
 
+// ── Config de ordem dos tópicos (localStorage) ───────────────
+function _loadPortTopicoCfg() {
+  try {
+    const s = localStorage.getItem('port_trilha_topicos_v1');
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return { order: TOPICOS_POR_AULA_PORT.map((_,i)=>i), labels: {}, colors: {}, nextIdx: TOPICOS_POR_AULA_PORT.length };
+}
+function _savePortTopicoCfg(cfg) {
+  try { localStorage.setItem('port_trilha_topicos_v1', JSON.stringify(cfg)); } catch(e) {}
+}
+function _portTopicLabel(idx) {
+  const cfg = _loadPortTopicoCfg();
+  return cfg.labels[idx] !== undefined ? cfg.labels[idx] : (TOPICOS_POR_AULA_PORT[idx] || `Tópico ${idx}`);
+}
+function _portTopicColor(idx) {
+  const cfg = _loadPortTopicoCfg();
+  return cfg.colors?.[idx] || null;
+}
+let _portMenuSecDD = null;
+
+// ── Template ─────────────────────────────────────────────────
 function _gerarTemplateTrilhaPort() {
   const ts = []; let ord = 0;
-  const N = TOPICOS_PORT.length;
-  const GRUPOS = Math.ceil(N / 3);
-  for (let g = 0; g < GRUPOS; g++) {
+  const N = TOPICOS_POR_AULA_PORT.length;
+  for (let g = 0; g < Math.ceil(N/3); g++) {
     for (let i = 0; i < 3; i++) {
-      const t = g*3+i; if (t >= N) continue;
-      const top = TOPICOS_PORT[t];
-      ts.push({tipo:'teoria',        topicoNum:t, grupoRevisao:null, label:'Teoria',                       ordem:ord++, feita:false, semana:null, subtarefas:[], temQuestoes:false, certas:0, erradas:0, tempoMin:90});
-      ts.push({tipo:'questoes_anki', topicoNum:t, grupoRevisao:null, label:'Questões Anki (Bloco 1)',      ordem:ord++, feita:false, semana:null,
-        subtarefas: top.subdecks.map((sd,si) => ({id:`sd${si}`,label:sd,feita:false})),
-        temQuestoes:true, certas:0, erradas:0, tempoMin:90});
-      ts.push({tipo:'revisao',       topicoNum:t, grupoRevisao:null, label:'Revisão',                      ordem:ord++, feita:false, semana:null, temQuestoes:false, certas:0, erradas:0, tempoMin:90,
-        subtarefas:[{id:'qe',label:'Analisar questões erradas do Anki',feita:false},{id:'es',label:'Fazer esquemas e resumos',feita:false}]});
-      ts.push({tipo:'questoes_site', topicoNum:t, grupoRevisao:null, label:'Questões do Site de Questões', ordem:ord++, feita:false, semana:null, subtarefas:[], temQuestoes:true, certas:0, erradas:0, tempoMin:90});
+      const a = g*3+i; if (a >= N) continue;
+      ts.push({tipo:'teoria',        aulaNum:a, grupoRevisao:null, label:'Teoria',                         ordem:ord++, feita:false, semana:null, subtarefas:[], temQuestoes:false, certas:0, erradas:0, tempoMin:90});
+      ts.push({tipo:'questoes_pdf',  aulaNum:a, grupoRevisao:null, label:'Questões do PDF (Bloco 1 Anki)', ordem:ord++, feita:false, semana:null, subtarefas:[], temQuestoes:true,  certas:0, erradas:0, tempoMin:90});
+      ts.push({tipo:'revisao',       aulaNum:a, grupoRevisao:null, label:'Revisão',                        ordem:ord++, feita:false, semana:null, temQuestoes:false, certas:0, erradas:0, tempoMin:90,
+        subtarefas:[{id:'qe',label:'Analisar as questões erradas do PDF',feita:false},{id:'es',label:'Fazer esquemas e resumos',feita:false}]});
+      ts.push({tipo:'questoes_site', aulaNum:a, grupoRevisao:null, label:'Questões do Site de Questões',   ordem:ord++, feita:false, semana:null, subtarefas:[], temQuestoes:true,  certas:0, erradas:0, tempoMin:90});
     }
-    const topicsG = [g*3,g*3+1,g*3+2].filter(t => t < N);
-    ts.push({tipo:'revisao_geral_anki', topicoNum:null, grupoRevisao:g, label:'Revisão Geral (Anki Bloco 2)', ordem:ord++, feita:false, semana:null, temQuestoes:false, certas:0, erradas:0, tempoMin:90, topicoGrupo:topicsG,
-      subtarefas:[...topicsG.map(t=>({id:`b2_${t}`,label:`Anki Bloco 2 — ${TOPICOS_PORT[t].label}`,feita:false})), {id:'rf',label:'Refinar estudo da teoria',feita:false}]});
-    ts.push({tipo:'revisao_geral_site', topicoNum:null, grupoRevisao:g, label:'Revisão Geral pelo Site de Questões', ordem:ord++, feita:false, semana:null, temQuestoes:false, certas:0, erradas:0, tempoMin:90, topicoGrupo:topicsG,
-      subtarefas:[{id:'cd',label:`Questões mescladas (${topicsG.map(t=>TOPICOS_PORT[t].label).join(', ')})`,feita:false}]});
+    const aulasG  = [g*3,g*3+1,g*3+2].filter(a=>a<N);
+    const aulaStr = aulasG.map(a=>`Tópico ${String(a+1).padStart(2,'0')}`).join(', ');
+    ts.push({tipo:'revisao_geral_anki',  aulaNum:null, grupoRevisao:g, label:'Revisão Geral', ordem:ord++, feita:false, semana:null, temQuestoes:false, certas:0, erradas:0, tempoMin:90, aulaGrupo:aulasG,
+      subtarefas:[...aulasG.map(a=>({id:`b2_${a}`,label:`Questões do PDF (Bloco 2) — ${TOPICOS_POR_AULA_PORT[a]}`,feita:false})),{id:'rf',label:'Refinar estudo da teoria',feita:false}]});
+    ts.push({tipo:'revisao_geral_site',  aulaNum:null, grupoRevisao:g, label:'Revisão Geral pelo Site de Questões', ordem:ord++, feita:false, semana:null, temQuestoes:false, certas:0, erradas:0, tempoMin:90, aulaGrupo:aulasG,
+      subtarefas:[{id:'cd',label:`Cadernos de questões (${aulaStr})`,feita:false}]});
   }
   return ts;
 }
 
+// ── Firebase ─────────────────────────────────────────────────
 async function carregarTrilhaPort() {
   const snap = await getDocs(collection(db,'trilha_port_tarefas'));
   trilhaPort = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.ordem??0)-(b.ordem??0));
   _trilhaPortCarregada = true;
 }
-
 async function gerarTrilhaPort() {
   const tpl = _gerarTemplateTrilhaPort();
   const bat = writeBatch(db);
@@ -2150,162 +2239,135 @@ async function gerarTrilhaPort() {
   await bat.commit();
   await carregarTrilhaPort();
 }
-
 window.retryTrilhaPort = () => { _trilhaPortCarregada = false; trilhaPort = []; renderizarTrilhaPort(); };
-
 window.resetarTrilhaPort = async () => {
-  if (!confirm('Isso vai APAGAR toda a trilha atual (progresso, checks, questões) e regenerar do zero. Confirma?')) return;
+  if (!confirm('Apagar toda a trilha e regenerar do zero? Progresso será perdido.')) return;
   const area = document.getElementById('trilha-port-conteudo');
-  area.innerHTML = '<div class="loader">Apagando trilha atual…</div>';
+  area.innerHTML = '<div class="loader">Apagando…</div>';
   try {
     const snap = await getDocs(collection(db,'trilha_port_tarefas'));
-    const ids   = snap.docs.map(d => d.id);
-    for (let i = 0; i < ids.length; i += 400) {
-      const bat = writeBatch(db);
-      ids.slice(i, i+400).forEach(id => bat.delete(doc(db,'trilha_port_tarefas',id)));
-      await bat.commit();
-    }
-    trilhaPort = []; _trilhaPortCarregada = false;
-    area.innerHTML = '<div class="loader">Gerando nova trilha…</div>';
-    await gerarTrilhaPort();
-    renderizarTrilhaPort();
-    mostrarToast('Trilha regenerada com sucesso!','sucesso');
-  } catch(e) {
-    area.innerHTML = '<div class="vazio">Erro ao resetar.</div>';
-    mostrarToast('Erro: '+e.message,'erro');
-  }
+    const ids = snap.docs.map(d=>d.id);
+    for (let i=0;i<ids.length;i+=400){ const bat=writeBatch(db); ids.slice(i,i+400).forEach(id=>bat.delete(doc(db,'trilha_port_tarefas',id))); await bat.commit(); }
+    trilhaPort=[]; _trilhaPortCarregada=false;
+    localStorage.removeItem('port_trilha_topicos_v1');
+    area.innerHTML='<div class="loader">Gerando…</div>';
+    await gerarTrilhaPort(); renderizarTrilhaPort(); mostrarToast('Trilha regenerada!','sucesso');
+  } catch(e){ area.innerHTML='<div class="vazio">Erro.</div>'; mostrarToast('Erro: '+e.message,'erro'); }
 };
-
 window.iniciarGeracaoTrilhaPort = async () => {
   const area = document.getElementById('trilha-port-conteudo');
-  const n = _gerarTemplateTrilhaPort().length;
-  area.innerHTML = `<div class="loader">Gerando ${n} tarefas no Firebase…</div>`;
-  try {
-    await gerarTrilhaPort();
-    renderizarTrilhaPort();
-    mostrarToast('Trilha gerada com sucesso!','sucesso');
-  } catch(e) {
-    area.innerHTML = '<div class="vazio">Erro ao gerar trilha.</div>';
-    mostrarToast('Erro: '+e.message,'erro');
-  }
+  area.innerHTML=`<div class="loader">Gerando ${_gerarTemplateTrilhaPort().length} tarefas…</div>`;
+  try{ await gerarTrilhaPort(); renderizarTrilhaPort(); mostrarToast('Trilha gerada!','sucesso'); }
+  catch(e){ area.innerHTML='<div class="vazio">Erro.</div>'; mostrarToast('Erro: '+e.message,'erro'); }
 };
 
+// ── Render principal ─────────────────────────────────────────
 async function renderizarTrilhaPort() {
-  const sub  = document.getElementById('trilha-port-subtitulo');
-  const area = document.getElementById('trilha-port-conteudo');
+  const sub=document.getElementById('trilha-port-subtitulo'), area=document.getElementById('trilha-port-conteudo');
   if (!sub||!area) return;
-
   if (!_trilhaPortCarregada) {
-    area.innerHTML = '<div class="loader">Carregando trilha…</div>';
-    try {
-      await carregarTrilhaPort();
-    } catch(e) {
-      area.innerHTML = `<div class="trilha-placeholder">
-        <div style="font-size:1.8rem;margin-bottom:.5rem">⚠️</div>
-        <strong>Erro ao carregar trilha</strong>
-        <p style="color:var(--vermelho);font-size:.8rem;margin-top:.5rem">${esc(e.message||String(e))}</p>
-        <button class="trilha-gerar-btn" style="background:var(--muted)" onclick="retryTrilhaPort()">Tentar novamente</button>
-      </div>`;
-      sub.textContent = 'Erro ao carregar';
-      return;
+    area.innerHTML='<div class="loader">Carregando trilha…</div>';
+    try { await carregarTrilhaPort(); }
+    catch(e) {
+      area.innerHTML=`<div class="trilha-placeholder"><strong>Erro ao carregar</strong><p style="color:var(--vermelho);font-size:.8rem">${esc(e.message)}</p><button class="trilha-gerar-btn" style="background:var(--muted)" onclick="retryTrilhaPort()">Tentar novamente</button></div>`;
+      sub.textContent='Erro'; return;
     }
   }
-
   try {
     if (!trilhaPort.length) {
-      sub.textContent = 'Trilha não iniciada';
-      area.innerHTML = `<div class="trilha-placeholder">
-        <div style="font-size:2.5rem;margin-bottom:.5rem">📝</div>
-        <strong style="font-size:1rem">Português</strong>
-        <p>Gere a trilha completa automaticamente com ${_gerarTemplateTrilhaPort().length} tarefas organizadas por tópico.</p>
-        <button class="trilha-gerar-btn" onclick="iniciarGeracaoTrilhaPort()">Gerar Trilha Completa</button>
-        <button onclick="abrirGerenciarTrilha('port')" style="margin-top:.6rem;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:.8rem;padding:.4rem .9rem;cursor:pointer;font-family:var(--fonte)">⚙ Personalizar tópicos</button>
-      </div>`;
+      sub.textContent='Trilha não iniciada';
+      area.innerHTML=`<div class="trilha-placeholder"><div style="font-size:2.5rem;margin-bottom:.5rem">📝</div><strong>Português</strong><p>Gere a trilha com ${_gerarTemplateTrilhaPort().length} tarefas organizadas por tópico.</p><button class="trilha-gerar-btn" onclick="iniciarGeracaoTrilhaPort()">Gerar Trilha Completa</button></div>`;
       return;
     }
-
-    const total   = trilhaPort.length;
-    const feitas  = trilhaPort.filter(t=>t.feita).length;
-    const pct     = total ? Math.round(feitas/total*100) : 0;
-    const certas  = trilhaPort.reduce((s,t)=>s+(t.certas||0),0);
-    const erradas = trilhaPort.reduce((s,t)=>s+(t.erradas||0),0);
-    const acerto  = (certas+erradas) ? Math.round(certas/(certas+erradas)*100) : 0;
-    const corA    = acerto>=70?'var(--verde)':acerto>=50?'var(--laranja)':'var(--vermelho)';
-
-    sub.textContent = `${feitas}/${total} tarefas · ${pct}%`;
-
-    area.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;margin-bottom:.4rem">
-        <button onclick="abrirGerenciarTrilha('port')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.72rem;padding:.25rem .65rem;cursor:pointer;font-family:var(--fonte);transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color=''">⚙ Gerenciar tópicos</button>
-      </div>
+    const total=trilhaPort.length, feitas=trilhaPort.filter(t=>t.feita).length, pct=total?Math.round(feitas/total*100):0;
+    const certas=trilhaPort.reduce((s,t)=>s+(t.certas||0),0), erradas=trilhaPort.reduce((s,t)=>s+(t.erradas||0),0);
+    const acerto=(certas+erradas)?Math.round(certas/(certas+erradas)*100):0;
+    const corA=acerto>=70?'var(--verde)':acerto>=50?'var(--laranja)':'var(--vermelho)';
+    sub.textContent=`${feitas}/${total} tarefas · ${pct}%`;
+    const secs=_secoesPort();
+    area.innerHTML=`
       <div class="trilha-stats" id="trilha-port-stats-cards">
-        <div class="trilha-stat-card">
-          <div class="trilha-stat-val" style="color:var(--azul)">${feitas}/${total}</div>
-          <div class="trilha-stat-label">Progresso geral</div>
-          <div class="barra-wrap" style="margin-top:.5rem">
-            <div class="barra-fill ${pct===100?'bom':pct<40?'alerta':''}" style="width:${pct}%"></div>
-          </div>
-          <div class="trilha-stat-sub">${pct}% concluído</div>
-        </div>
-        <div class="trilha-stat-card">
-          <div class="trilha-stat-val" style="color:${corA}">${(certas+erradas)?acerto+'%':'—'}</div>
-          <div class="trilha-stat-label">Acerto em questões</div>
-          <div class="trilha-stat-sub">
-            <span style="color:var(--verde)">✓ ${certas}</span>&nbsp;&nbsp;
-            <span style="color:var(--vermelho)">✗ ${erradas}</span>
-          </div>
-        </div>
+        <div class="trilha-stat-card"><div class="trilha-stat-val" style="color:var(--azul)">${feitas}/${total}</div><div class="trilha-stat-label">Progresso geral</div><div class="barra-wrap" style="margin-top:.5rem"><div class="barra-fill ${pct===100?'bom':pct<40?'alerta':''}" style="width:${pct}%"></div></div><div class="trilha-stat-sub">${pct}% concluído</div></div>
+        <div class="trilha-stat-card"><div class="trilha-stat-val" style="color:${corA}">${(certas+erradas)?acerto+'%':'—'}</div><div class="trilha-stat-label">Acerto em questões</div><div class="trilha-stat-sub"><span style="color:var(--verde)">✓ ${certas}</span>&nbsp;&nbsp;<span style="color:var(--vermelho)">✗ ${erradas}</span></div></div>
       </div>
-      ${_secoesPort().map(sec => renderizarTrilhaPortSecao(sec)).join('')}`;
+      ${secs.map(sec=>renderizarTrilhaPortSecao(sec)).join('')}
+      <button onclick="adicionarTopicoPort()"
+        style="display:block;width:100%;margin-top:.75rem;padding:.6rem;border:2px dashed var(--border2);border-radius:8px;background:none;color:var(--muted);cursor:pointer;font-size:.85rem;font-family:var(--fonte);transition:all .15s"
+        onmouseover="this.style.borderColor='var(--azul)';this.style.color='var(--azul)'"
+        onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">＋ Adicionar tópico</button>`;
   } catch(e) {
-    console.error('[TrilhaPort] Erro ao renderizar:', e);
-    area.innerHTML = `<div class="trilha-placeholder">
-      <div style="font-size:1.8rem;margin-bottom:.5rem">⚠️</div>
-      <strong>Erro ao exibir trilha</strong>
-      <p style="color:var(--vermelho);font-size:.8rem;margin-top:.5rem">${esc(e.message||String(e))}</p>
-      <button class="trilha-gerar-btn" style="background:var(--muted)" onclick="retryTrilhaPort()">Tentar novamente</button>
-    </div>`;
+    console.error('[TrilhaPort]',e);
+    area.innerHTML=`<div class="trilha-placeholder"><strong>Erro ao exibir</strong><p style="color:var(--vermelho);font-size:.8rem">${esc(e.message)}</p><button class="trilha-gerar-btn" style="background:var(--muted)" onclick="retryTrilhaPort()">Tentar novamente</button></div>`;
   }
 }
 
 function _secoesPort() {
-  const N=TOPICOS_PORT.length, GRUPOS=Math.ceil(N/3);
-  const cfg=_carregarCfgTrilha('port');
-  const labels=cfg.labels||{}, hidden=cfg.hidden||[], extras=cfg.extras||[], order=cfg.order||null;
-  const baseNums=TOPICOS_PORT.map((_,i)=>i);
-  const extNums=extras.map(e=>e.num);
-  const allNums=[...baseNums,...extNums];
-  const ordered=order?[...order.filter(n=>allNums.includes(n)),...allNums.filter(n=>!order.includes(n))]:allNums;
-  const secs=[];
-  ordered.filter(n=>!hidden.includes(n)).forEach(n=>{
-    const baseLabel=n<N?TOPICOS_PORT[n].label:(extras.find(e=>e.num===n)?.label||`Tópico ${n}`);
-    secs.push({ key:`pt${String(n).padStart(2,'0')}`, tipo:'topico', topicoNum:n,
-      label:labels[n]!==undefined?labels[n]:baseLabel,
-      tarefas:trilhaPort.filter(x=>x.topicoNum===n).sort((a,b)=>a.ordem-b.ordem) });
-  });
-  for (let g=0; g<GRUPOS; g++) {
-    const lastIdx=Math.min(g*3+2,N-1);
-    secs.push({ key:`prg${g}`, tipo:'revisao',
-      label:`Revisão Geral — ${TOPICOS_PORT[g*3].label} → ${TOPICOS_PORT[lastIdx].label}`,
-      tarefas:trilhaPort.filter(x=>x.grupoRevisao===g).sort((a,b)=>a.ordem-b.ordem) });
+  const cfg=_loadPortTopicoCfg(), order=cfg.order, secs=[];
+  for (let g=0; g<Math.ceil(order.length/3); g++) {
+    const block=order.slice(g*3,g*3+3);
+    for (const aulaNum of block) {
+      const key=`pt${String(aulaNum).padStart(3,'0')}`;
+      secs.push({key,tipo:'topico',aulaNum,label:_portTopicLabel(aulaNum),
+        tarefas:trilhaPort.filter(t=>t.aulaNum===aulaNum).sort((x,y)=>x.ordem-y.ordem)});
+    }
+    const key2=`prg${g}`;
+    const revTs=trilhaPort.filter(t=>t.grupoRevisao===g).sort((x,y)=>x.ordem-y.ordem);
+    if (revTs.length>0) {
+      const first=String(g*3+1).padStart(2,'0'), last=String(Math.min(g*3+3,order.length)).padStart(2,'0');
+      secs.push({key:key2,tipo:'revisao',grupoRevisao:g,label:`Revisão Geral — Tópicos ${first}–${last}`,tarefas:revTs});
+    }
   }
   return secs;
 }
 
+const _PORT_CORES=['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#6b7280'];
 function renderizarTrilhaPortSecao(sec) {
-  const ts     = sec.tarefas;
-  const feitas = ts.filter(t=>t.feita).length;
-  const isOpen = _trilhaPortSecAberta.has(sec.key);
-  const eRev   = sec.tipo==='revisao';
-  const dots   = ts.map(t=>`<div class="trilha-dot ${t.feita?'feita':''}"></div>`).join('');
-  return `<div class="trilha-secao ${eRev?'revisao-geral':''}">
-    <div class="trilha-secao-header" onclick="toggleTrilhaPortSecao('${sec.key}')">
-      <span class="trilha-secao-toggle ${isOpen?'aberto':''}" id="ptsec-tog-${sec.key}">▶</span>
-      <span class="trilha-secao-titulo">${eRev?'🔄 '+esc(sec.label):`<span class="aula-titulo-link" onclick="event.stopPropagation();abrirNotasSecao('port','${sec.key}')">${esc(sec.label)}<span class="aula-info-icon">ℹ</span></span>`}</span>
-      <div class="trilha-secao-prog">
-        <div class="trilha-dots">${dots}</div>
-        <span class="trilha-secao-count">${feitas}/${ts.length}</span>
+  const ts=sec.tarefas, feitas=ts.filter(t=>t.feita).length, isOpen=_trilhaPortSecAberta.has(sec.key);
+  const eRev=sec.tipo==='revisao';
+  const dots=ts.map(t=>`<div class="trilha-dot ${t.feita?'feita':''}"></div>`).join('');
+  const cor=!eRev?_portTopicColor(sec.aulaNum):null;
+  const corStyle=cor?`border-left:3px solid ${cor};`:'';
+  const corHdr=cor?`background:${cor}12;`:'';
+
+  const dragHandle=!eRev
+    ?`<span class="drag-handle" draggable="true" ondragstart="portSecDragStart(${sec.aulaNum},event)" ondragend="portSecDragEnd(event)" onclick="event.stopPropagation()" title="Arrastar">⠿</span>`
+    :`<span style="width:1.2rem;flex-shrink:0"></span>`;
+
+  const secMenu=!eRev?`
+    <div style="position:relative;flex-shrink:0" onclick="event.stopPropagation()">
+      <button onclick="toggleMenuTopicoPort(${sec.aulaNum},event)"
+        style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:.1rem .3rem;opacity:.5;transition:opacity .15s"
+        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.5'" title="Opções">⋮</button>
+      <div id="ptsmdd-${sec.aulaNum}" style="display:none;position:fixed;right:0;top:0;z-index:9999;background:var(--bg-card);border:1px solid var(--border2);border-radius:8px;padding:.4rem;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:170px">
+        <div class="trilha-menu-opt" onclick="duplicarTopicoPort(${sec.aulaNum})">⎘ Duplicar tópico</div>
+        <div class="trilha-menu-sep"></div>
+        <div class="trilha-menu-opt" onclick="abrirColorPickerPort(${sec.aulaNum})">${cor?`<span style="display:inline-block;width:.7rem;height:.7rem;border-radius:50%;background:${cor};margin-right:.35rem;vertical-align:middle"></span>`:''}🎨 Mudar cor</div>
+        <div class="trilha-menu-sep"></div>
+        <div class="trilha-menu-opt danger" onclick="excluirTopicoPort(${sec.aulaNum})">✕ Excluir tópico</div>
       </div>
+      <div id="pclr-${sec.aulaNum}" style="display:none;position:fixed;right:0;top:0;z-index:9999;background:var(--bg-card);border:1px solid var(--border2);border-radius:8px;padding:.6rem;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:170px">
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem;font-weight:600;letter-spacing:.03em">COR DO TÓPICO</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.5rem">
+          ${_PORT_CORES.map(c=>`<button onclick="setTopicoPortColor(${sec.aulaNum},'${c}')" style="width:1.5rem;height:1.5rem;border-radius:50%;border:2px solid ${cor===c?'#fff':'transparent'};background:${c};cursor:pointer;transition:border-color .1s" onmouseover="this.style.borderColor='#fff'" onmouseout="this.style.borderColor='${cor===c?'#fff':'transparent'}'" title="${c}"></button>`).join('')}
+        </div>
+        <div class="trilha-menu-sep"></div>
+        <div class="trilha-menu-opt" onclick="setTopicoPortColor(${sec.aulaNum},null)">× Remover cor</div>
+      </div>
+    </div>`
+    :`<button onclick="event.stopPropagation();excluirRevisaoGrupoPort(${sec.grupoRevisao})"
+      style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:.1rem .3rem;opacity:.4;transition:opacity .15s;flex-shrink:0"
+      onmouseover="this.style.opacity='1';this.style.color='var(--vermelho)'" onmouseout="this.style.opacity='.4';this.style.color='var(--muted)'"
+      title="Excluir revisão">🗑</button>`;
+
+  const secAttrs=!eRev?`id="port-sec-${sec.aulaNum}" ondragover="portSecDragOver(${sec.aulaNum},event)" ondrop="portSecDrop(${sec.aulaNum},event)"`
+    :`id="port-rev-${sec.grupoRevisao}"`;
+  return `<div class="trilha-secao ${eRev?'revisao-geral':''}" style="${corStyle}" ${secAttrs}>
+    <div class="trilha-secao-header" style="${corHdr}" onclick="toggleTrilhaPortSecao('${sec.key}')">
+      ${dragHandle}
+      <span class="trilha-secao-toggle ${isOpen?'aberto':''}" id="ptsec-tog-${sec.key}">▶</span>
+      <span class="trilha-secao-titulo">${eRev?'🔄 '+esc(sec.label):esc(sec.label)}</span>
+      <div class="trilha-secao-prog"><div class="trilha-dots">${dots}</div><span class="trilha-secao-count">${feitas}/${ts.length}</span></div>
+      ${secMenu}
     </div>
     <div class="trilha-secao-body ${isOpen?'aberto':''}" id="ptsec-body-${sec.key}">
       ${ts.map(t=>renderizarTrilhaPortRow(t)).join('')}
@@ -2315,59 +2377,24 @@ function renderizarTrilhaPortSecao(sec) {
 }
 
 function renderizarTrilhaPortRow(t) {
-  const temSubs  = !!(t.subtarefas&&t.subtarefas.length);
-  const subsOpen = temSubs && _trilhaPortSubsAberto.has(t.id);
-  const agendada = !!t.semana;
-  const semLabel = t.semana ? semanaInfo(t.semana).range : '+ Semana';
-  const sems     = semanasExibir();
-
-  const qHtml = t.temQuestoes ? `
-    <span class="trilha-q">
-      <span class="c">✓</span>
-      <input class="trilha-q-input" type="number" min="0" value="${t.certas||0}"
-        onchange="atualizarQuestoesTrilhaPort('${t.id}','certas',this.value)"
-        onclick="event.stopPropagation()">
-      <span class="e">✗</span>
-      <input class="trilha-q-input" type="number" min="0" value="${t.erradas||0}"
-        onchange="atualizarQuestoesTrilhaPort('${t.id}','erradas',this.value)"
-        onclick="event.stopPropagation()">
-    </span>` : '';
-
-  const expBtn = temSubs
-    ? `<button class="btn-trilha-exp ${subsOpen?'aberto':''}" id="ptexp-${t.id}"
-         onclick="toggleTrilhaPortSubs('${t.id}',event)">▾</button>` : '';
-
-  const subsHtml = temSubs ? `
-    <div class="trilha-subs ${subsOpen?'aberto':''}" id="ptsubs-${t.id}">
-      ${t.subtarefas.map(s=>`
-        <div class="trilha-sub-row">
-          <input type="checkbox" class="trilha-sub-check" ${s.feita?'checked':''}
-            onchange="toggleTrilhaPortSub('${t.id}','${s.id}')">
-          <span class="trilha-sub-label ${s.feita?'feita':''}">${esc(s.label)}</span>
-        </div>`).join('')}
-    </div>` : '';
-
+  const temSubs=!!(t.subtarefas&&t.subtarefas.length), subsOpen=temSubs&&_trilhaPortSubsAberto.has(t.id);
+  const agendada=!!t.semana, semLabel=t.semana?semanaInfo(t.semana).range:'+ Semana', sems=semanasExibir();
+  const qHtml=t.temQuestoes?`<span class="trilha-q"><span class="c">✓</span><input class="trilha-q-input" type="number" min="0" value="${t.certas||0}" onchange="atualizarQuestoesTrilhaPort('${t.id}','certas',this.value)" onclick="event.stopPropagation()"><span class="e">✗</span><input class="trilha-q-input" type="number" min="0" value="${t.erradas||0}" onchange="atualizarQuestoesTrilhaPort('${t.id}','erradas',this.value)" onclick="event.stopPropagation()"></span>`:'';
+  const expBtn=temSubs?`<button class="btn-trilha-exp ${subsOpen?'aberto':''}" id="ptexp-${t.id}" onclick="toggleTrilhaPortSubs('${t.id}',event)">▾</button>`:'';
+  const subsHtml=temSubs?`<div class="trilha-subs ${subsOpen?'aberto':''}" id="ptsubs-${t.id}">${t.subtarefas.map(s=>`<div class="trilha-sub-row"><input type="checkbox" class="trilha-sub-check" ${s.feita?'checked':''} onchange="toggleTrilhaPortSub('${t.id}','${s.id}')"><span class="trilha-sub-label ${s.feita?'feita':''}">${esc(s.label)}</span></div>`).join('')}</div>`:'';
   return `<div>
-    <div class="trilha-row">
-      <input type="checkbox" class="trilha-check" ${t.feita?'checked':''}
-        onchange="toggleTrilhaPortTarefa('${t.id}')">
-      <span class="trilha-row-label ${t.feita?'feita':''}">${esc(t.label)}</span>
+    <div class="trilha-row" ondragover="portTaskDragOver('${t.id}',event)" ondrop="portTaskDrop('${t.id}',event)">
+      <span class="drag-handle" draggable="true" ondragstart="portTaskDragStart('${t.id}',event)" ondragend="portTaskDragEnd(event)" onclick="event.stopPropagation()" title="Arrastar para reordenar">⠿</span>
+      <input type="checkbox" class="trilha-check" ${t.feita?'checked':''} onchange="toggleTrilhaPortTarefa('${t.id}')">
+      <span class="trilha-row-label ${t.feita?'feita':''}" onclick="toggleNotaTarefa('${t.id}')" title="Clique para anotações">${esc(t.label)}${t.nota?'<span class="nota-dot"></span>':''}</span>
       ${t.feita&&t.concluidoEm?`<span class="data-conc">✓ ${formatData(t.concluidoEm)}</span>`:''}
-      <span class="trilha-tempo" id="pttempo-${t.id}" onclick="editarTrilhaPortTempo('${t.id}',event)"
-        title="Clique para editar">${formatTempo(t.tempoMin)}</span>
-      ${qHtml}
-      ${expBtn}
+      <span class="trilha-tempo" id="pttempo-${t.id}" onclick="editarTrilhaPortTempo('${t.id}',event)" title="Clique para editar">${formatTempo(t.tempoMin)}</span>
+      ${qHtml}${expBtn}
       <div style="position:relative;flex-shrink:0">
-        <button class="btn-sem-trilha ${agendada?'agendada':''}"
-          onclick="toggleTrilhaPortSemDD('${t.id}',event)">
-          ${agendada ? '📅 '+semLabel : '+ Semana'}
-        </button>
+        <button class="btn-sem-trilha ${agendada?'agendada':''}" onclick="toggleTrilhaPortSemDD('${t.id}',event)">${agendada?'📅 '+semLabel:'+ Semana'}</button>
         <div class="trilha-sem-dd" id="ptsdd-${t.id}">
-          ${agendada ? `<div class="trilha-sem-opt rm" onclick="agendarTrilhaPort('${t.id}',null)">✕ Remover semana</div><div class="trilha-sem-sep"></div>` : ''}
-          ${sems.map((s,i)=>`
-            <div class="trilha-sem-opt ${t.semana===s?'sel':''}" onclick="agendarTrilhaPort('${t.id}','${s}')">
-              ${semanaLabel(s,i)} — ${semanaInfo(s).range}
-            </div>`).join('')}
+          ${agendada?`<div class="trilha-sem-opt rm" onclick="agendarTrilhaPort('${t.id}',null)">✕ Remover semana</div><div class="trilha-sem-sep"></div>`:''}
+          ${sems.map((s,i)=>`<div class="trilha-sem-opt ${t.semana===s?'sel':''}" onclick="agendarTrilhaPort('${t.id}','${s}')">${semanaLabel(s,i)} — ${semanaInfo(s).range}</div>`).join('')}
         </div>
       </div>
       <div style="position:relative;flex-shrink:0">
@@ -2380,296 +2407,262 @@ function renderizarTrilhaPortRow(t) {
       </div>
     </div>
     ${subsHtml}
+    ${_renderNotaArea(t,'trilha_port_tarefas')}
   </div>`;
 }
 
 function atualizarStatsTrilhaPort() {
-  const el = document.getElementById('trilha-port-stats-cards');
-  if (!el) return;
-  const total   = trilhaPort.length;
-  const feitas  = trilhaPort.filter(t=>t.feita).length;
-  const pct     = total ? Math.round(feitas/total*100) : 0;
-  const certas  = trilhaPort.reduce((s,t)=>s+(t.certas||0),0);
-  const erradas = trilhaPort.reduce((s,t)=>s+(t.erradas||0),0);
-  const acerto  = (certas+erradas) ? Math.round(certas/(certas+erradas)*100) : 0;
-  const corA    = acerto>=70?'var(--verde)':acerto>=50?'var(--laranja)':'var(--vermelho)';
-  const sub     = document.getElementById('trilha-port-subtitulo');
-  if (sub) sub.textContent = `${feitas}/${total} tarefas · ${pct}%`;
-  el.innerHTML = `
-    <div class="trilha-stat-card">
-      <div class="trilha-stat-val" style="color:var(--azul)">${feitas}/${total}</div>
-      <div class="trilha-stat-label">Progresso geral</div>
-      <div class="barra-wrap" style="margin-top:.5rem">
-        <div class="barra-fill ${pct===100?'bom':pct<40?'alerta':''}" style="width:${pct}%"></div>
-      </div>
-      <div class="trilha-stat-sub">${pct}% concluído</div>
-    </div>
-    <div class="trilha-stat-card">
-      <div class="trilha-stat-val" style="color:${corA}">${(certas+erradas)?acerto+'%':'—'}</div>
-      <div class="trilha-stat-label">Acerto em questões</div>
-      <div class="trilha-stat-sub">
-        <span style="color:var(--verde)">✓ ${certas}</span>&nbsp;&nbsp;
-        <span style="color:var(--vermelho)">✗ ${erradas}</span>
-      </div>
-    </div>`;
+  const el=document.getElementById('trilha-port-stats-cards'); if (!el) return;
+  const total=trilhaPort.length, feitas=trilhaPort.filter(t=>t.feita).length, pct=total?Math.round(feitas/total*100):0;
+  const certas=trilhaPort.reduce((s,t)=>s+(t.certas||0),0), erradas=trilhaPort.reduce((s,t)=>s+(t.erradas||0),0);
+  const acerto=(certas+erradas)?Math.round(certas/(certas+erradas)*100):0, corA=acerto>=70?'var(--verde)':acerto>=50?'var(--laranja)':'var(--vermelho)';
+  const sub=document.getElementById('trilha-port-subtitulo'); if (sub) sub.textContent=`${feitas}/${total} tarefas · ${pct}%`;
+  el.innerHTML=`<div class="trilha-stat-card"><div class="trilha-stat-val" style="color:var(--azul)">${feitas}/${total}</div><div class="trilha-stat-label">Progresso geral</div><div class="barra-wrap" style="margin-top:.5rem"><div class="barra-fill ${pct===100?'bom':pct<40?'alerta':''}" style="width:${pct}%"></div></div><div class="trilha-stat-sub">${pct}% concluído</div></div>
+    <div class="trilha-stat-card"><div class="trilha-stat-val" style="color:${corA}">${(certas+erradas)?acerto+'%':'—'}</div><div class="trilha-stat-label">Acerto em questões</div><div class="trilha-stat-sub"><span style="color:var(--verde)">✓ ${certas}</span>&nbsp;&nbsp;<span style="color:var(--vermelho)">✗ ${erradas}</span></div></div>`;
 }
 
+// ── Toggles ──────────────────────────────────────────────────
 window.toggleTrilhaPortSecao = (key) => {
-  if (_trilhaPortSecAberta.has(key)) _trilhaPortSecAberta.delete(key);
-  else _trilhaPortSecAberta.add(key);
+  if (_trilhaPortSecAberta.has(key)) _trilhaPortSecAberta.delete(key); else _trilhaPortSecAberta.add(key);
   document.getElementById(`ptsec-body-${key}`)?.classList.toggle('aberto');
   document.getElementById(`ptsec-tog-${key}`)?.classList.toggle('aberto');
 };
-
 window.toggleTrilhaPortTarefa = async (id) => {
-  const t = trilhaPort.find(x=>x.id===id);
-  if (!t) return;
-  t.feita = !t.feita;
-  t.concluidoEm = t.feita ? new Date().toISOString() : null;
-  const ficouFeita = t.feita;
+  const t=trilhaPort.find(x=>x.id===id); if (!t) return;
+  t.feita=!t.feita; t.concluidoEm=t.feita?new Date().toISOString():null; const ficouFeita=t.feita;
   try {
-    await updateDoc(doc(db,'trilha_port_tarefas',id), {feita:t.feita, concluidoEm:t.concluidoEm});
-    if (t.planoRef) {
-      const tp = tarefasCache.find(x=>x.id===t.planoRef);
-      if (tp) { tp.feita = t.feita; tp.concluidoEm = t.concluidoEm;
-        await updateDoc(doc(db,'plano_tarefas',t.planoRef), {feita:t.feita, concluidoEm:t.concluidoEm}); }
-    }
-    if (ficouFeita && !t.semana) {
-      await agendarTrilhaPort(id, semanaAtual());
-    } else {
-      renderizarTrilhaPort();
-      if (_paginaAtual==='tarefas') renderizarTarefas();
-    }
-    if (ficouFeita) mostrarTempoPicker(id, 'trilha-port');
-  } catch(e) { t.feita=!t.feita; t.concluidoEm=null; mostrarToast('Erro ao salvar','erro'); }
+    await updateDoc(doc(db,'trilha_port_tarefas',id),{feita:t.feita,concluidoEm:t.concluidoEm});
+    if (t.planoRef){const tp=tarefasCache.find(x=>x.id===t.planoRef);if(tp){tp.feita=t.feita;tp.concluidoEm=t.concluidoEm;await updateDoc(doc(db,'plano_tarefas',t.planoRef),{feita:t.feita,concluidoEm:t.concluidoEm});}}
+    if (ficouFeita&&!t.semana){await agendarTrilhaPort(id,semanaAtual());}
+    else{renderizarTrilhaPort();if(_paginaAtual==='tarefas')renderizarTarefas();}
+    if (ficouFeita) mostrarTempoPicker(id,'trilha-port');
+  } catch(e){t.feita=!t.feita;t.concluidoEm=null;mostrarToast('Erro ao salvar','erro');}
 };
-
-window.toggleTrilhaPortSub = async (tarefaId, subId) => {
-  const t = trilhaPort.find(x=>x.id===tarefaId);
-  if (!t) return;
-  const s = t.subtarefas.find(x=>x.id===subId);
-  if (!s) return;
-  s.feita = !s.feita;
-  const todasFeitas = t.subtarefas.every(x=>x.feita);
-  const eraFeita = t.feita;
-  if (todasFeitas && !t.feita) { t.feita = true; t.concluidoEm = new Date().toISOString(); }
-  else if (!todasFeitas && t.feita) { t.feita = false; t.concluidoEm = null; }
+window.toggleTrilhaPortSub = async (tarefaId,subId) => {
+  const t=trilhaPort.find(x=>x.id===tarefaId); if (!t) return;
+  const s=t.subtarefas.find(x=>x.id===subId); if (!s) return;
+  s.feita=!s.feita; const todasFeitas=t.subtarefas.every(x=>x.feita), eraFeita=t.feita;
+  if (todasFeitas&&!t.feita){t.feita=true;t.concluidoEm=new Date().toISOString();}
+  else if (!todasFeitas&&t.feita){t.feita=false;t.concluidoEm=null;}
   try {
-    await updateDoc(doc(db,'trilha_port_tarefas',tarefaId), {subtarefas:t.subtarefas, feita:t.feita, concluidoEm:t.concluidoEm||null});
-    if (t.feita && !eraFeita && !t.semana) {
-      await agendarTrilhaPort(tarefaId, semanaAtual());
-    } else {
-      renderizarTrilhaPort();
-    }
-  } catch(e) { s.feita=!s.feita; mostrarToast('Erro ao salvar','erro'); }
+    await updateDoc(doc(db,'trilha_port_tarefas',tarefaId),{subtarefas:t.subtarefas,feita:t.feita,concluidoEm:t.concluidoEm||null});
+    if (t.feita&&!eraFeita&&!t.semana){await agendarTrilhaPort(tarefaId,semanaAtual());}else{renderizarTrilhaPort();}
+  } catch(e){s.feita=!s.feita;mostrarToast('Erro ao salvar','erro');}
 };
-
-window.toggleMenuTrilhaPortTarefa = (id, event) => {
+window.toggleMenuTrilhaPortTarefa = (id,event) => {
   event.stopPropagation();
-  if (_trilhaPortMenuDD && _trilhaPortMenuDD !== id) fecharMenuTrilhaPortTarefa();
-  const el = document.getElementById(`ptmdd-${id}`);
-  if (!el) return;
-  if (el.classList.contains('visivel')) { fecharMenuTrilhaPortTarefa(); return; }
-  const rect = event.currentTarget.getBoundingClientRect();
-  el.style.top   = (rect.bottom + 4) + 'px';
-  el.style.right = (window.innerWidth - rect.right) + 'px';
-  el.style.left  = 'auto';
-  el.classList.add('visivel');
-  _trilhaPortMenuDD = id;
+  if (_trilhaPortMenuDD&&_trilhaPortMenuDD!==id) fecharMenuTrilhaPortTarefa();
+  const el=document.getElementById(`ptmdd-${id}`); if (!el) return;
+  if (el.classList.contains('visivel')){fecharMenuTrilhaPortTarefa();return;}
+  const rect=event.currentTarget.getBoundingClientRect();
+  el.style.top=(rect.bottom+4)+'px'; el.style.right=(window.innerWidth-rect.right)+'px'; el.style.left='auto';
+  el.classList.add('visivel'); _trilhaPortMenuDD=id;
 };
+function fecharMenuTrilhaPortTarefa(){if(_trilhaPortMenuDD){document.getElementById(`ptmdd-${_trilhaPortMenuDD}`)?.classList.remove('visivel');_trilhaPortMenuDD=null;}}
 
-function fecharMenuTrilhaPortTarefa() {
-  if (_trilhaPortMenuDD) {
-    document.getElementById(`ptmdd-${_trilhaPortMenuDD}`)?.classList.remove('visivel');
-    _trilhaPortMenuDD = null;
-  }
-}
-
-window.duplicarTarefaTrilhaPort = async (id) => {
-  fecharMenuTrilhaPortTarefa();
-  const t = trilhaPort.find(x => x.id === id);
-  if (!t) return;
-  const maxOrdem = trilhaPort.filter(x => x.topicoNum === t.topicoNum && x.grupoRevisao === t.grupoRevisao)
-    .reduce((m, x) => Math.max(m, x.ordem), 0);
-  const nova = {
-    tipo: t.tipo, topicoNum: t.topicoNum, grupoRevisao: t.grupoRevisao,
-    label: t.label + ' (cópia)', ordem: maxOrdem + 1,
-    feita: false, semana: null, planoRef: null, concluidoEm: null,
-    subtarefas: (t.subtarefas || []).map(s => ({...s, feita: false})),
-    temQuestoes: t.temQuestoes, certas: 0, erradas: 0, tempoMin: t.tempoMin || 90,
-    criadoEm: serverTimestamp()
-  };
+// ── Gerenciar tópicos ────────────────────────────────────────
+window.adicionarTopicoPort = async () => {
+  const label=(prompt('Nome do novo tópico:')||'').trim();
+  if (!label) return;
+  const cfg=_loadPortTopicoCfg();
+  const aulaNum=cfg.nextIdx;
+  cfg.labels[aulaNum]=label; cfg.order.push(aulaNum); cfg.nextIdx++;
+  const baseOrd=trilhaPort.length?Math.max(...trilhaPort.map(t=>t.ordem||0))+1:0;
+  const novos=[
+    {tipo:'teoria',        aulaNum,grupoRevisao:null,label:'Teoria',                         ordem:baseOrd,   feita:false,semana:null,subtarefas:[],temQuestoes:false,certas:0,erradas:0,tempoMin:90},
+    {tipo:'questoes_pdf',  aulaNum,grupoRevisao:null,label:'Questões do PDF (Bloco 1 Anki)', ordem:baseOrd+1, feita:false,semana:null,subtarefas:[],temQuestoes:true, certas:0,erradas:0,tempoMin:90},
+    {tipo:'revisao',       aulaNum,grupoRevisao:null,label:'Revisão',                        ordem:baseOrd+2, feita:false,semana:null,temQuestoes:false,certas:0,erradas:0,tempoMin:90,
+      subtarefas:[{id:'qe',label:'Analisar as questões erradas do PDF',feita:false},{id:'es',label:'Fazer esquemas e resumos',feita:false}]},
+    {tipo:'questoes_site', aulaNum,grupoRevisao:null,label:'Questões do Site de Questões',   ordem:baseOrd+3, feita:false,semana:null,subtarefas:[],temQuestoes:true, certas:0,erradas:0,tempoMin:90},
+  ];
   try {
-    const ref = await addDoc(collection(db, 'trilha_port_tarefas'), nova);
-    trilhaPort.push({ id: ref.id, ...nova });
-    renderizarTrilhaPort();
-    mostrarToast('Tarefa duplicada!', 'sucesso');
-  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+    const bat=writeBatch(db); const refs=novos.map(()=>doc(collection(db,'trilha_port_tarefas')));
+    novos.forEach((t,i)=>bat.set(refs[i],{...t,criadoEm:serverTimestamp()})); await bat.commit();
+    novos.forEach((t,i)=>trilhaPort.push({id:refs[i].id,...t}));
+    _savePortTopicoCfg(cfg); renderizarTrilhaPort(); mostrarToast(`Tópico "${label}" adicionado!`,'sucesso');
+  } catch(e){mostrarToast('Erro: '+e.message,'erro');}
+};
+window.excluirTopicoPort = async (aulaNum) => {
+  const label=_portTopicLabel(aulaNum);
+  if (!confirm(`Excluir o tópico "${label}" e TODAS as suas tarefas?\n\nEssa ação não pode ser desfeita.`)) return;
+  const toDelete=trilhaPort.filter(t=>t.aulaNum===aulaNum);
+  try {
+    if (toDelete.length){
+      const bat=writeBatch(db);
+      toDelete.forEach(t=>{bat.delete(doc(db,'trilha_port_tarefas',t.id));if(t.planoRef)bat.delete(doc(db,'plano_tarefas',t.planoRef));});
+      await bat.commit();
+      toDelete.forEach(t=>{if(t.planoRef)tarefasCache=tarefasCache.filter(x=>x.id!==t.planoRef);});
+    }
+    trilhaPort=trilhaPort.filter(t=>t.aulaNum!==aulaNum);
+    const cfg=_loadPortTopicoCfg();
+    cfg.order=cfg.order.filter(a=>a!==aulaNum); delete cfg.labels[aulaNum]; _savePortTopicoCfg(cfg);
+    renderizarTrilhaPort(); if(_paginaAtual==='tarefas')renderizarTarefas();
+    mostrarToast('Tópico excluído.','sucesso');
+  } catch(e){mostrarToast('Erro: '+e.message,'erro');}
+};
+window.excluirRevisaoGrupoPort = async (grupoRevisao) => {
+  if (!confirm(`Excluir a Revisão Geral do grupo ${grupoRevisao+1} e todas as suas tarefas?`)) return;
+  const toDelete=trilhaPort.filter(t=>t.grupoRevisao===grupoRevisao);
+  try {
+    if (toDelete.length){
+      const bat=writeBatch(db);
+      toDelete.forEach(t=>{bat.delete(doc(db,'trilha_port_tarefas',t.id));if(t.planoRef)bat.delete(doc(db,'plano_tarefas',t.planoRef));});
+      await bat.commit();
+      toDelete.forEach(t=>{if(t.planoRef)tarefasCache=tarefasCache.filter(x=>x.id!==t.planoRef);});
+    }
+    trilhaPort=trilhaPort.filter(t=>t.grupoRevisao!==grupoRevisao);
+    renderizarTrilhaPort(); mostrarToast('Revisão excluída.','sucesso');
+  } catch(e){mostrarToast('Erro: '+e.message,'erro');}
 };
 
-window.excluirTarefaTrilhaPort = async (id) => {
-  fecharMenuTrilhaPortTarefa();
-  const t = trilhaPort.find(x => x.id === id);
-  if (!t) return;
+// ── Cor e menu de seção ──────────────────────────────────────
+function fecharMenuTopicoPort(){if(_portMenuSecDD!==null){document.getElementById(`ptsmdd-${_portMenuSecDD}`)?.style&&(document.getElementById(`ptsmdd-${_portMenuSecDD}`).style.display='none');_portMenuSecDD=null;}}
+function fecharPortColorDD(){document.querySelectorAll('[id^="pclr-"]').forEach(el=>el.style.display='none');}
+window.toggleMenuTopicoPort=(aulaNum,e)=>{
+  e.stopPropagation();
+  const el=document.getElementById(`ptsmdd-${aulaNum}`); if(!el)return;
+  const aberto=el.style.display==='block'; fecharMenuTopicoPort(); fecharPortColorDD();
+  if(!aberto){
+    const rect=e.currentTarget.getBoundingClientRect();
+    el.style.top=(rect.bottom+4)+'px'; el.style.right=(window.innerWidth-rect.right)+'px'; el.style.left='auto';
+    el.style.display='block'; _portMenuSecDD=aulaNum;
+  }
+};
+window.abrirColorPickerPort=(aulaNum)=>{
+  const menu=document.getElementById(`ptsmdd-${aulaNum}`);
+  const clr=document.getElementById(`pclr-${aulaNum}`); if(!clr)return;
+  const top=menu?.style.top||'4rem', right=menu?.style.right||'1rem';
+  fecharMenuTopicoPort(); fecharPortColorDD();
+  clr.style.top=top; clr.style.right=right; clr.style.left='auto';
+  clr.style.display='block';
+};
+window.setTopicoPortColor=(aulaNum,cor)=>{fecharPortColorDD();const cfg=_loadPortTopicoCfg();if(!cfg.colors)cfg.colors={};if(cor)cfg.colors[aulaNum]=cor;else delete cfg.colors[aulaNum];_savePortTopicoCfg(cfg);renderizarTrilhaPort();};
+window.duplicarTopicoPort=async(aulaNum)=>{
+  fecharMenuTopicoPort();
+  const labelOrig=_portTopicLabel(aulaNum);
+  const cfg=_loadPortTopicoCfg();
+  const novoIdx=cfg.nextIdx;
+  cfg.labels[novoIdx]=labelOrig+' (cópia)';
+  const posOrig=cfg.order.indexOf(aulaNum);
+  cfg.order.splice(posOrig+1,0,novoIdx);
+  cfg.nextIdx++;
+  const origTarefas=trilhaPort.filter(t=>t.aulaNum===aulaNum).sort((a,b)=>a.ordem-b.ordem);
+  const baseOrd=trilhaPort.length?Math.max(...trilhaPort.map(t=>t.ordem||0))+1:0;
+  const copia=origTarefas.map((t,i)=>({tipo:t.tipo,aulaNum:novoIdx,grupoRevisao:null,label:t.label,ordem:baseOrd+i,feita:false,semana:null,planoRef:null,concluidoEm:null,subtarefas:(t.subtarefas||[]).map(s=>({...s,feita:false})),temQuestoes:t.temQuestoes,certas:0,erradas:0,tempoMin:t.tempoMin||90}));
+  try{
+    const bat=writeBatch(db);const refs=copia.map(()=>doc(collection(db,'trilha_port_tarefas')));
+    copia.forEach((t,i)=>bat.set(refs[i],{...t,criadoEm:serverTimestamp()}));await bat.commit();
+    copia.forEach((t,i)=>trilhaPort.push({id:refs[i].id,...t}));
+    _savePortTopicoCfg(cfg);renderizarTrilhaPort();mostrarToast(`"${labelOrig}" duplicado!`,'sucesso');
+  }catch(e){mostrarToast('Erro: '+e.message,'erro');}
+};
+
+// ── Drag: seções ─────────────────────────────────────────────
+function _portClearDragOver(){if(_portDragOverEl){_portDragOverEl.style.borderTop='';_portDragOverEl.style.background='';_portDragOverEl=null;}}
+window.portSecDragStart=(aulaNum,e)=>{_portDragSrcAula=aulaNum;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(aulaNum));};
+window.portSecDragOver=(aulaNum,e)=>{
+  if (_portDragSrcAula===null||_portDragSrcAula===aulaNum) return;
+  e.preventDefault(); e.dataTransfer.dropEffect='move';
+  const el=document.getElementById(`port-sec-${aulaNum}`);
+  if (el!==_portDragOverEl){_portClearDragOver();_portDragOverEl=el;if(el){el.style.borderTop='2px solid var(--azul)';el.style.background='rgba(59,130,246,.05)';}}
+};
+window.portSecDrop=(aulaNum,e)=>{
+  e.preventDefault(); _portClearDragOver();
+  if (_portDragSrcAula===null||_portDragSrcAula===aulaNum){_portDragSrcAula=null;return;}
+  const cfg=_loadPortTopicoCfg(), order=cfg.order;
+  const from=order.indexOf(_portDragSrcAula), to=order.indexOf(aulaNum);
+  if (from!==-1&&to!==-1){order.splice(from,1);order.splice(to,0,_portDragSrcAula);cfg.order=order;_savePortTopicoCfg(cfg);}
+  _portDragSrcAula=null; renderizarTrilhaPort();
+};
+window.portSecDragEnd=(e)=>{_portDragSrcAula=null;_portClearDragOver();};
+
+// ── Drag: tarefas ────────────────────────────────────────────
+function _portSameSection(a,b){
+  if (a.aulaNum!=null&&a.aulaNum===b.aulaNum) return true;
+  if (a.grupoRevisao!=null&&a.grupoRevisao===b.grupoRevisao) return true;
+  return false;
+}
+window.portTaskDragStart=(id,e)=>{_portDragSrcTask=id;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',id);};
+window.portTaskDragOver=(id,e)=>{
+  if (!_portDragSrcTask||_portDragSrcTask===id) return;
+  e.preventDefault(); e.dataTransfer.dropEffect='move';
+  const el=document.querySelector(`[ondrop="portTaskDrop('${id}',event)"]`);
+  if (el!==_portDragOverEl){_portClearDragOver();_portDragOverEl=el;if(el){el.style.borderTop='2px solid var(--azul)';el.style.background='rgba(59,130,246,.05)';}}
+};
+window.portTaskDrop=async(id,e)=>{
+  e.preventDefault(); _portClearDragOver();
+  if (!_portDragSrcTask||_portDragSrcTask===id){_portDragSrcTask=null;return;}
+  const src=trilhaPort.find(x=>x.id===_portDragSrcTask), dst=trilhaPort.find(x=>x.id===id);
+  if (!src||!dst||!_portSameSection(src,dst)){_portDragSrcTask=null;return;}
+  const inSec=trilhaPort.filter(t=>_portSameSection(t,src)).sort((a,b)=>a.ordem-b.ordem);
+  const si=inSec.findIndex(t=>t.id===src.id), di=inSec.findIndex(t=>t.id===dst.id);
+  inSec.splice(si,1); inSec.splice(di,0,src);
+  const updates=[]; inSec.forEach((t,i)=>{if(t.ordem!==i){t.ordem=i;updates.push({id:t.id,ordem:i});}});
+  _portDragSrcTask=null; renderizarTrilhaPort();
+  if (updates.length){try{const bat=writeBatch(db);updates.forEach(u=>bat.update(doc(db,'trilha_port_tarefas',u.id),{ordem:u.ordem}));await bat.commit();}catch(e){mostrarToast('Erro ao salvar ordem','erro');}}
+};
+window.portTaskDragEnd=(e)=>{_portDragSrcTask=null;_portClearDragOver();};
+
+// ── CRUD tarefas ─────────────────────────────────────────────
+window.duplicarTarefaTrilhaPort=async(id)=>{
+  fecharMenuTrilhaPortTarefa(); const t=trilhaPort.find(x=>x.id===id); if (!t) return;
+  const maxOrdem=trilhaPort.filter(x=>x.aulaNum===t.aulaNum&&x.grupoRevisao===t.grupoRevisao).reduce((m,x)=>Math.max(m,x.ordem),0);
+  const nova={tipo:t.tipo,aulaNum:t.aulaNum,grupoRevisao:t.grupoRevisao,label:t.label+' (cópia)',ordem:maxOrdem+1,feita:false,semana:null,planoRef:null,concluidoEm:null,subtarefas:(t.subtarefas||[]).map(s=>({...s,feita:false})),temQuestoes:t.temQuestoes,certas:0,erradas:0,tempoMin:t.tempoMin||90,criadoEm:serverTimestamp()};
+  try{const ref=await addDoc(collection(db,'trilha_port_tarefas'),nova);trilhaPort.push({id:ref.id,...nova});renderizarTrilhaPort();mostrarToast('Tarefa duplicada!','sucesso');}
+  catch(e){mostrarToast('Erro: '+e.message,'erro');}
+};
+window.excluirTarefaTrilhaPort=async(id)=>{
+  fecharMenuTrilhaPortTarefa(); const t=trilhaPort.find(x=>x.id===id); if (!t) return;
   if (!confirm(`Excluir "${t.label}"?`)) return;
-  try {
-    if (t.planoRef) {
-      await deleteDoc(doc(db, 'plano_tarefas', t.planoRef));
-      tarefasCache = tarefasCache.filter(x => x.id !== t.planoRef);
-    }
-    await deleteDoc(doc(db, 'trilha_port_tarefas', id));
-    trilhaPort = trilhaPort.filter(x => x.id !== id);
-    renderizarTrilhaPort();
-    if (_paginaAtual === 'tarefas') renderizarTarefas();
-    mostrarToast('Tarefa excluída', 'sucesso');
-  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+  try{
+    if(t.planoRef){await deleteDoc(doc(db,'plano_tarefas',t.planoRef));tarefasCache=tarefasCache.filter(x=>x.id!==t.planoRef);}
+    await deleteDoc(doc(db,'trilha_port_tarefas',id)); trilhaPort=trilhaPort.filter(x=>x.id!==id);
+    renderizarTrilhaPort(); if(_paginaAtual==='tarefas')renderizarTarefas(); mostrarToast('Tarefa excluída','sucesso');
+  }catch(e){mostrarToast('Erro: '+e.message,'erro');}
 };
 
-// ─── ADD TAREFA TRILHA PORT ───────────────────────────────────
-let _addTarefaPortSecKey = null;
-
-window.abrirModalAddTrilhaPort = (secKey) => {
-  _addTarefaPortSecKey = secKey;
-  _addTarefaPortAtiva  = true;
-  const eRev = secKey.startsWith('prg');
-  const titulo = eRev
-    ? `Adicionar Tarefa — Revisão Geral ${secKey.slice(3)}`
-    : `Adicionar Tarefa — ${TOPICOS_PORT[parseInt(secKey.slice(2))]?.label || secKey}`;
-  document.getElementById('modal-add-trilha-titulo').textContent = titulo;
-  document.getElementById('add-trilha-label').value = '';
-  document.getElementById('add-trilha-questoes').checked = false;
+// ── Add tarefa modal ─────────────────────────────────────────
+let _addTarefaPortSecKey=null;
+window.abrirModalAddTrilhaPort=(secKey)=>{
+  _addTarefaPortSecKey=secKey; _addTarefaPortAtiva=true;
+  const eRev=secKey.startsWith('prg');
+  const titulo=eRev?`Adicionar Tarefa — Revisão Geral ${secKey.slice(3)}`:`Adicionar Tarefa — ${_portTopicLabel(parseInt(secKey.slice(2)))}`;
+  document.getElementById('modal-add-trilha-titulo').textContent=titulo;
+  document.getElementById('add-trilha-label').value=''; document.getElementById('add-trilha-questoes').checked=false;
   document.getElementById('modal-add-trilha').classList.add('visivel');
-  setTimeout(() => document.getElementById('add-trilha-label').focus(), 80);
+  setTimeout(()=>document.getElementById('add-trilha-label').focus(),80);
 };
-
-async function salvarNovaTarefaTrilhaPort() {
-  const label = document.getElementById('add-trilha-label').value.trim();
-  if (!label) { document.getElementById('add-trilha-label').focus(); return; }
-  const temQuestoes = document.getElementById('add-trilha-questoes').checked;
-  const secKey = _addTarefaPortSecKey;
-  const eRev = secKey.startsWith('prg');
-  const topicoNum    = eRev ? null : parseInt(secKey.slice(2));
-  const grupoRevisao = eRev ? parseInt(secKey.slice(3)) : null;
-  const maxOrdem = trilhaPort
-    .filter(x => eRev ? x.grupoRevisao === grupoRevisao : x.topicoNum === topicoNum)
-    .reduce((m, x) => Math.max(m, x.ordem), 0);
-  const nova = {
-    tipo: 'custom', topicoNum, grupoRevisao, label, ordem: maxOrdem + 1,
-    feita: false, semana: null, planoRef: null, concluidoEm: null,
-    subtarefas: [], temQuestoes, certas: 0, erradas: 0, tempoMin: 90,
-    criadoEm: serverTimestamp()
-  };
-  try {
-    const ref = await addDoc(collection(db, 'trilha_port_tarefas'), nova);
-    trilhaPort.push({ id: ref.id, ...nova });
-    fecharModalAddTrilha();
-    renderizarTrilhaPort();
-    _trilhaPortSecAberta.add(secKey);
-    mostrarToast('Tarefa adicionada!', 'sucesso');
-  } catch(e) { mostrarToast('Erro: ' + e.message, 'erro'); }
+async function salvarNovaTarefaTrilhaPort(){
+  const label=document.getElementById('add-trilha-label').value.trim(); if (!label){document.getElementById('add-trilha-label').focus();return;}
+  const temQuestoes=document.getElementById('add-trilha-questoes').checked, secKey=_addTarefaPortSecKey;
+  const eRev=secKey.startsWith('prg');
+  const aulaNum=eRev?null:parseInt(secKey.slice(2)), grupoRevisao=eRev?parseInt(secKey.slice(3)):null;
+  const maxOrdem=trilhaPort.filter(x=>eRev?x.grupoRevisao===grupoRevisao:x.aulaNum===aulaNum).reduce((m,x)=>Math.max(m,x.ordem),0);
+  const nova={tipo:'custom',aulaNum,grupoRevisao,label,ordem:maxOrdem+1,feita:false,semana:null,planoRef:null,concluidoEm:null,subtarefas:[],temQuestoes,certas:0,erradas:0,tempoMin:90,criadoEm:serverTimestamp()};
+  try{const ref=await addDoc(collection(db,'trilha_port_tarefas'),nova);trilhaPort.push({id:ref.id,...nova});fecharModalAddTrilha();renderizarTrilhaPort();_trilhaPortSecAberta.add(secKey);mostrarToast('Tarefa adicionada!','sucesso');}
+  catch(e){mostrarToast('Erro: '+e.message,'erro');}
 }
-
-window.toggleTrilhaPortSubs = (id, event) => {
-  event.stopPropagation();
-  if (_trilhaPortSubsAberto.has(id)) _trilhaPortSubsAberto.delete(id);
-  else _trilhaPortSubsAberto.add(id);
-  document.getElementById(`ptsubs-${id}`)?.classList.toggle('aberto');
-  document.getElementById(`ptexp-${id}`)?.classList.toggle('aberto');
+window.toggleTrilhaPortSubs=(id,event)=>{event.stopPropagation();if(_trilhaPortSubsAberto.has(id))_trilhaPortSubsAberto.delete(id);else _trilhaPortSubsAberto.add(id);document.getElementById(`ptsubs-${id}`)?.classList.toggle('aberto');document.getElementById(`ptexp-${id}`)?.classList.toggle('aberto');};
+window.editarTrilhaPortTempo=(id,event)=>{event.stopPropagation();const t=trilhaPort.find(x=>x.id===id),el=document.getElementById(`pttempo-${id}`);if(!t||!el)return;el.outerHTML=`<input class="trilha-tempo-input" id="pttempo-${id}" type="number" min="15" step="15" value="${t.tempoMin||90}" onclick="event.stopPropagation()" onblur="salvarTrilhaPortTempo('${id}',this.value)" onkeydown="if(event.key==='Enter')this.blur()">`;setTimeout(()=>{const i=document.getElementById(`pttempo-${id}`);i?.focus();i?.select();},30);};
+window.salvarTrilhaPortTempo=async(id,val)=>{const min=Math.max(15,parseInt(val)||90),t=trilhaPort.find(x=>x.id===id);if(!t)return;t.tempoMin=min;try{await updateDoc(doc(db,'trilha_port_tarefas',id),{tempoMin:min});}catch(e){mostrarToast('Erro ao salvar tempo','erro');}const el=document.getElementById(`pttempo-${id}`);if(el)el.outerHTML=`<span class="trilha-tempo" id="pttempo-${id}" onclick="editarTrilhaPortTempo('${id}',event)" title="Clique para editar">${formatTempo(min)}</span>`;};
+window.atualizarQuestoesTrilhaPort=async(id,campo,valor)=>{const t=trilhaPort.find(x=>x.id===id);if(!t)return;const v=Math.max(0,parseInt(valor)||0);t[campo]=v;try{await updateDoc(doc(db,'trilha_port_tarefas',id),{[campo]:v});}catch(e){mostrarToast('Erro','erro');}atualizarStatsTrilhaPort();};
+function fecharTrilhaPortSemDD(){if(_trilhaPortSemDD){document.getElementById(`ptsdd-${_trilhaPortSemDD}`)?.classList.remove('visivel');_trilhaPortSemDD=null;}}
+window.toggleTrilhaPortSemDD=(id,event)=>{event.stopPropagation();if(_trilhaPortSemDD&&_trilhaPortSemDD!==id)fecharTrilhaPortSemDD();const el=document.getElementById(`ptsdd-${id}`);if(!el)return;if(el.classList.contains('visivel')){fecharTrilhaPortSemDD();return;}const rect=event.currentTarget.getBoundingClientRect();el.style.top=(rect.bottom+4)+'px';el.style.right=(window.innerWidth-rect.right)+'px';el.style.left='auto';el.classList.add('visivel');_trilhaPortSemDD=id;};
+window.agendarTrilhaPort=async(id,semana)=>{
+  fecharTrilhaPortSemDD(); const t=trilhaPort.find(x=>x.id===id); if (!t) return;
+  if(t.planoRef){try{await deleteDoc(doc(db,'plano_tarefas',t.planoRef));tarefasCache=tarefasCache.filter(x=>x.id!==t.planoRef);}catch(e){}t.planoRef=null;}
+  t.semana=semana||null;
+  try{
+    if(semana){
+      const topicoLabel=t.aulaNum!=null?_portTopicLabel(t.aulaNum):`Rev. Geral G${t.grupoRevisao}`;
+      const planoDoc={materiaId:'trilha-port',materiaNome:'Português',materiaCor:'#10b981',descricao:`${topicoLabel} — ${t.label}`,feita:t.feita,concluidoEm:t.concluidoEm||null,semana,ordem:tarefasCache.filter(x=>x.semana===semana).length,trilhaRef:id,trilhaColecao:'port',criadoEm:serverTimestamp()};
+      const ref=await addDoc(collection(db,'plano_tarefas'),planoDoc);t.planoRef=ref.id;tarefasCache.push({id:ref.id,...planoDoc});
+      await updateDoc(doc(db,'trilha_port_tarefas',id),{semana,planoRef:ref.id});
+    }else{await updateDoc(doc(db,'trilha_port_tarefas',id),{semana:null,planoRef:null});}
+    renderizarTrilhaPort(); if(_paginaAtual==='tarefas')renderizarTarefas(); mostrarToast(semana?'Tarefa agendada!':'Semana removida','sucesso');
+  }catch(e){mostrarToast('Erro: '+e.message,'erro');}
 };
 
-window.editarTrilhaPortTempo = (id, event) => {
-  event.stopPropagation();
-  const t  = trilhaPort.find(x=>x.id===id);
-  const el = document.getElementById(`pttempo-${id}`);
-  if (!t||!el) return;
-  el.outerHTML = `<input class="trilha-tempo-input" id="pttempo-${id}" type="number" min="15" step="15"
-    value="${t.tempoMin||90}" onclick="event.stopPropagation()"
-    onblur="salvarTrilhaPortTempo('${id}',this.value)"
-    onkeydown="if(event.key==='Enter')this.blur()">`;
-  setTimeout(()=>{ const i=document.getElementById(`pttempo-${id}`); i?.focus(); i?.select(); },30);
-};
-
-window.salvarTrilhaPortTempo = async (id, val) => {
-  const min = Math.max(15, parseInt(val)||90);
-  const t   = trilhaPort.find(x=>x.id===id);
-  if (!t) return;
-  t.tempoMin = min;
-  try { await updateDoc(doc(db,'trilha_port_tarefas',id), {tempoMin:min}); }
-  catch(e) { mostrarToast('Erro ao salvar tempo','erro'); }
-  const el = document.getElementById(`pttempo-${id}`);
-  if (el) el.outerHTML = `<span class="trilha-tempo" id="pttempo-${id}"
-    onclick="editarTrilhaPortTempo('${id}',event)" title="Clique para editar">${formatTempo(min)}</span>`;
-};
-
-window.atualizarQuestoesTrilhaPort = async (id, campo, valor) => {
-  const t = trilhaPort.find(x=>x.id===id);
-  if (!t) return;
-  const v = Math.max(0, parseInt(valor)||0);
-  t[campo] = v;
-  try { await updateDoc(doc(db,'trilha_port_tarefas',id), {[campo]:v}); }
-  catch(e) { mostrarToast('Erro','erro'); }
-  atualizarStatsTrilhaPort();
-};
-
-function fecharTrilhaPortSemDD() {
-  if (_trilhaPortSemDD) {
-    document.getElementById(`ptsdd-${_trilhaPortSemDD}`)?.classList.remove('visivel');
-    _trilhaPortSemDD = null;
-  }
-}
-window.toggleTrilhaPortSemDD = (id, event) => {
-  event.stopPropagation();
-  if (_trilhaPortSemDD && _trilhaPortSemDD!==id) fecharTrilhaPortSemDD();
-  const el = document.getElementById(`ptsdd-${id}`);
-  if (!el) return;
-  if (el.classList.contains('visivel')) { fecharTrilhaPortSemDD(); return; }
-  const rect = event.currentTarget.getBoundingClientRect();
-  el.style.top   = (rect.bottom + 4) + 'px';
-  el.style.right = (window.innerWidth - rect.right) + 'px';
-  el.style.left  = 'auto';
-  el.classList.add('visivel');
-  _trilhaPortSemDD = id;
-};
-
-window.agendarTrilhaPort = async (id, semana) => {
-  fecharTrilhaPortSemDD();
-  const t = trilhaPort.find(x=>x.id===id);
-  if (!t) return;
-
-  if (t.planoRef) {
-    try {
-      await deleteDoc(doc(db,'plano_tarefas', t.planoRef));
-      tarefasCache = tarefasCache.filter(x => x.id !== t.planoRef);
-    } catch(e) {}
-    t.planoRef = null;
-  }
-
-  t.semana = semana || null;
-
-  try {
-    if (semana) {
-      const topicoLabel = t.topicoNum != null
-        ? TOPICOS_PORT[t.topicoNum]?.label || `Tópico ${t.topicoNum}`
-        : `Rev. Geral G${t.grupoRevisao}`;
-      const planoDoc = {
-        materiaId: 'trilha-port', materiaNome: 'Português', materiaCor: '#10b981',
-        descricao: `${topicoLabel} — ${t.label}`,
-        feita: t.feita, concluidoEm: t.concluidoEm || null, semana,
-        ordem: tarefasCache.filter(x => x.semana===semana).length,
-        trilhaRef: id, trilhaColecao: 'port', criadoEm: serverTimestamp()
-      };
-      const ref = await addDoc(collection(db,'plano_tarefas'), planoDoc);
-      t.planoRef = ref.id;
-      tarefasCache.push({id: ref.id, ...planoDoc});
-      await updateDoc(doc(db,'trilha_port_tarefas',id), {semana, planoRef: ref.id});
-    } else {
-      await updateDoc(doc(db,'trilha_port_tarefas',id), {semana: null, planoRef: null});
-    }
-    renderizarTrilhaPort();
-    if (_paginaAtual === 'tarefas') renderizarTarefas();
-    mostrarToast(semana ? 'Tarefa agendada!' : 'Semana removida', 'sucesso');
-  } catch(e) { mostrarToast('Erro: '+e.message,'erro'); }
-};
 
 // ─── GERENCIAR TÓPICOS DAS TRILHAS ────────────────────────────────────────
 let _gerenciarTrilhaId = null;
@@ -2686,8 +2679,7 @@ function _getTopicosGer(trilhaId) {
   const cfg=_carregarCfgTrilha(trilhaId);
   const labels=cfg.labels||{}, hidden=cfg.hidden||[], extras=cfg.extras||[], order=cfg.order||null;
   let base;
-  if (trilhaId==='port') base=TOPICOS_PORT.map((t,i)=>({num:i,baseLabel:t.label}));
-  else { const m=_TRILHA[trilhaId]; base=(m?m._baseTopicos:[]).map((t,i)=>({num:i,baseLabel:t.label})); }
+  { const m=_TRILHA[trilhaId]; base=(m?m._baseTopicos:[]).map((t,i)=>({num:i,baseLabel:t.label})); }
   const extB=extras.map(e=>({num:e.num,baseLabel:e.label}));
   const allBase=[...base,...extB], allNums=allBase.map(t=>t.num);
   const ordered=order?[...order.filter(n=>allNums.includes(n)),...allNums.filter(n=>!order.includes(n))]:allNums;
@@ -3046,7 +3038,7 @@ function _criarTrilha(cfg) {
         <div class="trilha-row">
           <input type="checkbox" class="trilha-check" ${t.feita?'checked':''}
             onchange="_TRILHA['${id}'].toggleTarefa('${t.id}')">
-          <span class="trilha-row-label ${t.feita?'feita':''}">${esc(t.label)}</span>
+          <span class="trilha-row-label ${t.feita?'feita':''}" onclick="toggleNotaTarefa('${t.id}')" title="Clique para anotações">${esc(t.label)}${t.nota?'<span class="nota-dot"></span>':''}</span>
           ${t.feita&&t.concluidoEm?`<span class="data-conc">✓ ${formatData(t.concluidoEm)}</span>`:''}
           <span class="trilha-tempo" id="${prefix}tempo-${t.id}" onclick="_TRILHA['${id}'].editarTempo('${t.id}',event)"
             title="Clique para editar">${formatTempo(t.tempoMin)}</span>
@@ -3075,6 +3067,7 @@ function _criarTrilha(cfg) {
           </div>
         </div>
         ${subsHtml}
+        ${_renderNotaArea(t,colecao)}
       </div>`;
     },
 

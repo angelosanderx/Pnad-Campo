@@ -1,0 +1,15 @@
+# Credenciais — nunca commitar
+serviceAccountKey.json
+*firebase-adminsdk*.json
+
+# Dependências
+node_modules/
+
+# macOS
+.DS_Store
+
+# Arquivos temporários / binários
+files.zip
+
+# Claude Code — estado interno
+.claude/

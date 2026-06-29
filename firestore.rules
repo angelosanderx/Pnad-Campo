@@ -79,6 +79,18 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if isSupervisor();
     }
+    // ── ESTUDOS 2027 ──────────────────────────────────
+    match /plano_materias/{id}       { allow read, write: if true; }
+    match /plano_tarefas/{id}        { allow read, write: if true; }
+    match /trilha_cont_tarefas/{id}  { allow read, write: if true; }
+    match /trilha_port_tarefas/{id}  { allow read, write: if true; }
+    match /trilha_dadm_tarefas/{id}  { allow read, write: if true; }
+    match /trilha_dcon_tarefas/{id}  { allow read, write: if true; }
+    match /trilha_dtrib_tarefas/{id} { allow read, write: if true; }
+    match /trilha_red_tarefas/{id}   { allow read, write: if true; }
+    match /trilha_ing_tarefas/{id}   { allow read, write: if true; }
+    match /trilha_info_tarefas/{id}  { allow read, write: if true; }
+    match /trilha_ti_tarefas/{id}    { allow read, write: if true; }
     // ── CONCURSO ──────────────────────────────────────
     match /concurso_disciplinas/{id}  { allow read, write: if true; }
     match /concurso_tarefas/{id}      { allow read, write: if true; }
