@@ -79,6 +79,9 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if isSupervisor();
     }
+    match /prefs/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
     // ── ESTUDOS 2027 ──────────────────────────────────
     match /plano_materias/{id}       { allow read, write: if true; }
     match /plano_tarefas/{id}        { allow read, write: if true; }

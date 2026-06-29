@@ -1731,6 +1731,7 @@ function _salvarTopicosCustom() {
     _topicosPorAulaEdit.forEach((arr, i) => { obj[i] = arr; });
     localStorage.setItem('topicos_por_aula_v1', JSON.stringify(obj));
   } catch(e) {}
+  _agendarSyncPrefs();
 }
 
 function _renderModalTopicoLista() {
@@ -1823,6 +1824,39 @@ function _carregarNotasSecao() {
 }
 function _salvarNotasSecao(obj) {
   try { localStorage.setItem('notas_secao_v1', JSON.stringify(obj)); } catch(e) {}
+  _agendarSyncPrefs();
+}
+
+// ─── SYNC DE PREFERÊNCIAS COM FIRESTORE ──────────────────────
+const _PREFS_KEYS = ['port_trilha_topicos_v1','trilha_cfg_v1','notas_secao_v1','topicos_por_aula_v1'];
+let _prefsSaveTimer = null;
+
+async function _carregarPrefs() {
+  const uid = window._uid;
+  if (!uid) return;
+  try {
+    const snap = await getDoc(doc(db, 'prefs', uid));
+    if (snap.exists()) {
+      const data = snap.data();
+      _PREFS_KEYS.forEach(k => {
+        if (data[k] !== undefined)
+          try { localStorage.setItem(k, JSON.stringify(data[k])); } catch(e) {}
+      });
+    }
+  } catch(e) {}
+}
+
+function _agendarSyncPrefs() {
+  clearTimeout(_prefsSaveTimer);
+  _prefsSaveTimer = setTimeout(async () => {
+    const uid = window._uid;
+    if (!uid) return;
+    const data = {};
+    _PREFS_KEYS.forEach(k => {
+      try { const v = localStorage.getItem(k); if (v) data[k] = JSON.parse(v); } catch(e) {}
+    });
+    try { await setDoc(doc(db, 'prefs', uid), data, { merge: true }); } catch(e) {}
+  }, 1500);
 }
 function _renderModalNotaLista() {
   const notas = (_carregarNotasSecao()[_notasChaveAtiva] || []);
@@ -2198,6 +2232,7 @@ function _loadPortTopicoCfg() {
 }
 function _savePortTopicoCfg(cfg) {
   try { localStorage.setItem('port_trilha_topicos_v1', JSON.stringify(cfg)); } catch(e) {}
+  _agendarSyncPrefs();
 }
 function _portTopicLabel(idx) {
   const cfg = _loadPortTopicoCfg();
@@ -2256,6 +2291,7 @@ window.resetarTrilhaPort = async () => {
     for (let i=0;i<ids.length;i+=400){ const bat=writeBatch(db); ids.slice(i,i+400).forEach(id=>bat.delete(doc(db,'trilha_port_tarefas',id))); await bat.commit(); }
     trilhaPort=[]; _trilhaPortCarregada=false;
     localStorage.removeItem('port_trilha_topicos_v1');
+    _agendarSyncPrefs();
     area.innerHTML='<div class="loader">Gerando…</div>';
     await gerarTrilhaPort(); renderizarTrilhaPort(); mostrarToast('Trilha regenerada!','sucesso');
   } catch(e){ area.innerHTML='<div class="vazio">Erro.</div>'; mostrarToast('Erro: '+e.message,'erro'); }
@@ -2680,6 +2716,7 @@ function _carregarCfgTrilha(trilhaId) {
 function _salvarCfgTrilha(trilhaId, cfg) {
   try { const a=JSON.parse(localStorage.getItem('trilha_cfg_v1')||'{}'); a[trilhaId]=cfg; localStorage.setItem('trilha_cfg_v1',JSON.stringify(a)); }
   catch(e) {}
+  _agendarSyncPrefs();
 }
 function _getTopicosGer(trilhaId) {
   const cfg=_carregarCfgTrilha(trilhaId);
@@ -3455,7 +3492,7 @@ async function iniciar() {
   ({ collection, doc, getDoc, getDocs, addDoc, setDoc,
      updateDoc, deleteDoc, writeBatch, query, where, orderBy, serverTimestamp } = window._fb);
   try {
-    await Promise.all([carregarMaterias(), carregarTarefas()]);
+    await Promise.all([carregarMaterias(), carregarTarefas(), _carregarPrefs()]);
     renderizarDashboard();
   } catch(e) {
     document.getElementById('dash-conteudo').innerHTML = '<div class="vazio">Erro ao carregar dados.</div>';
@@ -3499,6 +3536,7 @@ onAuthStateChanged(auth, user => {
   if (_fired) return;
   if (!user) { document.getElementById('login-overlay').style.display = 'flex'; return; }
   _fired = true;
+  window._uid = user.uid;
   document.getElementById('login-overlay').style.display = 'none';
   window.dispatchEvent(new Event('firebase-pronto'));
 });

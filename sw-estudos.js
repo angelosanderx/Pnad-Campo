@@ -1,4 +1,4 @@
-const CACHE = 'estudos-v1';
+const CACHE = 'estudos-v2';
 const ASSETS = ['/2027.html', '/icons/icon-192.png', '/icons/icon-512.png', '/manifest-estudos.json'];
 
 self.addEventListener('install', e => {
