@@ -3921,11 +3921,12 @@ window.aeOrdenar = (col) => {
 };
 
 function _atualizarDropdownsAE() {
+  const _nc = {numeric: true};
   const upaAtual  = document.getElementById('ae-upa')?.value || '';
   const setorAtual = document.getElementById('ae-setor')?.value || '';
   const entrAtual = document.getElementById('ae-entrevistador')?.value || '';
 
-  const upas = [...new Set(todosdomicilios.map(d => d.upa).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const upas = [...new Set(todosdomicilios.map(d => d.upa).filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, _nc));
   const selUpa = document.getElementById('ae-upa');
   if (!selUpa) return;
   selUpa.innerHTML = '<option value="">Todas as UPAs (' + upas.length + ')</option>';
@@ -3936,7 +3937,7 @@ function _atualizarDropdownsAE() {
   const setores = [...new Set(
     todosdomicilios.filter(d => !upaEfetiva || d.upa === upaEfetiva)
       .map(d => d.controle ? d.controle.slice(0,-1) : d.upa).filter(Boolean)
-  )].sort((a,b) => a.localeCompare(b));
+  )].sort((a,b) => a.localeCompare(b, undefined, _nc));
   const selSetor = document.getElementById('ae-setor');
   if (selSetor) {
     selSetor.innerHTML = '<option value="">Todos os setores (' + setores.length + ')</option>';
@@ -3952,7 +3953,7 @@ function _atualizarDropdownsAE() {
     const key = _chaveNomeGlobal(canonical);
     if (key && !_nomesMapAe.has(key)) _nomesMapAe.set(key, canonical);
   });
-  const entrevistadores = [..._nomesMapAe.values()].sort((a,b) => a.localeCompare(b));
+  const entrevistadores = [..._nomesMapAe.values()].sort((a,b) => a.localeCompare(b, undefined, _nc));
   const selEntr = document.getElementById('ae-entrevistador');
   if (selEntr) {
     selEntr.innerHTML = '<option value="">Todos os entrevistadores (' + entrevistadores.length + ')</option>';
@@ -3966,7 +3967,7 @@ window.aeFiltrarPorUpa = () => {
   const setores = [...new Set(
     todosdomicilios.filter(d => !upa || d.upa === upa)
       .map(d => d.controle ? d.controle.slice(0,-1) : d.upa).filter(Boolean)
-  )].sort((a,b) => a.localeCompare(b));
+  )].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
   const sel = document.getElementById('ae-setor');
   if (!sel) return;
   sel.innerHTML = '<option value="">Todos os setores (' + setores.length + ')</option>';
@@ -4025,16 +4026,18 @@ window.filtrarAcompanharEspecies = () => {
           default: return 0;
         }
       }
+      const _nc = {numeric: true};
       if (typeof va === 'number') return (va - vb) * aeSort.dir;
-      return va.localeCompare(vb) * aeSort.dir;
+      return va.localeCompare(vb, undefined, _nc) * aeSort.dir;
     });
   } else {
+    const _nc = {numeric: true};
     filtrados.sort((a, b) => {
-      const upaDiff = (a.upa||'').localeCompare(b.upa||'');
+      const upaDiff = (a.upa||'').localeCompare(b.upa||'', undefined, _nc);
       if (upaDiff !== 0) return upaDiff;
       const sa = a.controle ? a.controle.slice(0,-1) : (a.upa||'');
       const sb = b.controle ? b.controle.slice(0,-1) : (b.upa||'');
-      const setDiff = sa.localeCompare(sb);
+      const setDiff = sa.localeCompare(sb, undefined, _nc);
       if (setDiff !== 0) return setDiff;
       return parseInt(a.domicilio_num||0) - parseInt(b.domicilio_num||0);
     });
