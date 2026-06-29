@@ -1,0 +1,27 @@
+{
+  "name": "Estudos 2027",
+  "short_name": "Estudos",
+  "description": "Acompanhamento de estudos para concursos 2027",
+  "start_url": "/2027.html",
+  "scope": "/2027.html",
+  "id": "/2027.html",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

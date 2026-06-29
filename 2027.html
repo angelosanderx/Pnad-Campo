@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estudos 2027</title>
+<link rel="manifest" href="/manifest-estudos.json">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Estudos">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
 :root {
   --bg:        #0f1117;
@@ -3496,6 +3502,11 @@ onAuthStateChanged(auth, user => {
   document.getElementById('login-overlay').style.display = 'none';
   window.dispatchEvent(new Event('firebase-pronto'));
 });
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw-estudos.js');
+}
 </script>
 </body>
 </html>
