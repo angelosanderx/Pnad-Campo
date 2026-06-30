@@ -1808,6 +1808,10 @@
                   style="padding:0.35rem 0.65rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--fundo);color:var(--texto)">
                   <option value="">— Selecione o mês —</option>
                 </select>
+                <select id="cnefe-rel-pesq-sel" onchange="gerarCnefeRelatorio()"
+                  style="padding:0.35rem 0.65rem;border:1.5px solid var(--borda);border-radius:6px;font-size:0.83rem;font-family:var(--fonte);background:var(--fundo);color:var(--texto)">
+                  <option value="">Todas as pesquisas</option>
+                </select>
                 <button class="btn-acao secundario" onclick="enviarRelatorioEmail()" title="Enviar por e-mail">📧 E-mail</button>
                 <button class="btn-acao secundario" onclick="enviarRelatorioWhatsApp()" title="Copiar para WhatsApp">💬 WhatsApp</button>
                 <button onclick="document.getElementById('cnefe-relatorio-wrap').style.display='none'"
@@ -12398,6 +12402,9 @@ window.abrirCnefeRelatorio = () => {
   // Pré-seleciona se houver exatamente 1 mês no filtro ativo
   if (_cnefeFiltros.mes.size === 1) {
     sel.value = [..._cnefeFiltros.mes][0];
+  }
+  _atualizarCnefeRelPesqSel();
+  if (sel.value) {
     gerarCnefeRelatorio();
   } else {
     document.getElementById('cnefe-relatorio-corpo').innerHTML =
@@ -12407,9 +12414,29 @@ window.abrirCnefeRelatorio = () => {
   wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
 
+function _atualizarCnefeRelPesqSel() {
+  const key = document.getElementById('cnefe-rel-mes-sel').value;
+  const sel = document.getElementById('cnefe-rel-pesq-sel');
+  const anterior = sel.value;
+  // Deriva pesquisas do mês selecionado (ou de todos se nenhum mês)
+  const base = key
+    ? (_cnefeSetoresList || []).filter(s => `${s.anoCnefe}_${String(s.mesCnefe).padStart(2,'0')}` === key)
+    : (_cnefeSetoresList || []);
+  const pesquisas = [...new Set(base.map(s => s.pesquisa).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas as pesquisas</option>' +
+    pesquisas.map(p => `<option value="${p}"${p === anterior ? ' selected' : ''}>${p}</option>`).join('');
+}
+
 window.gerarCnefeRelatorio = async () => {
-  const key   = document.getElementById('cnefe-rel-mes-sel').value;
-  const corpo = document.getElementById('cnefe-relatorio-corpo');
+  const key    = document.getElementById('cnefe-rel-mes-sel').value;
+  const pesqFiltro = document.getElementById('cnefe-rel-pesq-sel').value;
+  const corpo  = document.getElementById('cnefe-relatorio-corpo');
+
+  // Atualiza as opções de pesquisa conforme o mês escolhido
+  _atualizarCnefeRelPesqSel();
+  // Restaura a seleção de pesquisa após reconstruir o select
+  if (pesqFiltro) document.getElementById('cnefe-rel-pesq-sel').value = pesqFiltro;
+
   if (!key) {
     corpo.innerHTML = '<div class="vazio" style="padding:2rem"><div class="icone-vazio">📅</div>Selecione um mês para gerar o relatório.</div>';
     window._cnefe_relatorio_dados = null;
@@ -12417,15 +12444,19 @@ window.gerarCnefeRelatorio = async () => {
   }
   const [anoStr, mesStr] = key.split('_');
   const mesLabel = `${_CNEFE_MESES[parseInt(mesStr) - 1]} ${anoStr}`;
-  const setores  = (_cnefeSetoresList || []).filter(s =>
+
+  let setores = (_cnefeSetoresList || []).filter(s =>
     `${s.anoCnefe}_${String(s.mesCnefe).padStart(2, '0')}` === key
   );
+  if (pesqFiltro) setores = setores.filter(s => s.pesquisa === pesqFiltro);
+
   if (!setores.length) {
-    corpo.innerHTML = '<div class="vazio" style="padding:2rem"><div class="icone-vazio">📍</div>Nenhum setor para este mês.</div>';
+    corpo.innerHTML = '<div class="vazio" style="padding:2rem"><div class="icone-vazio">📍</div>Nenhum setor para a seleção.</div>';
     window._cnefe_relatorio_dados = null;
     return;
   }
   corpo.innerHTML = '<div class="loader" style="padding:2rem">Carregando composições...</div>';
+
   // Carrega cnefe_enderecos para setores sem cache
   const pendentes = setores.filter(s => !Array.isArray(_cnefeEnderecoCache[s.setor]));
   await Promise.all(pendentes.map(async s => {
@@ -12434,6 +12465,7 @@ window.gerarCnefeRelatorio = async () => {
       _cnefeEnderecoCache[s.setor] = snap.docs.map(d => d.data());
     } catch { _cnefeEnderecoCache[s.setor] = []; }
   }));
+
   // Monta dados do relatório
   const relDados = setores.map(s => {
     const docs = _cnefeEnderecoCache[s.setor] || [];
@@ -12442,15 +12474,15 @@ window.gerarCnefeRelatorio = async () => {
       const k = ((d.especie || '').split(/\s[-–]\s/)[0].trim().toUpperCase()) || '(sem espécie)';
       contEsp[k] = (contEsp[k] || 0) + 1;
     }
-    return { setor: s.setor, pesquisa: s.pesquisa, localidade: s.localidade, contEsp, total: docs.length };
+    return { setor: s.setor, pesquisa: s.pesquisa || '—', localidade: s.localidade, contEsp, total: docs.length };
   });
-  window._cnefe_relatorio_dados = { mesLabel, relDados };
-  _renderCnefeRelatorio(mesLabel, relDados);
+
+  window._cnefe_relatorio_dados = { mesLabel, pesqFiltro, relDados };
+  _renderCnefeRelatorio(mesLabel, pesqFiltro, relDados);
 };
 
-function _renderCnefeRelatorio(mesLabel, relDados) {
+function _renderCnefeRelatorio(mesLabel, pesqFiltro, relDados) {
   const corpo = document.getElementById('cnefe-relatorio-corpo');
-  // Ordem de prioridade das espécies
   const ORDEM_ESP = ['DPPO', 'DPPOMA', 'EOFIN', 'ECONST', 'DPPV', 'DPPUO'];
   const todasEsp  = new Set();
   relDados.forEach(s => Object.keys(s.contEsp).forEach(k => todasEsp.add(k)));
@@ -12458,84 +12490,141 @@ function _renderCnefeRelatorio(mesLabel, relDados) {
     ...ORDEM_ESP.filter(k => todasEsp.has(k)),
     ...[...todasEsp].filter(k => !ORDEM_ESP.includes(k)).sort()
   ];
-  const totais = { total: 0 };
-  espCols.forEach(k => totais[k] = 0);
 
-  let rows = '';
-  relDados.forEach(s => {
-    rows += `<tr>
-      <td><code style="font-size:0.8rem;color:var(--azul-medio)">${s.setor}</code></td>
-      <td style="font-size:0.82rem">${s.pesquisa || '—'}</td>
-      <td style="font-size:0.82rem">${s.localidade || '<span style="color:var(--cinza);font-style:italic">—</span>'}</td>
-      ${espCols.map(k => {
-        const n = s.contEsp[k] || 0;
-        totais[k] += n;
-        return `<td style="text-align:center;font-size:0.82rem;color:${n ? 'var(--texto)' : 'var(--cinza)'}">${n || '—'}</td>`;
-      }).join('')}
-      <td style="text-align:center;font-weight:700;font-size:0.85rem">${s.total || '—'}</td>
-    </tr>`;
-    totais.total += s.total;
-  });
+  // Quando "Todas as pesquisas", agrupa por pesquisa; senão, exibe lista plana
+  const grupos = pesqFiltro
+    ? [{ pesquisa: pesqFiltro, itens: relDados }]
+    : (() => {
+        const map = new Map();
+        relDados.forEach(s => {
+          if (!map.has(s.pesquisa)) map.set(s.pesquisa, []);
+          map.get(s.pesquisa).push(s);
+        });
+        return [...map.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([p,i]) => ({ pesquisa: p, itens: i }));
+      })();
 
-  corpo.innerHTML = `
-    <div style="padding:0.6rem 1rem 0.3rem;font-size:0.78rem;color:var(--cinza)">
-      ${mesLabel} &mdash; ${relDados.length} setor${relDados.length !== 1 ? 'es' : ''}
-    </div>
-    <div style="overflow-x:auto">
-    <table><thead><tr>
-      <th>Setor</th><th>Pesquisa</th><th>Localidade</th>
+  const _buildTabela = (itens, mostrarColPesquisa) => {
+    const tot = { total: 0 };
+    espCols.forEach(k => tot[k] = 0);
+    let rows = '';
+    itens.forEach(s => {
+      rows += `<tr>
+        <td><code style="font-size:0.8rem;color:var(--azul-medio)">${s.setor}</code></td>
+        ${mostrarColPesquisa ? `<td style="font-size:0.82rem">${s.pesquisa}</td>` : ''}
+        <td style="font-size:0.82rem">${s.localidade || '<span style="color:var(--cinza);font-style:italic">—</span>'}</td>
+        ${espCols.map(k => {
+          const n = s.contEsp[k] || 0;
+          tot[k] += n;
+          return `<td style="text-align:center;font-size:0.82rem;color:${n ? 'var(--texto)' : 'var(--cinza)'}">${n || '—'}</td>`;
+        }).join('')}
+        <td style="text-align:center;font-weight:700;font-size:0.85rem">${s.total || '—'}</td>
+      </tr>`;
+      tot.total += s.total;
+    });
+    const colsPesq = mostrarColPesquisa ? '<th>Pesquisa</th>' : '';
+    const colspanTot = mostrarColPesquisa ? 3 : 2;
+    return `<div style="overflow-x:auto"><table><thead><tr>
+      <th>Setor</th>${colsPesq}<th>Localidade</th>
       ${espCols.map(k => `<th style="text-align:center">${k}</th>`).join('')}
       <th style="text-align:center">Total</th>
     </tr></thead><tbody>
     ${rows}
     <tr style="background:var(--azul-claro);font-weight:700">
-      <td colspan="3" style="font-size:0.8rem">Total geral</td>
-      ${espCols.map(k => `<td style="text-align:center;font-size:0.82rem">${totais[k]}</td>`).join('')}
-      <td style="text-align:center;font-size:0.85rem">${totais.total}</td>
-    </tr>
-    </tbody></table></div>`;
+      <td colspan="${colspanTot}" style="font-size:0.8rem">Total</td>
+      ${espCols.map(k => `<td style="text-align:center;font-size:0.82rem">${tot[k]}</td>`).join('')}
+      <td style="text-align:center;font-size:0.85rem">${tot.total}</td>
+    </tr></tbody></table></div>`;
+  };
+
+  const subtitulo = pesqFiltro
+    ? `${mesLabel} &mdash; ${pesqFiltro} &mdash; ${relDados.length} setor${relDados.length !== 1 ? 'es' : ''}`
+    : `${mesLabel} &mdash; ${relDados.length} setor${relDados.length !== 1 ? 'es' : ''} &mdash; ${grupos.length} pesquisa${grupos.length !== 1 ? 's' : ''}`;
+
+  let html = `<div style="padding:0.6rem 1rem 0.3rem;font-size:0.78rem;color:var(--cinza)">${subtitulo}</div>`;
+
+  if (grupos.length === 1) {
+    html += _buildTabela(grupos[0].itens, false);
+  } else {
+    grupos.forEach(g => {
+      html += `<div style="padding:0.55rem 1rem 0.2rem;font-size:0.82rem;font-weight:700;color:var(--azul-medio);border-top:1px solid var(--borda);margin-top:0.5rem">
+        📋 ${g.pesquisa} <span style="font-weight:400;color:var(--cinza);font-size:0.75rem">${g.itens.length} setor${g.itens.length !== 1 ? 'es' : ''}</span>
+      </div>`;
+      html += _buildTabela(g.itens, false);
+    });
+  }
+
+  corpo.innerHTML = html;
 }
 
 window.enviarRelatorioEmail = () => {
   const dados = window._cnefe_relatorio_dados;
   if (!dados) { mostrarToast('Gere o relatório primeiro.', 'aviso'); return; }
-  const { mesLabel, relDados } = dados;
+  const { mesLabel, pesqFiltro, relDados } = dados;
+  const pesqLabel = pesqFiltro || 'Todas as pesquisas';
   const IBGE_LABEL = 'IBGE | PNAD-Contínua | Campos/RJ';
-  let corpo = `RELATÓRIO DE SETORES CNEFE — ${mesLabel}\r\n${IBGE_LABEL}\r\n${relDados.length} setor(es)\r\n\r\n`;
-  relDados.forEach(s => {
-    corpo += `Setor: ${s.setor}\r\n`;
-    corpo += `Pesquisa: ${s.pesquisa || '—'}\r\n`;
-    corpo += `Localidade: ${s.localidade || '—'}\r\n`;
-    corpo += `Composição do setor:\r\n`;
-    const dppo = s.contEsp['DPPO'] || 0;
-    corpo += `  ${dppo} DPPO Dom. Particular Permanente Ocupado\r\n`;
-    Object.entries(s.contEsp).filter(([k]) => k !== 'DPPO').sort((a, b) => b[1] - a[1])
-      .forEach(([k, n]) => { corpo += `  ${n} ${k}\r\n`; });
-    corpo += `  ${s.total} total\r\n\r\n`;
+  let corpo = `RELATÓRIO DE SETORES CNEFE\r\n${IBGE_LABEL}\r\nMês: ${mesLabel} | Pesquisa: ${pesqLabel}\r\n${relDados.length} setor(es)\r\n\r\n`;
+
+  // Agrupa por pesquisa se for "todas"
+  const grupos = pesqFiltro
+    ? [{ pesquisa: pesqFiltro, itens: relDados }]
+    : (() => {
+        const map = new Map();
+        relDados.forEach(s => { if (!map.has(s.pesquisa)) map.set(s.pesquisa, []); map.get(s.pesquisa).push(s); });
+        return [...map.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([p,i]) => ({ pesquisa: p, itens: i }));
+      })();
+
+  grupos.forEach(g => {
+    if (!pesqFiltro) corpo += `── ${g.pesquisa} (${g.itens.length} setor${g.itens.length !== 1 ? 'es' : ''}) ──\r\n\r\n`;
+    g.itens.forEach(s => {
+      corpo += `Setor: ${s.setor}\r\n`;
+      if (!pesqFiltro) corpo += `Pesquisa: ${s.pesquisa}\r\n`;
+      corpo += `Localidade: ${s.localidade || '—'}\r\n`;
+      corpo += `Composição do setor:\r\n`;
+      const dppo = s.contEsp['DPPO'] || 0;
+      corpo += `  ${dppo} DPPO Dom. Particular Permanente Ocupado\r\n`;
+      Object.entries(s.contEsp).filter(([k]) => k !== 'DPPO').sort((a,b) => b[1]-a[1])
+        .forEach(([k, n]) => { corpo += `  ${n} ${k}\r\n`; });
+      corpo += `  ${s.total} total\r\n\r\n`;
+    });
   });
-  const subject = encodeURIComponent(`Relatório CNEFE — ${mesLabel}`);
-  const body    = encodeURIComponent(corpo);
-  window.open(`mailto:?subject=${subject}&body=${body}`);
+
+  const subject = encodeURIComponent(`Relatório CNEFE — ${mesLabel}${pesqFiltro ? ' — ' + pesqFiltro : ''}`);
+  window.open(`mailto:?subject=${subject}&body=${encodeURIComponent(corpo)}`);
 };
 
 window.enviarRelatorioWhatsApp = () => {
   const dados = window._cnefe_relatorio_dados;
   if (!dados) { mostrarToast('Gere o relatório primeiro.', 'aviso'); return; }
-  const { mesLabel, relDados } = dados;
+  const { mesLabel, pesqFiltro, relDados } = dados;
+  const pesqLabel = pesqFiltro || 'Todas as pesquisas';
   let txt = `*RELATÓRIO CNEFE — ${mesLabel}*\n`;
   txt += `📍 IBGE | PNAD-Contínua | Campos/RJ\n`;
+  txt += `🔬 Pesquisa: ${pesqLabel}\n`;
   txt += `${relDados.length} setor${relDados.length !== 1 ? 'es' : ''}\n\n`;
-  relDados.forEach(s => {
-    txt += `*Setor:* ${s.setor}\n`;
-    txt += `*Pesquisa:* ${s.pesquisa || '—'}\n`;
-    txt += `*Localidade:* ${s.localidade || '—'}\n`;
-    txt += `*Composição do setor:*\n`;
-    const dppo = s.contEsp['DPPO'] || 0;
-    txt += `  ${dppo} DPPO Dom. Particular Permanente Ocupado\n`;
-    Object.entries(s.contEsp).filter(([k]) => k !== 'DPPO').sort((a, b) => b[1] - a[1])
-      .forEach(([k, n]) => { txt += `  ${n} ${k}\n`; });
-    txt += `  _${s.total} total_\n\n`;
+
+  const grupos = pesqFiltro
+    ? [{ pesquisa: pesqFiltro, itens: relDados }]
+    : (() => {
+        const map = new Map();
+        relDados.forEach(s => { if (!map.has(s.pesquisa)) map.set(s.pesquisa, []); map.get(s.pesquisa).push(s); });
+        return [...map.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([p,i]) => ({ pesquisa: p, itens: i }));
+      })();
+
+  grupos.forEach(g => {
+    if (!pesqFiltro) txt += `*── ${g.pesquisa} (${g.itens.length} setor${g.itens.length !== 1 ? 'es' : ''}) ──*\n\n`;
+    g.itens.forEach(s => {
+      txt += `*Setor:* ${s.setor}\n`;
+      if (!pesqFiltro) txt += `*Pesquisa:* ${s.pesquisa}\n`;
+      txt += `*Localidade:* ${s.localidade || '—'}\n`;
+      txt += `*Composição do setor:*\n`;
+      const dppo = s.contEsp['DPPO'] || 0;
+      txt += `  ${dppo} DPPO Dom. Particular Permanente Ocupado\n`;
+      Object.entries(s.contEsp).filter(([k]) => k !== 'DPPO').sort((a,b) => b[1]-a[1])
+        .forEach(([k, n]) => { txt += `  ${n} ${k}\n`; });
+      txt += `  _${s.total} total_\n\n`;
+    });
   });
+
   navigator.clipboard.writeText(txt)
     .then(() => mostrarToast('Relatório copiado! Cole no WhatsApp.', 'sucesso'))
     .catch(() => {
