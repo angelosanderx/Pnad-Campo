@@ -3374,24 +3374,69 @@ _TRILHA['dadm'] = _criarTrilha({ id:'dadm', prefix:'da', colecao:'trilha_dadm_ta
     {label:'Questões Integradas e Simulado Final — Direito Administrativo'},
 ]});
 
-// ── D. Constitucional ────────────────────────────────────────
+// ── D. Constitucional ─────────────────────────────────────────
+// 44 tópicos = todos os subdecks folha do Anki (LEAF_DECKS em criar_blocos.py)
 _TRILHA['dcon'] = _criarTrilha({ id:'dcon', prefix:'dc', colecao:'trilha_dcon_tarefas', trilhaColecaoKey:'dcon',
   label:'Direito Constitucional', emoji:'🏛️', cor:'#8b5cf6', topicos:[
-    {label:'Teoria da Constituição — Constitucionalismo, Poder Constituinte e Classificação'},
-    {label:'Princípios Fundamentais — Arts. 1º a 4º da CF/88'},
-    {label:'Direitos e Garantias Fundamentais — Direitos Individuais e Coletivos (Art. 5º)'},
-    {label:'Direitos Sociais, Nacionalidade, Direitos Políticos e Partidos Políticos (Arts. 6º–17)'},
-    {label:'Organização do Estado — União, Estados, DF e Municípios; Repartição de Competências'},
-    {label:'Administração Pública na CF — Princípios, Servidores e Controle (Arts. 37–41)'},
-    {label:'Poder Legislativo — Organização, Atribuições e Processo Legislativo'},
-    {label:'Poder Executivo — Presidente, Atribuições, Responsabilidade e Impedimento'},
-    {label:'Poder Judiciário — STF, STJ, Tribunais Superiores e Funções Essenciais da Justiça'},
-    {label:'Controle de Constitucionalidade — Difuso, Concentrado, ADI, ADC, ADPF e RE'},
-    {label:'Ordem Econômica e Financeira — Princípios, Atividade Econômica e Ordem Financeira'},
-    {label:'Sistema Tributário Nacional na CF — Competências, Princípios e Limitações ao Poder de Tributar'},
-    {label:'Ordem Social — Saúde, Previdência Social, Educação, Cultura e Meio Ambiente'},
-    {label:'Defesa do Estado, ADCT e Disposições Constitucionais Gerais'},
-    {label:'Questões Integradas e Simulado Final — Direito Constitucional'},
+    // ── 01 Teoria da Constituição ──────────────────────────────
+    {label:'01.01 — Constitucionalismo'},
+    {label:'01.02 — Conceito e Classificação da Constituição'},
+    {label:'01.03 — Normas Constitucionais'},
+    {label:'01.04 — Aplicação das Normas Constitucionais no Tempo'},
+    {label:'01.05 — Interpretação Constitucional'},
+    // ── 02-03 Poder Constituinte e Princípios ─────────────────
+    {label:'02 — Poder Constituinte'},
+    {label:'03 — Princípios Fundamentais (Arts. 1º–4º)'},
+    // ── 04 Direitos Fundamentais ──────────────────────────────
+    {label:'04.01 — Teoria Geral dos Direitos Fundamentais'},
+    {label:'04.02 — Art. 5º, incisos I a XXXI'},
+    {label:'04.03 — Art. 5º, incisos XXXII a LXXIX'},
+    {label:'04.04 — Remédios Constitucionais'},
+    {label:'04.05 — Direitos Sociais (Arts. 6º–11)'},
+    {label:'04.06 — Nacionalidade (Arts. 12–13)'},
+    {label:'04.07 — Direitos Políticos (Arts. 14–16)'},
+    {label:'04.08 — Partidos Políticos (Art. 17)'},
+    // ── 05 Organização do Estado ──────────────────────────────
+    {label:'05.01 — Organização Político-Administrativa'},
+    {label:'05.02 — Repartição de Competências'},
+    {label:'05.03 — Intervenção Federal e Estadual'},
+    // ── 06 Administração Pública ──────────────────────────────
+    {label:'06.01 — Administração Pública — Princípios (Art. 37)'},
+    {label:'06.02 — Servidores Públicos (Arts. 37–41)'},
+    {label:'06.03 — Responsabilidade Civil do Estado (Art. 37, §6º)'},
+    // ── 07 Poder Legislativo ──────────────────────────────────
+    {label:'07.01 — Poder Legislativo — Estrutura e Atribuições'},
+    {label:'07.02 — TCU e Fiscalização Financeira'},
+    {label:'07.03 — Processo Legislativo'},
+    {label:'07.04 — Reforma Constitucional (PEC)'},
+    // ── 08 Poder Executivo ────────────────────────────────────
+    {label:'08 — Poder Executivo'},
+    // ── 09 Poder Judiciário ───────────────────────────────────
+    {label:'09.01 — Poder Judiciário — Organização e Garantias'},
+    {label:'09.02 — Órgãos do Poder Judiciário'},
+    {label:'09.03 — CNJ — Conselho Nacional de Justiça'},
+    // ── 10 Funções Essenciais ─────────────────────────────────
+    {label:'10.01 — Ministério Público'},
+    {label:'10.02 — Advocacia e Defensoria Pública'},
+    // ── 11 Defesa do Estado ───────────────────────────────────
+    {label:'11 — Defesa do Estado e das Instituições Democráticas'},
+    // ── 12 Sistema Tributário ─────────────────────────────────
+    {label:'12.01 — Sistema Tributário — Princípios e Imunidades'},
+    {label:'12.02 — Competência Tributária e Impostos'},
+    {label:'12.03 — Repartição de Receitas Tributárias'},
+    // ── 13-14 Finanças e Ordem Econômica ──────────────────────
+    {label:'13 — Finanças Públicas (Arts. 163–169)'},
+    {label:'14 — Ordem Econômica e Financeira'},
+    // ── 15 Ordem Social ───────────────────────────────────────
+    {label:'15.01 — Seguridade Social — Saúde e Previdência'},
+    {label:'15.02 — Educação, Cultura e Ciência'},
+    {label:'15.03 — Meio Ambiente, Família e Criança'},
+    // ── 16 Controle de Constitucionalidade ───────────────────
+    {label:'16.01 — Controle de Constitucionalidade — Noções Gerais'},
+    {label:'16.02 — Controle Difuso de Constitucionalidade'},
+    {label:'16.03 — Controle Concentrado (ADI, ADC, ADPF)'},
+    // ── 17 Disposições Finais ─────────────────────────────────
+    {label:'17 — Disposições Gerais e ADCT'},
 ]});
 
 // ── D. Tributário ────────────────────────────────────────────
